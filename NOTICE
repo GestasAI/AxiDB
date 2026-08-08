@@ -1,0 +1,14 @@
+AxiDB
+Copyright 2026 GestasAI
+
+This product includes software developed at GestasAI (https://gestasai.com).
+
+Licensed under the Apache License, Version 2.0. See the LICENSE file.
+
+---
+
+Third-party code: none.
+
+AxiDB core (axidb/core) has no dependencies beyond PHP itself and the json
+extension, which is bundled with PHP since 8.0. There is no vendor directory,
+no bundled library and no downloaded code of any kind.

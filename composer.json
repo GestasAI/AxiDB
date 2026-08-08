@@ -1,0 +1,32 @@
+{
+    "name": "gestasai/axidb",
+    "description": "Base de datos de documentos en PHP puro: se copia una carpeta y funciona. Sin servidor, sin extensiones, sin dependencias.",
+    "type": "library",
+    "keywords": ["database", "nosql", "document-database", "embedded", "json", "sql", "zero-dependency"],
+    "homepage": "https://github.com/gestasai/axidb",
+    "license": "Apache-2.0",
+    "authors": [
+        {
+            "name": "GestasAI",
+            "homepage": "https://gestasai.com"
+        }
+    ],
+    "require": {
+        "php": ">=8.1",
+        "ext-json": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "Axi\\Core\\": "core/"
+        },
+        "files": ["core/axidb.php"]
+    },
+    "scripts": {
+        "test": "php core/tests/run.php",
+        "bench": "php bench/comparativa.php"
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "stable"
+}

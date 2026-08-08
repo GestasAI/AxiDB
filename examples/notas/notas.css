@@ -1,0 +1,124 @@
+/* Notas demo — estilos vanilla. */
+:root {
+    --bg: #f8fafc;
+    --fg: #1e293b;
+    --muted: #64748b;
+    --accent: #0284c7;
+    --accent-hover: #0369a1;
+    --card: #ffffff;
+    --border: #e2e8f0;
+    --ok: #16a34a;
+    --danger: #dc2626;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: var(--bg); color: var(--fg); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.5; }
+
+main, .app-header, .app-footer {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 24px;
+}
+
+.app-header {
+    display: flex; justify-content: space-between; align-items: center;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 0;
+}
+.app-header h1 { font-size: 24px; font-weight: 600; }
+.muted { color: var(--muted); font-weight: 400; }
+
+.search { display: flex; gap: 8px; }
+.search input {
+    border: 1px solid var(--border); background: white;
+    padding: 8px 12px; border-radius: 6px; font-size: 14px;
+    width: 280px;
+}
+
+.banner {
+    padding: 10px 14px; margin-bottom: 16px; border-radius: 6px;
+    background: #ecfdf5; color: var(--ok); border: 1px solid #a7f3d0;
+}
+
+.creator {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 8px; padding: 16px; margin-bottom: 24px;
+}
+.creator h2 { font-size: 16px; margin-bottom: 12px; }
+
+.form-inline { display: grid; gap: 8px; }
+.form-inline input, .form-inline textarea {
+    border: 1px solid var(--border); padding: 8px 10px; border-radius: 6px;
+    font-size: 14px; font-family: inherit;
+}
+.form-inline button { justify-self: start; }
+
+.btn-primary, .btn-danger, .btn-ghost {
+    background: var(--accent); color: white;
+    border: 0; padding: 8px 16px; border-radius: 6px;
+    cursor: pointer; font-size: 14px; font-family: inherit;
+    text-decoration: none; display: inline-block;
+}
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-danger { background: var(--danger); }
+.btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+.btn-ghost:hover { background: var(--border); color: var(--fg); }
+
+.list h2 { font-size: 16px; margin-bottom: 12px; font-weight: 500; }
+.empty { color: var(--muted); font-style: italic; padding: 24px; text-align: center; }
+
+.notas-grid {
+    list-style: none;
+    display: grid; gap: 16px;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+.nota-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 8px; transition: transform 0.1s, box-shadow 0.1s;
+}
+.nota-card:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+.nota-link { display: block; padding: 16px; text-decoration: none; color: inherit; }
+.nota-link h3 { font-size: 15px; font-weight: 600; margin-bottom: 8px; word-break: break-word; }
+.body-preview {
+    color: var(--muted); font-size: 13px; line-height: 1.5;
+    overflow: hidden; text-overflow: ellipsis;
+    display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical;
+    margin-bottom: 12px;
+}
+.nota-link footer {
+    display: flex; justify-content: space-between;
+    font-size: 11px; color: var(--muted); padding-top: 8px;
+    border-top: 1px solid var(--border);
+}
+
+.editor { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 24px; }
+.form-stacked { display: grid; gap: 16px; }
+.form-stacked label { display: grid; gap: 4px; font-weight: 500; font-size: 14px; }
+.form-stacked input, .form-stacked textarea {
+    border: 1px solid var(--border); padding: 10px 12px; border-radius: 6px;
+    font-size: 14px; font-family: inherit;
+}
+.form-stacked label.checkbox { flex-direction: row; align-items: center; gap: 8px; display: flex; }
+.form-stacked label.checkbox input { width: auto; }
+.form-stacked .actions { display: flex; gap: 8px; }
+.meta-info {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+    padding: 12px; background: var(--bg); border-radius: 6px;
+    font-size: 12px; color: var(--muted);
+}
+.meta-info code { background: var(--border); padding: 1px 6px; border-radius: 3px; font-size: 11px; }
+
+.form-danger { margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border); }
+
+.app-footer {
+    display: flex; justify-content: space-between;
+    color: var(--muted); font-size: 12px; padding-top: 32px;
+}
+
+/* Dirty indicator y atajos (notas.js progressive enhancement) */
+.dirty-indicator {
+    margin-left: 12px; font-size: 12px; color: var(--muted);
+    transition: color .15s;
+}
+.dirty-indicator.on    { color: #c2410c; }
+.dirty-indicator.saved { color: #16a34a; }

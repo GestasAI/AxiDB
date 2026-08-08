@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  suite:
+    name: PHP ${{ matrix.php }} en ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Windows y Linux no son un lujo: rename(), flock() y ftell() sobre un
+        # descriptor en modo añadir se comportan distinto. Tres fallos reales de
+        # este proyecto solo se veian en uno de los dos sistemas.
+        os: [ubuntu-latest, windows-latest]
+        php: ['8.1', '8.2', '8.3', '8.4']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Preparar PHP ${{ matrix.php }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          # Solo json, que viene con PHP. Si algun dia hace falta otra, AxiDB
+          # habra dejado de ser lo que dice ser y hay que discutirlo.
+          extensions: json
+          tools: none
+          coverage: none
+          ini-values: error_reporting=E_ALL, display_errors=On
+
+      - name: Version
+        run: php -v
+
+      # El arranque con `php -n` —sin php.ini ni una sola extension— lo comprueba
+      # test_agnostico dentro de la suite, en su seccion F.
+      - name: Suite completa
+        run: php core/tests/run.php
+
+      - name: composer validate
+        run: composer validate --strict --no-check-lock
+
+  # El banco no va en la matriz: mide tiempos, y los de un runner compartido
+  # varian tanto que compararlos con una linea base solo da falsas alarmas. Se
+  # ejecuta para comprobar que funciona, sin juzgar el numero.
+  banco:
+    name: El banco de pruebas se ejecuta
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: json, pdo_sqlite
+          tools: none
+          coverage: none
+      - name: Comparativa contra SQLite (1.000 documentos)
+        run: php bench/comparativa.php --docs=1000 --grabar

@@ -1,0 +1,21 @@
+# Datos: los crea AxiDB al ejecutarse. Son la salida de correr algo, no codigo.
+examples/*/datos/
+datos/
+data/
+
+# Configuracion local. Puede llevar tokens dentro: no se versiona nunca.
+axidb.json
+
+# Registros que deja PHP cuando algo falla con el error_log apuntando aqui.
+*.log
+
+# Composer no hace falta para usar AxiDB, pero si alguien lo instala:
+/vendor/
+composer.lock
+
+# Ajustes de editores y herramientas locales.
+.claude/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
