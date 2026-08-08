@@ -89,7 +89,26 @@ $viejo     = \count(\json_decode((string) @\file_get_contents($idxViejo), true) 
 $perdidos  = 50 - $viejo;
 echo "    patron viejo: esperados 50, guardados {$viejo} -> {$perdidos} perdidos\n";
 
-ok("el patron viejo pierde entradas ({$perdidos} de 50) — por eso se cambio", $perdidos > 0);
+/*
+ * Esto es una DEMOSTRACION, no una garantia, y por eso no hace fallar la suite.
+ *
+ * El patron viejo esta roto siempre —lee fuera del lock, asi que dos procesos
+ * pueden partir de la misma lista y uno pisar al otro—, pero que la carrera se
+ * pierda en una ejecucion concreta depende de como reparta el sistema. En
+ * Windows pierde entradas casi siempre; en la CI de Linux hubo tandas donde las
+ * 50 entraron por los pelos. Exigirlo pondria rojo el gate por haber tenido
+ * suerte, que es lo contrario de lo que hace un test util.
+ *
+ * Lo que si es una garantia, y va como assert, es la seccion B: el patron nuevo
+ * no pierde ni una NUNCA.
+ */
+if ($perdidos > 0) {
+    ok("el patron viejo pierde entradas ({$perdidos} de 50) — por eso se cambio", true);
+} else {
+    echo "    (esta vez el patron viejo salvo las 50: la carrera no se perdio en esta\n";
+    echo "     maquina. Sigue estando roto; lo que se demuestra es aleatorio, no el fallo.)\n";
+    ok('demostracion del patron viejo: no concluyente en esta ejecucion', true);
+}
 ok('el patron nuevo no pierde ninguna', \count($db2->indexer()->ids('items', 'grupo', 'g1') ?? []) === 50);
 
 /* ─────────────────────────────────────────────────────────────────────────── */
