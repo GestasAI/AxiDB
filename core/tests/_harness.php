@@ -91,17 +91,31 @@ function rmrf(string $path): void
 }
 
 /**
- * Lanza un worker PHP en segundo plano.
+ * Lanza un worker PHP en segundo plano, de forma que se pueda MATAR de verdad.
  *
- * bypass_shell es obligatorio en Windows: sin el, proc_open envuelve el comando
- * en cmd.exe y proc_terminate mata el cmd, dejando vivo el PHP hijo. Con el, el
- * PID que devuelve proc_get_status es el del propio PHP y se puede matar.
+ * El mismo problema en los dos sistemas, con distinta cura:
+ *
+ *   Windows  sin bypass_shell, proc_open envuelve el comando en cmd.exe y
+ *            proc_terminate mata el cmd, dejando vivo el PHP hijo.
+ *   Linux    proc_open lanza `/bin/sh -c <comando>`, asi que el PID que
+ *            devuelve proc_get_status es el de la shell. Matarla deja al PHP
+ *            huerfano y escribiendo. Con `exec` delante, la shell se sustituye
+ *            a si misma por PHP y el PID pasa a ser el correcto.
+ *
+ * Esto lo destapo la primera ejecucion de la CI en Linux: el test de tortura
+ * daba 56.000 documentos donde en Windows daban 270, y los recuentos no
+ * cuadraban. No es que Linux fuera mas rapido —que lo es—: es que los workers
+ * no morian y seguian escribiendo mientras el test comprobaba el resultado.
+ * Durante meses, en Linux, ese test no probaba lo que decia probar.
  */
 function spawn(string $script, array $args = []): array
 {
     $cmd = \escapeshellarg(PHP_BINARY) . ' ' . \escapeshellarg($script);
     foreach ($args as $a) {
         $cmd .= ' ' . \escapeshellarg((string) $a);
+    }
+    if (\stripos(PHP_OS_FAMILY, 'Windows') === false) {
+        $cmd = 'exec ' . $cmd;
     }
     $pipes = [];
     $proc  = \proc_open(

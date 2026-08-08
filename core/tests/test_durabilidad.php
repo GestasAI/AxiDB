@@ -167,11 +167,19 @@ $ms = (\microtime(true) - $t) * 1000 / 50;
 ok('fsync esta disponible en este PHP (8.1+)', \function_exists('fsync'));
 eq('las 50 escrituras durables se leen correctamente', 50, \count($db2->ids('c')));
 
-// Techo holgado a proposito: la suite corre con otros procesos peleando por el
-// disco, y un umbral ajustado al tiempo real (~6 ms) da rojos que no son
-// regresiones. Lo que tiene que cazar es un desastre estructural, no la
-// variacion normal de carga. La medicion fina va en test_rendimiento.php.
-ok('sin regresion estructural: por debajo de 150 ms por escritura', $ms < 150);
+/*
+ * Techo muy holgado a proposito. Aqui no se mide rendimiento —de eso se ocupa
+ * test_rendimiento.php contra su linea base— sino que no haya pasado algo
+ * estructuralmente catastrofico, del orden de reescribir la coleccion entera en
+ * cada alta.
+ *
+ * El limite estaba en 150 ms y la CI lo rebaso en un runner de Windows: un
+ * fsync en disco compartido y virtualizado puede tardar cientos de milisegundos
+ * sin que nada este roto. Un test que se pone rojo por eso enseña a ignorar los
+ * rojos, que es peor que no tenerlo.
+ */
+\printf("    (el techo es 800 ms por escritura; aqui: %.2f ms)\n", $ms);
+ok('sin regresion estructural: por debajo de 800 ms por escritura', $ms < 800);
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('F] Un lector no puede tumbar una escritura');

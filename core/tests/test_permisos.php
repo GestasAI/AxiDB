@@ -27,6 +27,24 @@ require_once __DIR__ . '/_harness.php';
 use Axi\Core\Db;
 use Axi\Core\Exception;
 
+/**
+ * True si un archivo de solo lectura impide escribir A ESTE USUARIO.
+ *
+ * root se salta los permisos: puede escribir sobre un 0444 sin inmutarse. Y la
+ * CI corre como root en Linux, asi que la mitad de este test daba por buena una
+ * proteccion que ahi no existe. Se comprueba en vez de suponerlo.
+ */
+function archivosProtegen(string $base): bool
+{
+    $sonda = $base . '/sonda_archivo';
+    @\file_put_contents($sonda, 'x');
+    @\chmod($sonda, 0444);
+    $pudo = @\file_put_contents($sonda, 'y') !== false;
+    @\chmod($sonda, 0666);
+    @\unlink($sonda);
+    return !$pudo;
+}
+
 /** True si este sistema respeta de verdad un directorio de solo lectura. */
 function directoriosProtegen(string $base): bool
 {
@@ -63,6 +81,22 @@ ok('nombrando la ruta, para poder arreglarlo', \str_contains($mensaje, 'datos'))
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('B] Un documento que no se puede reescribir deja el anterior intacto');
+
+/*
+ * Las secciones B, C y D necesitan que un archivo de solo lectura impida
+ * escribir de verdad. root se salta los permisos, y la CI de Linux corre como
+ * root: alli estas comprobaciones no prueban nada, asi que se omiten diciendolo
+ * en voz alta en lugar de dar por buena una proteccion que no existe.
+ */
+$protegen = archivosProtegen($dir);
+
+if (!$protegen) {
+    echo "    (este usuario se salta los permisos de archivo —es root, o el sistema\n";
+    echo "     no los aplica—. Las secciones B, C y D se omiten a proposito.)\n";
+    ok('comprobado en ejecucion, no supuesto', true);
+}
+
+if ($protegen) {
 
 $db = new Db($dir . '/db', ['durable' => false]);
 $db->insert('p', ['n' => 1, 'texto' => 'ORIGINAL'], 'x1');
@@ -177,6 +211,8 @@ eq('con el permiso devuelto, el documento de antes sigue ahi',
     'ORIGINAL', $db4->get('q', 'y1')['texto'] ?? null);
 eq('y se puede volver a escribir', 'NUEVO', $db4->insert('q', ['texto' => 'NUEVO'], 'y2')['texto']);
 $db4->storage()->cerrar();
+
+}   // fin del bloque que exige permisos de archivo efectivos
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('E] Un directorio sin permiso de escritura');
