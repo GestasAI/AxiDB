@@ -123,12 +123,29 @@ if ($grabar || !\is_file($baseFile)) {
 $base = \json_decode((string) \file_get_contents($baseFile), true);
 ok('la linea base se lee', \is_array($base) && isset($base['medidas']));
 
-if (($base['so'] ?? '') !== PHP_OS_FAMILY) {
-    echo "    AVISO: la linea base se tomo en {$base['so']} y esto es " . PHP_OS_FAMILY . ".\n";
-    echo "    Los tiempos no son comparables entre sistemas. Regrabala con --grabar.\n";
+/*
+ * Solo se comparan milisegundos con una linea base tomada EN ESTA MISMA MAQUINA.
+ *
+ * Un runner compartido de la CI no tiene nada que ver con el portatil donde se
+ * grabo el archivo: comparar sus tiempos no mide una regresion, mide que son
+ * ordenadores distintos. La CI se puso roja justo por eso, y un rojo que no
+ * significa nada acaba en que nadie mira los rojos.
+ *
+ * Lo que si vale en cualquier maquina son las relaciones entre operaciones —una
+ * lectura por indice tiene que seguir siendo mucho mas barata que un escaneo— y
+ * de eso se ocupa la seccion C, que se ejecuta siempre.
+ */
+$mismaMaquina = ($base['maquina'] ?? null) === \php_uname('n')
+             && ($base['so'] ?? '') === PHP_OS_FAMILY;
+
+if (!$mismaMaquina) {
+    echo '    La linea base es de otra maquina (' . ($base['maquina'] ?? '?')
+       . ' / ' . ($base['so'] ?? '?') . "): no se comparan milisegundos.\n";
+    echo "    Para compararlos aqui: php core/tests/test_rendimiento.php --grabar\n";
+    ok('linea base de otra maquina: comparacion omitida a proposito', true);
 }
 
-foreach ($medidas as $nombre => $ms) {
+foreach ($mismaMaquina ? $medidas : [] as $nombre => $ms) {
     $ref = $base['medidas'][$nombre] ?? null;
     if ($ref === null) {
         ok("'{$nombre}' es nuevo: añadelo con --grabar", false);

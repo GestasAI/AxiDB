@@ -28,11 +28,9 @@ use Axi\Core\Db;
 use Axi\Core\Exception;
 
 /**
- * True si un archivo de solo lectura impide escribir A ESTE USUARIO.
+ * True si un archivo de solo lectura impide ABRIRLO para escribir.
  *
- * root se salta los permisos: puede escribir sobre un 0444 sin inmutarse. Y la
- * CI corre como root en Linux, asi que la mitad de este test daba por buena una
- * proteccion que ahi no existe. Se comprueba en vez de suponerlo.
+ * Aqui entra tambien el caso de root, que se salta los permisos sin inmutarse.
  */
 function archivosProtegen(string $base): bool
 {
@@ -42,6 +40,34 @@ function archivosProtegen(string $base): bool
     $pudo = @\file_put_contents($sonda, 'y') !== false;
     @\chmod($sonda, 0666);
     @\unlink($sonda);
+    return !$pudo;
+}
+
+/**
+ * True si un archivo de solo lectura impide REEMPLAZARLO con un renombrado.
+ *
+ * No es la misma pregunta que la anterior, y la diferencia es de fondo:
+ *
+ *   Windows  renombrar sobre un archivo de solo lectura falla.
+ *   Linux    funciona. `rename()` cambia una entrada del directorio, y para eso
+ *            manda el permiso del DIRECTORIO, no el del archivo que se sustituye.
+ *
+ * Como AxiDB escribe con temporal y renombrado, en Linux marcar un documento
+ * como de solo lectura **no impide que el motor lo reemplace**. No es un fallo:
+ * es como funciona POSIX, y es el mismo mecanismo que hace atomica la escritura.
+ * Lo destapo la CI, con este test dando por hecho el comportamiento de Windows.
+ */
+function renombradoProtegido(string $base): bool
+{
+    $destino = $base . '/sonda_destino';
+    $origen  = $base . '/sonda_origen';
+    @\file_put_contents($destino, 'viejo');
+    @\file_put_contents($origen, 'nuevo');
+    @\chmod($destino, 0444);
+    $pudo = @\rename($origen, $destino);
+    @\chmod($destino, 0666);
+    @\unlink($destino);
+    @\unlink($origen);
     return !$pudo;
 }
 
@@ -83,20 +109,25 @@ ok('nombrando la ruta, para poder arreglarlo', \str_contains($mensaje, 'datos'))
 section('B] Un documento que no se puede reescribir deja el anterior intacto');
 
 /*
- * Las secciones B, C y D necesitan que un archivo de solo lectura impida
- * escribir de verdad. root se salta los permisos, y la CI de Linux corre como
- * root: alli estas comprobaciones no prueban nada, asi que se omiten diciendolo
- * en voz alta en lugar de dar por buena una proteccion que no existe.
+ * Que puede probarse aqui depende del sistema, y se averigua en ejecucion en vez
+ * de suponerlo. Son dos preguntas distintas y hay que separarlas:
+ *
+ *   $protegen    ¿un archivo 0444 impide ABRIRLO para escribir?   (indices, log)
+ *   $noRenombra  ¿impide REEMPLAZARLO con un renombrado?          (documentos fs)
+ *
+ * En Linux la segunda es que no, y no es un defecto: rename() mira el permiso
+ * del directorio. Es el mismo mecanismo que hace atomica la escritura.
  */
-$protegen = archivosProtegen($dir);
+$protegen   = archivosProtegen($dir);
+$noRenombra = renombradoProtegido($dir);
 
-if (!$protegen) {
-    echo "    (este usuario se salta los permisos de archivo —es root, o el sistema\n";
-    echo "     no los aplica—. Las secciones B, C y D se omiten a proposito.)\n";
+if (!$noRenombra) {
+    echo "    (en este sistema se puede renombrar sobre un archivo de solo lectura,\n";
+    echo "     que es lo normal en POSIX. La seccion B no aplica aqui.)\n";
     ok('comprobado en ejecucion, no supuesto', true);
 }
 
-if ($protegen) {
+if ($noRenombra) {
 
 $db = new Db($dir . '/db', ['durable' => false]);
 $db->insert('p', ['n' => 1, 'texto' => 'ORIGINAL'], 'x1');
@@ -127,14 +158,31 @@ eq('recuperado el permiso, se escribe con normalidad', 'NUEVO',
 eq('y ahora si sube la version', 2, $db->get('p', 'x1')['_version']);
 
 /* ─────────────────────────────────────────────────────────────────────────── */
+}   // fin del bloque que depende del renombrado protegido
+
+/* ─────────────────────────────────────────────────────────────────────────── */
 section('C] Un indice que no se puede escribir se canta');
 
+if (!$protegen) {
+    echo "    (este usuario se salta los permisos de archivo: es root, o el sistema\n";
+    echo "     no los aplica. Las secciones C y D no se pueden probar aqui.)\n";
+    ok('comprobado en ejecucion, no supuesto', true);
+}
+
+if ($protegen) {
+
+/*
+ * Base de datos propia, no la de la seccion B: aquella se salta en Linux y una
+ * seccion que solo funciona si corrio la anterior es una trampa esperando.
+ */
+$db = new Db($dir . '/dbidx', ['durable' => false]);
+$db->insert('p', ['n' => 2, 'texto' => 'primero'], 'x1');
 $db->index('p', 'n');
 
 // Se bloquea el archivo del valor que la siguiente alta VA a tocar. Bloquear
 // otro cualquiera haria un test que pasa sin comprobar nada: el motor ni lo
 // abriria.
-$archivoIndice = $dir . '/db/p/_idx/n/2.json';
+$archivoIndice = $dir . '/dbidx/p/_idx/n/2.json';
 ok('el indice tiene el archivo del valor 2', \is_file($archivoIndice));
 \chmod($archivoIndice, 0444);
 
@@ -180,7 +228,7 @@ eq('y el indice se quedo corto, que es lo esperable',
 $db->reindex('p');
 eq('reindexar lo repara entero', 0, $db->verifyIndexes('p')['n']['faltan'] ?? -1);
 
-// Dos, no uno: x1 quedo con n=2 tras la seccion B, y x2 tambien.
+// Los dos que se dieron de alta en esta seccion, x1 y x2.
 eq('y la consulta por indice los encuentra a los dos', 2, \count($db->by('p', 'n', '2')));
 
 /* ─────────────────────────────────────────────────────────────────────────── */
