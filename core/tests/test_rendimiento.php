@@ -110,6 +110,9 @@ if ($grabar || !\is_file($baseFile)) {
     \file_put_contents($baseFile, \json_encode([
         'php'      => PHP_VERSION,
         'so'       => PHP_OS_FAMILY,
+        // Sin esto no se sabe de que ordenador salieron estos milisegundos, y
+        // compararlos con los de otro no mide nada.
+        'maquina'  => \php_uname('n'),
         'margen'   => MARGEN,
         'medidas'  => \array_map(static fn($v) => \round($v, 4), $medidas),
     ], JSON_PRETTY_PRINT));

@@ -1,14 +1,15 @@
 {
     "php": "8.2.28",
     "so": "Windows",
+    "maquina": "CARLOS",
     "margen": 4,
     "medidas": {
-        "alta": 0.9493,
-        "lectura_por_id": 0.5476,
-        "escaneo_500": 24.6858,
-        "consulta_por_indice": 1.5378,
-        "modificacion": 1.1272,
-        "count": 0.6641,
-        "sql_select": 1.1913
+        "alta": 0.8678,
+        "lectura_por_id": 0.4418,
+        "escaneo_500": 23.129,
+        "consulta_por_indice": 1.4463,
+        "modificacion": 1.2255,
+        "count": 0.6678,
+        "sql_select": 1.1616
     }
 }
