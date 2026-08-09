@@ -47,10 +47,10 @@ Para busqueda semantica real hay cuatro proveedores:
 | `voyage` | voyage-3 | 1024 | clave de API |
 
 ```php
-use Axi\Core\Vector\Embedders\Remoto;
+use Axi\Core\Vector\Embedders\Remote;
 
 $db = axidb(__DIR__ . '/datos', [
-    'embedder' => new Remoto('ollama'),          // local, gratis, privado
+    'embedder' => new Remote('ollama'),          // local, gratis, privado
 ]);
 ```
 
@@ -268,7 +268,7 @@ clientes".
 Asi que no se pregunta quien es, sino **que tiene permitido**:
 
 ```php
-use Axi\Core\Agentes\NoPermitido;
+use Axi\Core\Agents\NotAllowed;
 
 $agente = $db->agent('recomendador', ['get', 'find', 'similar'], ['articulos']);
 
@@ -276,13 +276,13 @@ $agente->similar('articulos', 'algo sobre arboles', 5);   // permitido
 
 try {
     $agente->delete('articulos', 'a1');                   // no esta en su lista
-} catch (NoPermitido $e) {
+} catch (NotAllowed $e) {
     echo $e->getMessage(), "\n";     // Este agente no puede 'delete'. Lo suyo es: ...
 }
 
 try {
     $agente->get('clientes', 'c1');                       // no es coleccion suya
-} catch (NoPermitido $e) {
+} catch (NotAllowed $e) {
     echo $e->getMessage(), "\n";     // Este agente no alcanza a 'clientes'. ...
 }
 ```

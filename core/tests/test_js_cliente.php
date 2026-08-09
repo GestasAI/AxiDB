@@ -2,7 +2,7 @@
 /**
  * AxiDB - el cliente de navegador contra un servidor de verdad.
  *
- * Los demas tests del puente llaman a Servidor::responder() en proceso, que es
+ * Los demas tests del puente llaman a Server::responder() en proceso, que es
  * mas rapido y mas fiable. Este no puede: lo que demuestra es justamente lo que
  * pasa por el cable —cabeceras, codigos, JSON de ida y de vuelta— entre el
  * fetch del cliente y el endpoint.

@@ -15,7 +15,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/_harness.php';
 
-use Axi\Core\Copias\Catalogo;
+use Axi\Core\Backup\Catalog;
 use Axi\Core\Db;
 
 function sembrarCopias(Db $db): void
@@ -43,14 +43,14 @@ ok('guarda todos los archivos', $completa['guardados'] === $completa['archivos']
 ok('y son unos cuantos',        $completa['archivos'] >= 5);
 ok('el archivo existe',         \is_file($completa['archivo']));
 ok('y pesa algo',               $completa['bytes'] > 100);
-ok('la extension es la suya',   \str_ends_with($completa['archivo'], Catalogo::EXTENSION));
+ok('la extension es la suya',   \str_ends_with($completa['archivo'], Catalog::EXTENSION));
 
 /*
  * Los cerrojos y las transacciones a medias no entran. Un diario copiado se
  * reaplicaria al restaurar, en un momento que ya no tiene nada que ver.
  */
 $rutas = [];
-\Axi\Core\Copias\Contenedor::recorrer($completa['archivo'], static function (string $r) use (&$rutas): void {
+\Axi\Core\Backup\Container::recorrer($completa['archivo'], static function (string $r) use (&$rutas): void {
     $rutas[] = $r;
 });
 eq('no se copia ningun cerrojo', [],
@@ -108,7 +108,7 @@ throws('la coleccion sigue rechazando lo que no cumple el esquema',
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('D] Una copia dañada no se restaura a medias');
 
-$rota = $carpeta . '/rota' . Catalogo::EXTENSION;
+$rota = $carpeta . '/rota' . Catalog::EXTENSION;
 \copy($completa['archivo'], $rota);
 $bytes = (string) \file_get_contents($rota);
 $bytes[\strlen($bytes) - 40] = $bytes[\strlen($bytes) - 40] === 'X' ? 'Y' : 'X';
@@ -122,7 +122,7 @@ eq('y los datos vivos no se tocaron', 'Ana', $sano->get('clientes', 'c1')['nombr
 eq('ni el que venia despues',         'Eva', $sano->get('clientes', 'c3')['nombre'] ?? null);
 
 throws('restaurar un archivo que no existe se rechaza',
-    static fn () => $sano->restore($carpeta . '/no-existe' . Catalogo::EXTENSION));
+    static fn () => $sano->restore($carpeta . '/no-existe' . Catalog::EXTENSION));
 
 // Una incremental sin su completa no se puede restaurar, y se dice claro.
 $sueltas = tmpdir('copias_sueltas');
@@ -140,7 +140,7 @@ throws('una incremental sin la copia de la que cuelga se rechaza',
 eq('una copia con una entrada dañada se lista igual: el catalogo solo lee cabeceras',
     0, \count(\array_filter($sano->backups($carpeta), static fn($c) => $c['tipo'] === 'ilegible')));
 
-$sinCabecera = $carpeta . '/sincabecera' . Catalogo::EXTENSION;
+$sinCabecera = $carpeta . '/sincabecera' . Catalog::EXTENSION;
 \file_put_contents($sinCabecera, "esto no es una copia\n");
 
 ok('el catalogo aguanta un archivo que no es una copia sin romperse',

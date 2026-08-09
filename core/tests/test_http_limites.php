@@ -14,7 +14,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/_http.php';
 
-use Axi\Core\Http\Peticion;
+use Axi\Core\Http\Request;
 
 [$s, $db, $dir] = puente('http_limites');
 $db->insert('p', ['n' => 1], 'p1');
@@ -57,7 +57,7 @@ foreach ($basura as $cuerpo => $porque) {
 section('B] Cuerpos demasiado grandes');
 
 $grande = (string) \json_encode(['accion' => 'insert', 'coleccion' => 'p',
-    'datos' => ['texto' => \str_repeat('a', Peticion::LIMITE_BYTES)]]);
+    'datos' => ['texto' => \str_repeat('a', Request::LIMITE_BYTES)]]);
 
 $r = pedir($s, $grande);
 respuesta('413 con un cuerpo por encima del limite', $r, 413, false);

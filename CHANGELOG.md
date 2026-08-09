@@ -139,8 +139,8 @@ Perfiles: declarar para que es esta base de datos.
   `true`/`false` como tipo suelto, `#[Override]`, `json_validate`, `array_find`.
 - Y que **ningun tipo declarado apunte a una clase inexistente**. Un metodo
   dentro de un trait resuelve sus tipos en el espacio de nombres del trait: poner
-  `: Index` en `Axi\Core\Fachada\ConIndices` sin importarlo apunta a
-  `Axi\Core\Fachada\Index`, que no existe. `php -l` no lo ve; solo revienta al
+  `: Index` en `Axi\Core\Facade\WithIndexes` sin importarlo apunta a
+  `Axi\Core\Facade\Index`, que no existe. `php -l` no lo ve; solo revienta al
   llamar al metodo.
 
 ---
@@ -442,9 +442,9 @@ en verde.
   `insert / get / update / delete / find / count / sql` y consultas encadenadas.
 - Permisos del puente: tokens con ambito por coleccion, colecciones publicas de
   solo lectura, modo solo lectura global y CORS por origen exacto.
-- `Blindaje`: el directorio de datos nace con un `.htaccess` que niega el acceso
+- `Shield`: el directorio de datos nace con un `.htaccess` que niega el acceso
   por HTTP. Solo lo entiende Apache; la guia explica que hacer en los demas.
-- `NombreInvalido`, para poder responder 400 con el motivo sin exponer rutas del
+- `InvalidName`, para poder responder 400 con el motivo sin exponer rutas del
   disco en un 500.
 - Guias [07-drivers](docs/guide/07-drivers.md) y [08-http](docs/guide/08-http.md),
   con sus ejemplos ejecutandose dentro de la suite.

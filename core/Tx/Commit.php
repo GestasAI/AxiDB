@@ -29,7 +29,7 @@ namespace Axi\Core\Tx;
 
 use Axi\Core\Db;
 use Axi\Core\Exception;
-use Axi\Core\Unicidad;
+use Axi\Core\Uniqueness;
 
 final class Commit
 {
@@ -40,7 +40,7 @@ final class Commit
     /**
      * @return int operaciones aplicadas
      */
-    public function confirmar(Transaccion $tx): int
+    public function confirmar(Transaction $tx): int
     {
         if ($tx->vacia()) {
             return 0;
@@ -117,7 +117,7 @@ final class Commit
             if ($unicos === []) {
                 continue;
             }
-            $reserva = new Unicidad($this->db->indexer(), $op['coleccion'], $op['id']);
+            $reserva = new Uniqueness($this->db->indexer(), $op['coleccion'], $op['id']);
             try {
                 $reserva->reservar($unicos, $op['datos'], $this->db->get($op['coleccion'], $op['id']));
             } catch (\Throwable $e) {

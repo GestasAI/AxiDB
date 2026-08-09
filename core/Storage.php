@@ -23,14 +23,14 @@ use Axi\Core\Drivers\PackedDriver;
 
 final class Storage
 {
-    use \Axi\Core\Storage\ConCifrado;
-    use \Axi\Core\Storage\ConDrivers;
+    use \Axi\Core\Storage\WithEncryption;
+    use \Axi\Core\Storage\WithDrivers;
 
-    public const DRIVERS     = Ajustes::DRIVERS;
+    public const DRIVERS     = Settings::DRIVERS;
     public const POR_DEFECTO = 'fs';
 
     private Collections $colecciones;
-    private Ajustes $ajustes;
+    private Settings $ajustes;
     private FsDriver $fs;
     private PackedDriver $packed;
 
@@ -42,9 +42,9 @@ final class Storage
         if (!\is_dir($this->base) && !@\mkdir($this->base, 0755, true) && !\is_dir($this->base)) {
             throw new Exception("No se pudo crear el directorio de datos: {$this->base}");
         }
-        Blindaje::aplicar($this->base);
+        Shield::aplicar($this->base);
         $this->colecciones = new Collections($this->base);
-        $this->ajustes     = new Ajustes($this->colecciones, self::POR_DEFECTO, $durable ? 'safe' : 'fast');
+        $this->ajustes     = new Settings($this->colecciones, self::POR_DEFECTO, $durable ? 'safe' : 'fast');
         $this->fs          = new FsDriver($this->colecciones, $this->ajustes);
         $this->packed      = new PackedDriver($this->colecciones, $this->ajustes);
 
@@ -197,7 +197,7 @@ final class Storage
 
     public function defineSchema(string $collection, array $reglas): void
     {
-        $this->ajustes->fijar($collection, ['schema' => Esquema::validarReglas($reglas)]);
+        $this->ajustes->fijar($collection, ['schema' => SchemaRules::validarReglas($reglas)]);
     }
 
     /** Segundos de vida de un documento. Cero: no caduca. */

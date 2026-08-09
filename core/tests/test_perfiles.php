@@ -16,14 +16,14 @@ declare(strict_types=1);
 require_once __DIR__ . '/_harness.php';
 
 use Axi\Core\Db;
-use Axi\Core\Perfil;
+use Axi\Core\Profile;
 
 $dir = tmpdir('perfiles');
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('A] El blog: perfil core');
 
-$blog = new Db($dir, ['durable' => false, 'profile' => Perfil::CORE]);
+$blog = new Db($dir, ['durable' => false, 'profile' => Profile::CORE]);
 
 $blog->sql("INSERT INTO entradas (titulo, autor, texto) VALUES
     ('Pan de masa madre', 'ana', 'Como hacer pan en casa'),
@@ -87,7 +87,7 @@ section('C] El blog se hace tienda: una linea, cero migraciones');
  * Esto es el gate de la ola. El mismo directorio, la misma coleccion, las mismas
  * consultas. Lo unico que cambia es la palabra 'core' por 'docs'.
  */
-$tienda = new Db($dir, ['durable' => false, 'profile' => Perfil::DOCS]);
+$tienda = new Db($dir, ['durable' => false, 'profile' => Profile::DOCS]);
 
 eq('los documentos estan donde estaban', 3, $tienda->count('entradas'));
 eq('con su contenido intacto', 2, \count($tienda->by('entradas', 'autor', 'ana')));
@@ -134,7 +134,7 @@ $tienda->storage()->cerrar();
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('D] Y la tienda busca por significado: otra linea');
 
-$ia = new Db($dir, ['durable' => false, 'profile' => Perfil::IA]);
+$ia = new Db($dir, ['durable' => false, 'profile' => Profile::IA]);
 
 eq('los datos siguen ahi despues de los dos saltos', 3, $ia->count('entradas'));
 eq('y los pedidos del paso anterior', 1, $ia->count('pedidos'));
@@ -157,7 +157,7 @@ section('E] Sin perfil, todo disponible');
  * ya estaba usando. Sin declarar perfil, no se comprueba nada.
  */
 $sinPerfil = new Db($dir, ['durable' => false]);
-eq('el perfil es "todo"', Perfil::TODO, $sinPerfil->profile()->nombre);
+eq('el perfil es "todo"', Profile::TODO, $sinPerfil->profile()->nombre);
 $sinPerfil->transaction(static fn ($tx) => null);
 ok('y las transacciones van sin declarar nada', true);
 ok('los vectores tambien', $sinPerfil->vectorIndex('entradas')->manifiesto()->dims > 0);
@@ -165,16 +165,16 @@ ok('los vectores tambien', $sinPerfil->vectorIndex('entradas')->manifiesto()->di
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('F] Que trae cada perfil');
 
-eq('core no incluye transacciones', false, (new Perfil(Perfil::CORE))->tiene('transactions'));
-eq('docs si',                        true, (new Perfil(Perfil::DOCS))->tiene('transactions'));
-eq('docs no incluye vectores',      false, (new Perfil(Perfil::DOCS))->tiene('vectors'));
-eq('ai si',                          true, (new Perfil(Perfil::IA))->tiene('vectors'));
+eq('core no incluye transacciones', false, (new Profile(Profile::CORE))->tiene('transactions'));
+eq('docs si',                        true, (new Profile(Profile::DOCS))->tiene('transactions'));
+eq('docs no incluye vectores',      false, (new Profile(Profile::DOCS))->tiene('vectors'));
+eq('ai si',                          true, (new Profile(Profile::IA))->tiene('vectors'));
 
 // Acumulativos: ai trae todo lo de docs, y docs todo lo de core.
-foreach ((new Perfil(Perfil::CORE))->funciones() as $f) {
-    ok("docs hereda '{$f}' de core", (new Perfil(Perfil::DOCS))->tiene($f));
+foreach ((new Profile(Profile::CORE))->funciones() as $f) {
+    ok("docs hereda '{$f}' de core", (new Profile(Profile::DOCS))->tiene($f));
 }
-eq('ai trae lo de los tres', 14, \count((new Perfil(Perfil::IA))->funciones()));
+eq('ai trae lo de los tres', 14, \count((new Profile(Profile::IA))->funciones()));
 
 throws('un perfil que no existe se rechaza al abrir',
     static fn () => new Db(tmpdir('perfil_malo'), ['durable' => false, 'profile' => 'grande']));
@@ -193,7 +193,7 @@ section('G] Bajar de perfil: no se pierde nada');
  * significado. Una regla aplicada a medias es una regla que no esta.
  */
 $ia->storage()->cerrar();
-$bajado = new Db($dir, ['durable' => false, 'profile' => Perfil::CORE]);
+$bajado = new Db($dir, ['durable' => false, 'profile' => Profile::CORE]);
 
 eq('los documentos siguen',        4, $bajado->count('entradas'));
 eq('se leen igual',                3, \count($bajado->by('entradas', 'autor', 'ana')));
@@ -218,13 +218,13 @@ throws('y el acceso al indice vectorial, tambien',
 ok('pero el indice vectorial NO se borra del disco', \is_dir($dir . '/entradas/_vec'));
 $bajado->storage()->cerrar();
 
-$devuelta = new Db($dir, ['durable' => false, 'profile' => Perfil::IA]);
+$devuelta = new Db($dir, ['durable' => false, 'profile' => Profile::IA]);
 eq('al volver a subir, los vectores estan donde estaban', 2,
     \count($devuelta->similar('entradas', 'pan de masa madre', 2)));
 eq('y los documentos', 4, $devuelta->count('entradas'));
 $devuelta->storage()->cerrar();
 
-$ia = new Db($dir, ['durable' => false, 'profile' => Perfil::IA]);
+$ia = new Db($dir, ['durable' => false, 'profile' => Profile::IA]);
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('H] Un motor, no tres');
@@ -250,7 +250,7 @@ foreach (\glob(\dirname(__DIR__) . '/{*,*/*,*/*/*}.php', GLOB_BRACE) ?: [] as $a
 }
 $fuera = \array_values(\array_filter(
     $conPerfil,
-    static fn(string $f) => !\str_starts_with($f, 'Fachada/') && $f !== 'Db.php' && $f !== 'Query.php'
+    static fn(string $f) => !\str_starts_with($f, 'Facade/') && $f !== 'Db.php' && $f !== 'Query.php'
 ));
 eq('el perfil solo se consulta en las puertas de entrada, no dentro del motor',
     [], $fuera);

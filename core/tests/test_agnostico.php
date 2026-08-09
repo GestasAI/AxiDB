@@ -267,8 +267,8 @@ section('H] Los tipos declarados apuntan a clases que existen');
  *
  * Un metodo declarado dentro de un trait resuelve sus tipos en el espacio de
  * nombres DEL TRAIT, no en el de la clase que lo usa. Poner `: Index` dentro de
- * `Axi\Core\Fachada\ConIndices` sin importarlo apunta a
- * `Axi\Core\Fachada\Index`, que no existe.
+ * `Axi\Core\Facade\WithIndexes` sin importarlo apunta a
+ * `Axi\Core\Facade\Index`, que no existe.
  *
  * Y `php -l` no lo ve, porque es sintacticamente correcto. Solo revienta al
  * llamar al metodo. Si ese metodo no tiene test, se publica roto.

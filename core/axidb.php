@@ -81,7 +81,7 @@ if (!\function_exists('axidb')) {
     function axidb_http(?string $dataPath = null, array $opciones = []): void
     {
         $config = axidb_config();
-        $puente = new \Axi\Core\Http\Servidor(
+        $puente = new \Axi\Core\Http\Server(
             axidb($dataPath),
             $opciones + (array) ($config['http'] ?? [])
         );

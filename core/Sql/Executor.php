@@ -21,11 +21,11 @@ use Axi\Core\Query;
 
 final class Executor
 {
-    private Sesion $sesion;
+    private Session $sesion;
 
     public function __construct(private Db $db)
     {
-        $this->sesion = new Sesion($db);
+        $this->sesion = new Session($db);
     }
 
     public function run(array $ast): mixed
@@ -33,8 +33,8 @@ final class Executor
         $explicar = (bool) ($ast['explain'] ?? false);
 
         return match ($ast['type']) {
-            'select', 'count'   => (new Lectura($this->db))->ejecutar($ast, $explicar),
-            'insert', 'update', 'delete' => (new Escritura($this->db, $this->sesion))->ejecutar($ast, $explicar),
+            'select', 'count'   => (new Read($this->db))->ejecutar($ast, $explicar),
+            'insert', 'update', 'delete' => (new Write($this->db, $this->sesion))->ejecutar($ast, $explicar),
             'create_collection' => $this->crearColeccion($ast, $explicar),
             'drop_collection'   => $this->borrarColeccion($ast, $explicar),
             'create_index'      => $this->crearIndice($ast, $explicar),
@@ -46,7 +46,7 @@ final class Executor
             'alter_rename', 'alter_add_field', 'alter_drop_field', 'alter_rename_field'
                 => $explicar
                     ? $this->plan($ast['type'], $ast['collection'] ?? '', [])
-                    : (new Estructura($this->db))->ejecutar($ast),
+                    : (new Structure($this->db))->ejecutar($ast),
             default             => throw new Exception("AxiSQL: sentencia no soportada '{$ast['type']}'."),
         };
     }

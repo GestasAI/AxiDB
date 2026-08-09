@@ -32,8 +32,8 @@ namespace Axi\Core;
 
 final class Index
 {
-    use \Axi\Core\Indices\ConUnicos;
-    use \Axi\Core\Indices\ConInspeccion;
+    use \Axi\Core\Indexes\WithUniques;
+    use \Axi\Core\Indexes\WithInspection;
 
     public function __construct(private Storage $storage)
     {

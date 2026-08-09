@@ -20,7 +20,7 @@ declare(strict_types=1);
 
 namespace Axi\Core\Drivers;
 
-use Axi\Core\Ajustes;
+use Axi\Core\Settings;
 use Axi\Core\Collections;
 use Axi\Core\Drivers\Packed\Compactador;
 use Axi\Core\Drivers\Packed\Descriptores;
@@ -33,7 +33,7 @@ final class PackedDriver implements Driver
 
     public function __construct(
         private Collections $colecciones,
-        Ajustes $ajustes
+        Settings $ajustes
     ) {
         $this->archivos = new Descriptores($colecciones, $ajustes);
     }

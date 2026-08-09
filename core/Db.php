@@ -24,20 +24,20 @@ final class Db
      * y no puede distinguir un rasgo de una importacion: escribirlos enteros
      * deja claro de donde salen y de paso el test no tiene que adivinar.
      */
-    use \Axi\Core\Fachada\ConIndices;
-    use \Axi\Core\Fachada\ConVectores;
-    use \Axi\Core\Fachada\ConAgentes;
-    use \Axi\Core\Fachada\ConTransacciones;
-    use \Axi\Core\Fachada\ConDeclaraciones;
-    use \Axi\Core\Fachada\ConCopias;
-    use \Axi\Core\Fachada\ConEstructura;
-    use \Axi\Core\Fachada\ConSalud;
+    use \Axi\Core\Facade\WithIndexes;
+    use \Axi\Core\Facade\WithVectors;
+    use \Axi\Core\Facade\WithAgents;
+    use \Axi\Core\Facade\WithTransactions;
+    use \Axi\Core\Facade\WithDeclarations;
+    use \Axi\Core\Facade\WithBackups;
+    use \Axi\Core\Facade\WithStructure;
+    use \Axi\Core\Facade\WithHealth;
 
     private Storage $storage;
     private Index $index;
-    private Vectores $vectores;
-    private Perfil $perfil;
-    private ?Agentes\Auditoria $auditoria = null;
+    private VectorStore $vectores;
+    private Profile $perfil;
+    private ?Agents\Audit $auditoria = null;
 
     /**
      * @param string $dataPath Directorio de datos. Se crea si no existe.
@@ -48,10 +48,10 @@ final class Db
     public function __construct(string $dataPath, array $options = [])
     {
         $durable       = (bool) ($options['durable'] ?? true);
-        $this->perfil   = new Perfil((string) ($options['profile'] ?? Perfil::TODO));
+        $this->perfil   = new Profile((string) ($options['profile'] ?? Profile::TODO));
         $this->storage  = new Storage($dataPath, $durable, $options['key'] ?? null);
         $this->index    = new Index($this->storage);
-        $this->vectores = new Vectores($this->storage, $options['embedder'] ?? null);
+        $this->vectores = new VectorStore($this->storage, $options['embedder'] ?? null);
 
         // Antes de que nadie lea: si un corte dejo una transaccion a medias, se
         // termina o se descarta ahora. Leer un estado a medio aplicar seria el
@@ -95,7 +95,7 @@ final class Db
 
         // Reservar antes de escribir, y soltar si la escritura no sale. Ver
         // Unicidad: hacerlo al reves obligaria a deshacer un documento guardado.
-        $reserva = new Unicidad($this->index, $collection, $id);
+        $reserva = new Uniqueness($this->index, $collection, $id);
         if ($unicos !== []) {
             $reserva->reservar($unicos, $replace || $before === null ? $data : $data + $before, $before);
         }

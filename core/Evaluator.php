@@ -60,11 +60,11 @@ final class Evaluator
         if (isset($nodo['expr'])) {
             // El lado derecho tambien puede ser una expresion: `precio > coste * 2`.
             $derecha = isset($nodo['valueExpr'])
-                ? Sql\Valor::de($nodo['valueExpr'], $doc, $agregados)
+                ? Sql\Value::de($nodo['valueExpr'], $doc, $agregados)
                 : ($nodo['value'] ?? null);
 
             return self::sobreValor(
-                Sql\Valor::de($nodo['expr'], $doc, $agregados),
+                Sql\Value::de($nodo['expr'], $doc, $agregados),
                 true,
                 (string) $nodo['op'],
                 $derecha

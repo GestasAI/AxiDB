@@ -17,7 +17,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/_harness.php';
 
 use Axi\Core\Vector\Embedders\Hash;
-use Axi\Core\Vector\Embedders\Remoto;
+use Axi\Core\Vector\Embedders\Remote;
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('A] El generador que no sale a internet');
@@ -75,17 +75,17 @@ throws('unas dimensiones que no son multiplo de ocho se rechazan',
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('C] Los cuatro que necesitan red: solo la configuracion');
 
-$ollama = new Remoto('ollama');
+$ollama = new Remote('ollama');
 eq('ollama trae su modelo por defecto', 'ollama:nomic-embed-text', $ollama->nombre());
 eq('y sus dimensiones',                                       768, $ollama->dims());
 ok('ollama cuenta como local: corre en tu maquina',                $ollama->esLocal());
 
-$openai = new Remoto('openai', ['clave' => 'sk-de-mentira']);
+$openai = new Remote('openai', ['clave' => 'sk-de-mentira']);
 eq('openai',   'openai:text-embedding-3-small', $openai->nombre());
 eq('con sus dimensiones',                 1536, $openai->dims());
 ok('y no es local',                            !$openai->esLocal());
 
-$gemini = new Remoto('gemini', ['clave' => 'x']);
+$gemini = new Remote('gemini', ['clave' => 'x']);
 eq('gemini', 'gemini:text-embedding-004', $gemini->nombre());
 
 /*
@@ -94,22 +94,22 @@ eq('gemini', 'gemini:text-embedding-004', $gemini->nombre());
  * cubre ese ecosistema. Escribir un cliente contra un endpoint que no existe
  * solo serviria para fallar en produccion.
  */
-$voyage = new Remoto('voyage', ['clave' => 'x']);
+$voyage = new Remote('voyage', ['clave' => 'x']);
 eq('voyage, que es lo que recomienda Anthropic', 'voyage:voyage-3', $voyage->nombre());
 eq('con sus dimensiones',                                     1024, $voyage->dims());
 
-$aMedida = new Remoto('openai', ['clave' => 'x', 'modelo' => 'text-embedding-3-large', 'dims' => 3072]);
+$aMedida = new Remote('openai', ['clave' => 'x', 'modelo' => 'text-embedding-3-large', 'dims' => 3072]);
 eq('se puede cambiar el modelo', 'openai:text-embedding-3-large', $aMedida->nombre());
 eq('y las dimensiones',                                     3072, $aMedida->dims());
 
 throws('un proveedor que no existe se dice al momento',
-    static fn() => new Remoto('inventado'));
+    static fn() => new Remote('inventado'));
 throws('y falta la clave de API, tambien',
-    static fn() => new Remoto('openai'));
+    static fn() => new Remote('openai'));
 
 $mensaje = '';
 try {
-    new Remoto('gemini');
+    new Remote('gemini');
 } catch (\Axi\Core\Exception $e) {
     $mensaje = $e->getMessage();
 }

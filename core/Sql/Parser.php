@@ -41,14 +41,14 @@ final class Parser
 
         $ast = match (\strtoupper((string) $cabeza->value)) {
             'SELECT' => $this->parseSelect(),
-            'INSERT' => (new EscrituraParser($this->ts))->parse(),
-            'UPDATE' => (new EscrituraParser($this->ts))->parse(),
-            'DELETE' => (new EscrituraParser($this->ts))->parse(),
+            'INSERT' => (new WriteParser($this->ts))->parse(),
+            'UPDATE' => (new WriteParser($this->ts))->parse(),
+            'DELETE' => (new WriteParser($this->ts))->parse(),
             'CREATE' => $this->ts->peek(1)->isKw('VIEW')
                 ? $this->parseCreateView()
                 : (new DdlParser($this->ts))->parse(),
             'DROP', 'ALTER', 'SHOW', 'DESCRIBE' => (new DdlParser($this->ts))->parse(),
-            'BEGIN', 'COMMIT', 'ROLLBACK' => $this->parseTransaccion(),
+            'BEGIN', 'COMMIT', 'ROLLBACK' => $this->parseTransaction(),
             default  => throw new Exception(
                 "AxiSQL: no se puede empezar una sentencia por {$cabeza->describe()}."
             ),
@@ -66,7 +66,7 @@ final class Parser
      * acepta y se ignora: lo escribe mucha gente por costumbre y rechazarlo
      * solo serviria para molestar.
      */
-    private function parseTransaccion(): array
+    private function parseTransaction(): array
     {
         $palabra = \strtoupper((string) $this->ts->advance()->value);
         $this->ts->matchKw('TRANSACTION');
@@ -122,14 +122,14 @@ final class Parser
          * espera quien ya lo usa; en cuanto hay algo mas —otro campo, un alias,
          * un GROUP BY— pasa a ser un SELECT normal que devuelve filas.
          */
-        $proyeccion = new Proyeccion($this->ts);
+        $proyeccion = new Projection($this->ts);
         $esCount    = $proyeccion->esCountPelado();
         $campos     = $esCount ? ['*'] : $proyeccion->parseLista();
 
         $this->ts->consumeKw('FROM');
 
         $coleccion = $this->ts->consumeIdent();
-        $uniones   = new Uniones($this->ts);
+        $uniones   = new Joins($this->ts);
         $alias     = $uniones->alias($coleccion);
 
         $ast = [

@@ -43,7 +43,7 @@ final class Query
         private Index $index,
         private string $collection,
         private ?\Closure $fuente = null,
-        private ?Perfil $perfil = null
+        private ?Profile $perfil = null
     ) {
     }
 
@@ -111,7 +111,7 @@ final class Query
         $this->uniones[] = [
             'coleccion' => $coleccion,
             'alias'     => $coleccion,
-            'tipo'      => $izquierdo ? Sql\Cruce::IZQUIERDO : Sql\Cruce::INTERNO,
+            'tipo'      => $izquierdo ? Sql\JoinPlan::IZQUIERDO : Sql\JoinPlan::INTERNO,
             'izq'       => $campoAqui,
             'der'       => $campoAlla,
         ];
@@ -120,7 +120,7 @@ final class Query
 
     public function get(): array
     {
-        [$docs, $this->plan] = Partida::de(
+        [$docs, $this->plan] = Candidates::de(
             $this->storage, $this->index, $this->collection,
             $this->where, $this->expr, $this->fuente
         );
@@ -134,7 +134,7 @@ final class Query
          * mismo compromiso que en AxiSQL, y por el mismo motivo.
          */
         if ($this->uniones !== []) {
-            $docs = Sql\Cruce::aplicar(
+            $docs = Sql\JoinPlan::aplicar(
                 fn(string $c): array => $this->storage->all($c),
                 $docs,
                 $this->collection,

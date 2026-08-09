@@ -64,7 +64,7 @@ final class ExprParser
         // EXISTS (SELECT ...) y NOT EXISTS (SELECT ...)
         if ($this->ts->peek()->isKw('EXISTS')) {
             $this->ts->advance();
-            return ['type' => 'subquery', 'negado' => false, 'sql' => Recorte::subconsulta($this->ts)];
+            return ['type' => 'subquery', 'negado' => false, 'sql' => Slice::subconsulta($this->ts)];
         }
 
         if ($this->ts->peek()->isPunct('(') && $this->pareceCondicion()) {
@@ -74,7 +74,7 @@ final class ExprParser
             return $dentro;
         }
 
-        $izq = (new ValorParser($this->ts))->parse();
+        $izq = (new ValueParser($this->ts))->parse();
 
         if ($this->ts->matchKw('IS')) {
             $negado = $this->ts->matchKw('NOT');
@@ -103,11 +103,11 @@ final class ExprParser
         $tk = $this->ts->peek();
         if ($tk->type === Token::OP && \in_array($tk->value, ['=', '!=', '>', '>=', '<', '<='], true)) {
             $this->ts->advance();
-            return $this->cmp($izq, (string) $tk->value, null, (new ValorParser($this->ts))->parse());
+            return $this->cmp($izq, (string) $tk->value, null, (new ValueParser($this->ts))->parse());
         }
 
         throw new Exception(
-            'AxiSQL: tras ' . Valor::firma($izq) . ' esperaba un operador '
+            'AxiSQL: tras ' . Value::firma($izq) . ' esperaba un operador '
             . '(=, !=, >, <, >=, <=, IN, NOT IN, LIKE, NOT LIKE, BETWEEN, CONTAINS, '
             . "IS NULL, IS NOT NULL) y encontro {$tk->describe()}."
         );
@@ -164,7 +164,7 @@ final class ExprParser
     private function parseLista(): array
     {
         if ($this->ts->peek(1)->isKw('SELECT')) {
-            return ['subquery' => Recorte::subconsulta($this->ts)];
+            return ['subquery' => Slice::subconsulta($this->ts)];
         }
         $this->ts->consumePunct('(');
         $valores = [$this->ts->consumeLiteral()];

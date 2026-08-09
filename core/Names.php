@@ -36,16 +36,16 @@ final class Names
     public static function check(string $value, string $kind): string
     {
         if ($value === '') {
-            throw new NombreInvalido("AxiDB: {$kind} vacio.");
+            throw new InvalidName("AxiDB: {$kind} vacio.");
         }
         if (\strlen($value) > self::MAX) {
-            throw new NombreInvalido("AxiDB: {$kind} demasiado largo (max " . self::MAX . ').');
+            throw new InvalidName("AxiDB: {$kind} demasiado largo (max " . self::MAX . ').');
         }
         if (\str_contains($value, '..')) {
-            throw new NombreInvalido("AxiDB: {$kind} no puede contener '..'.");
+            throw new InvalidName("AxiDB: {$kind} no puede contener '..'.");
         }
         if (!\preg_match('/^[A-Za-z0-9][A-Za-z0-9_\-.]*$/', $value)) {
-            throw new NombreInvalido("AxiDB: {$kind} invalido '{$value}' (solo [A-Za-z0-9_-.]).");
+            throw new InvalidName("AxiDB: {$kind} invalido '{$value}' (solo [A-Za-z0-9_-.]).");
         }
         return $value;
     }

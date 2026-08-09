@@ -17,8 +17,8 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/_harness.php';
 
-use Axi\Core\Agentes\NoPermitido;
-use Axi\Core\Agentes\Sandbox;
+use Axi\Core\Agents\NotAllowed;
+use Axi\Core\Agents\Sandbox;
 use Axi\Core\Db;
 
 $dir = tmpdir('agentes');
@@ -56,7 +56,7 @@ eq('y el cliente sigue igual', 'Ana', $db->get('clientes', 'c1')['nombre']);
 $mensaje = '';
 try {
     $lector->get('clientes', 'c1');
-} catch (NoPermitido $e) {
+} catch (NotAllowed $e) {
     $mensaje = $e->getMessage();
 }
 ok('el error dice que coleccion se pidio', \str_contains($mensaje, 'clientes'));
@@ -129,7 +129,7 @@ eq('nada entro', 2, $db->count('articulos'));
 $motivo = '';
 try {
     $editor->get('articulos', 'a1');
-} catch (NoPermitido $e) {
+} catch (NotAllowed $e) {
     $motivo = $e->getMessage();
 }
 ok('y dice por que se paro', \str_contains($motivo, 'pasando de listo'));
