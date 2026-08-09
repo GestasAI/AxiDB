@@ -3,7 +3,7 @@
     "description": "Base de datos de documentos en PHP puro: se copia una carpeta y funciona. Sin servidor, sin extensiones, sin dependencias.",
     "type": "library",
     "keywords": ["database", "nosql", "document-database", "embedded", "json", "sql", "zero-dependency"],
-    "homepage": "https://github.com/gestasai/axidb",
+    "homepage": "https://github.com/guiacarlos/axidb",
     "license": "Apache-2.0",
     "authors": [
         {

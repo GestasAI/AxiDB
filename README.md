@@ -139,13 +139,24 @@ No hay `vendor/`, ni nada que descargar.
 | [docs/guide/17-perfiles.md](docs/guide/17-perfiles.md) | Perfiles: core, docs y ai |
 | [examples/](examples/) | Un almacen, una plantilla, unos pedidos y el puente HTTP |
 
-Con Composer, si lo prefieres:
+### Y si usas Composer
 
-```bash
-composer require gestasai/axidb
+El paquete esta preparado —PSR-4 mas el ayudante `axidb()`, sin una sola
+dependencia— y se instala desde el repositorio:
+
+```json
+{
+    "repositories": [{ "type": "vcs", "url": "https://github.com/guiacarlos/axidb" }],
+    "require": { "gestasai/axidb": "^0.6" }
+}
 ```
 
-Pero no hace falta, y ese es el punto.
+**Composer no hace falta, y ese es el punto.** No es una via alternativa de
+instalacion que algun dia sea la buena: es una comodidad para quien ya lo usa en
+su proyecto. AxiDB tiene que seguir funcionando en un alojamiento compartido
+donde no hay linea de comandos, y por eso hay un test que arranca el motor con
+`php -n` —sin `php.ini`, sin extensiones cargadas, sin `vendor/`— desde una
+carpeta copiada a mano. Si algun dia eso deja de pasar, la suite se pone roja.
 
 ---
 
