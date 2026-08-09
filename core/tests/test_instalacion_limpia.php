@@ -42,8 +42,9 @@ function copiarArbol(string $de, string $a): int
 
 $copiados = copiarArbol($origen, $destino);
 ok("se copiaron {$copiados} archivos del nucleo", $copiados > 5);
-ok('el destino esta fuera del repositorio de MyLocal',
-    !\str_contains(\realpath($destino) ?: '', 'mylocal') && !\str_contains(\realpath($destino) ?: '', 'MyLocal'));
+ok('el destino esta fuera del repositorio de AxiDB',
+    !\str_contains(\realpath($destino) ?: '', 'axidb-repo')
+    && !\str_contains(\realpath($destino) ?: '', \dirname($origen)));
 ok('no se copio nada de CAPABILITIES', !\is_dir($destino . '/CAPABILITIES'));
 ok('no hace falta composer.json para arrancar', !\is_file($destino . '/composer.json'));
 
@@ -51,18 +52,18 @@ ok('no hace falta composer.json para arrancar', !\is_file($destino . '/composer.
 section('B] Una aplicacion nueva, de cinco lineas');
 
 $app  = \dirname($destino, 2);
-$prog = $app . '/mi-cristaleria.php';
+$prog = $app . '/mi-almacen.php';
 
 \file_put_contents($prog, <<<'PHP'
 <?php
 require __DIR__ . '/vendor/axidb/axidb.php';
 $db = axidb(__DIR__ . '/datos');
-$db->index('presupuestos', 'cliente');
-$db->insert('presupuestos', ['cliente' => 'Ana', 'tipo' => 'mampara', 'total' => 421.20]);
-$db->insert('presupuestos', ['cliente' => 'Ana', 'tipo' => 'espejo',  'total' => 76.00]);
-$db->insert('presupuestos', ['cliente' => 'Luis','tipo' => 'ventana', 'total' => 252.00]);
-$deAna = $db->by('presupuestos', 'cliente', 'Ana');
-echo count($deAna), '|', array_sum(array_column($deAna, 'total')), '|', $db->count('presupuestos');
+$db->index('pedidos', 'cliente');
+$db->insert('pedidos', ['cliente' => 'Ana', 'tipo' => 'perfil', 'total' => 421.20]);
+$db->insert('pedidos', ['cliente' => 'Ana', 'tipo' => 'junta',   'total' => 76.00]);
+$db->insert('pedidos', ['cliente' => 'Luis','tipo' => 'tornillo', 'total' => 252.00]);
+$deAna = $db->by('pedidos', 'cliente', 'Ana');
+echo count($deAna), '|', array_sum(array_column($deAna, 'total')), '|', $db->count('pedidos');
 PHP);
 
 // -n descarta cualquier php.ini del sistema: nada de extensiones cargadas.
@@ -77,11 +78,11 @@ section('C] Los datos quedan donde se dijo, y son legibles');
 
 $datos = $app . '/datos';
 ok('se creo el directorio de datos',            \is_dir($datos));
-ok('se creo la coleccion',                      \is_dir($datos . '/presupuestos'));
-ok('hay tres documentos JSON',                  \count(\glob($datos . '/presupuestos/*.json') ?: []) === 3);
-ok('se creo el indice declarado',               \is_dir($datos . '/presupuestos/_idx/cliente'));
+ok('se creo la coleccion',                      \is_dir($datos . '/pedidos'));
+ok('hay tres documentos JSON',                  \count(\glob($datos . '/pedidos/*.json') ?: []) === 3);
+ok('se creo el indice declarado',               \is_dir($datos . '/pedidos/_idx/cliente'));
 
-$uno = \json_decode((string) \file_get_contents((\glob($datos . '/presupuestos/*.json') ?: [])[0]), true);
+$uno = \json_decode((string) \file_get_contents((\glob($datos . '/pedidos/*.json') ?: [])[0]), true);
 ok('el documento es JSON valido y legible a ojo', \is_array($uno) && isset($uno['id'], $uno['_version']));
 
 /* ─────────────────────────────────────────────────────────────────────────── */
@@ -92,7 +93,7 @@ $prog2 = $app . '/leer.php';
 <?php
 require __DIR__ . '/vendor/axidb/axidb.php';
 $db = axidb(__DIR__ . '/datos');
-echo $db->count('presupuestos'), '|', count($db->by('presupuestos', 'cliente', 'Ana'));
+echo $db->count('pedidos'), '|', count($db->by('pedidos', 'cliente', 'Ana'));
 PHP);
 
 $salida2 = \trim((string) \shell_exec(\escapeshellarg(PHP_BINARY) . ' -n ' . \escapeshellarg($prog2) . ' 2>&1'));
@@ -113,7 +114,7 @@ $doble = $app . '/doble.php';
 require ' . \var_export($destino . '/axidb.php', true) . ';
 require ' . \var_export($destino . '/axidb.php', true) . ';
 $db = axidb(' . \var_export($app . '/datos', true) . ');
-echo $db->count("presupuestos");
+echo $db->count("pedidos");
 ');
 $salidaDoble = \trim((string) \shell_exec(\escapeshellarg(PHP_BINARY) . ' -n ' . \escapeshellarg($doble) . ' 2>&1'));
 ok("dos require del punto de entrada no rompen nada: '{$salidaDoble}'", $salidaDoble === '3');
@@ -123,20 +124,31 @@ $once = $app . '/once.php';
 \file_put_contents($once, '<?php
 require_once ' . \var_export($destino . '/axidb.php', true) . ';
 require ' . \var_export($destino . '/axidb.php', true) . ';
-echo axidb(' . \var_export($app . '/datos', true) . ')->count("presupuestos");
+echo axidb(' . \var_export($app . '/datos', true) . ')->count("pedidos");
 ');
 $salidaOnce = \trim((string) \shell_exec(\escapeshellarg(PHP_BINARY) . ' -n ' . \escapeshellarg($once) . ' 2>&1'));
 ok("mezclar require_once y require tampoco: '{$salidaOnce}'", $salidaOnce === '3');
 
 /* ─────────────────────────────────────────────────────────────────────────── */
-section('E] Los dos ejemplos del repositorio funcionan');
+section('E] Los ejemplos del repositorio funcionan');
 
-foreach (['cristaleria', 'blog'] as $ejemplo) {
+/*
+ * Se descubren, no se enumeran.
+ *
+ * Aqui habia una lista con dos nombres, y el repositorio llego a tener siete
+ * ejemplos de los que cuatro no arrancaban: eran restos del motor anterior y
+ * pedian un archivo que ya no existe. Esta seccion los daba por buenos sin
+ * mirarlos, porque no estaban en la lista.
+ */
+$ejemplos = \array_map('basename', \array_filter(
+    \glob(\dirname($origen) . '/examples/*') ?: [],
+    static fn(string $d) => \is_dir($d) && \is_file($d . '/index.php')
+));
+\sort($ejemplos, SORT_STRING);
+ok('hay ejemplos que ejecutar: ' . \implode(', ', $ejemplos), $ejemplos !== []);
+
+foreach ($ejemplos as $ejemplo) {
     $ruta = \dirname($origen) . '/examples/' . $ejemplo . '/index.php';
-    if (!\is_file($ruta)) {
-        ok("existe el ejemplo '{$ejemplo}'", false);
-        continue;
-    }
     $out = (string) \shell_exec(\escapeshellarg(PHP_BINARY) . ' ' . \escapeshellarg($ruta) . ' 2>&1');
     $mal = \stripos($out, 'fatal') !== false || \stripos($out, 'warning') !== false
         || \stripos($out, 'uncaught') !== false;
@@ -154,7 +166,7 @@ $hash = static function (string $dir): string {
     return \md5(\implode('', $h));
 };
 $antes = $hash($origen);
-\shell_exec(\escapeshellarg(PHP_BINARY) . ' ' . \escapeshellarg(\dirname($origen) . '/examples/blog/index.php') . ' 2>&1');
+\shell_exec(\escapeshellarg(PHP_BINARY) . ' ' . \escapeshellarg(\dirname($origen) . '/examples/02-empleados/index.php') . ' 2>&1');
 ok('ejecutar un dominio nuevo no modifica un solo archivo del nucleo', $antes === $hash($origen));
 
 rmrf(\dirname($app));

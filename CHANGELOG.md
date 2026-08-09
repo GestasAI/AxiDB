@@ -11,6 +11,57 @@ romperlo en la version siguiente.
 
 ---
 
+## [0.6.1] — 2026-08-09
+
+Lo que recibe quien clona el repositorio.
+
+### Corregido
+
+- **`HAVING` con un alias del `SELECT` devolvia cero filas, sin error.**
+
+  ```sql
+  SELECT depto, SUM(salario) AS coste FROM empleados
+  GROUP BY depto HAVING coste > 60000     -- antes: vacio. Ahora: los grupos caros
+  ```
+
+  Lo peor no era la limitacion, sino que el mismo alias SI funcionaba en
+  `ORDER BY`: la respuesta cambiaba segun donde escribieras el nombre. Se
+  resuelve como en MySQL y SQLite —primero el alias, despues el campo del
+  documento— y un resultado vacio vuelve a significar "no hay datos" y no "no te
+  he entendido".
+
+- **Cuatro de los siete ejemplos no arrancaban.** `hello.php`, `portfolio`,
+  `notas` y `remote-client` pedian un archivo del motor anterior que ya no
+  existe. Se entregaban rotos porque ningun test los ejecutaba.
+
+- **Enlaces de la documentacion que no llevaban a ninguna parte**, incluido uno
+  que solo resolvia dentro del proyecto donde nacio AxiDB.
+
+### Cambiado
+
+- **Los ejemplos, rehechos.** Cuatro, numerados, y cada uno enseña una parte del
+  motor: [`01-almacen`](examples/01-almacen/) (indices, `UNIQUE`, agregados),
+  [`02-empleados`](examples/02-empleados/) (esquema, `JOIN`, `HAVING`),
+  [`03-pedidos`](examples/03-pedidos/) (transacciones, `LEFT JOIN`,
+  subconsultas) y [`04-puente-http`](examples/04-puente-http/) (la base de datos
+  desde otro proceso). Sin paginas ni hojas de estilo: lo que se enseña son los
+  datos.
+
+- **Fuera tres documentos internos** que hablaban del proyecto de origen y de
+  estrategia de empresa. No son parte de un motor de base de datos.
+
+### Añadido
+
+- **`test_ejemplos.php`**: ejecuta cada ejemplo como lo haria quien clona el
+  repositorio y comprueba que los numeros que imprime son los correctos. Es lo
+  que faltaba para que los cuatro rotos no hubieran llegado nunca a entregarse.
+
+- El test de instalacion limpia y el de documentacion **descubren** los ejemplos
+  y las guias en vez de leerlos de una lista escrita a mano. Tres listas de esas
+  se habian quedado viejas sin que nadie se enterara.
+
+---
+
 ## [0.6.0] — 2026-08-09
 
 Perfiles: declarar para que es esta base de datos.
@@ -397,8 +448,9 @@ en verde.
   disco en un 500.
 - Guias [07-drivers](docs/guide/07-drivers.md) y [08-http](docs/guide/08-http.md),
   con sus ejemplos ejecutandose dentro de la suite.
-- Ejemplo [cristaleria-web](examples/cristaleria-web/): la aplicacion entera desde
-  el navegador con cuatro lineas de PHP.
+- Ejemplo del puente HTTP: la aplicacion entera desde el navegador con cuatro
+  lineas de PHP. Hoy vive en [examples/04-puente-http](examples/04-puente-http/),
+  reescrito sin pantalla.
 - `LICENSE` (Apache 2.0), `NOTICE` y `composer.json`.
 
 ### Corregido

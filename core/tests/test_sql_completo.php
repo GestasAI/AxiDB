@@ -145,6 +145,25 @@ eq('y puede mirar una suma', ['Lorca'],
     \array_column($db->sql("SELECT ciudad FROM ventas GROUP BY ciudad
                             HAVING SUM(total) > 360 ORDER BY ciudad"), 'ciudad'));
 
+/*
+ * El alias del SELECT vale dentro del HAVING, igual que en MySQL y SQLite.
+ *
+ * Devolvia cero filas, en silencio y sin error, porque el alias no es campo de
+ * ningun documento. Lo peor no era la limitacion: era que el mismo alias SI
+ * funcionaba en ORDER BY, asi que la respuesta cambiaba segun donde escribieras
+ * el nombre. Un resultado vacio que parece "no hay datos" y es "no te he
+ * entendido".
+ */
+eq('el alias del SELECT sirve dentro del HAVING', ['Lorca'],
+    \array_column($db->sql("SELECT ciudad, SUM(total) AS suma FROM ventas GROUP BY ciudad
+                            HAVING suma > 360 ORDER BY ciudad"), 'ciudad'));
+eq('y da lo mismo que escribir la funcion entera',
+    $db->sql("SELECT ciudad, SUM(total) AS suma FROM ventas GROUP BY ciudad HAVING SUM(total) > 360"),
+    $db->sql("SELECT ciudad, SUM(total) AS suma FROM ventas GROUP BY ciudad HAVING suma > 360"));
+eq('un campo normal en el HAVING sigue funcionando', ['Murcia'],
+    \array_column($db->sql("SELECT ciudad, COUNT(*) AS n FROM ventas GROUP BY ciudad
+                            HAVING ciudad = 'Murcia'"), 'ciudad'));
+
 eq('DISTINCT quita las filas repetidas', ['Cieza', 'Lorca', 'Murcia'],
     \array_column($db->sql("SELECT DISTINCT ciudad FROM ventas ORDER BY ciudad"), 'ciudad'));
 eq('sin DISTINCT salen las cinco', 5,

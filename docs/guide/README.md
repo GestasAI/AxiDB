@@ -25,8 +25,8 @@ romper enlaces que anden por ahi.
 
 ## Ademas
 
-- [../../examples/](../../examples/) — una cristaleria, un blog, y la misma
-  cristaleria funcionando en el navegador.
+- [../../examples/](../../examples/) — un almacen, una plantilla, unos pedidos,
+  y la base de datos atendiendo por HTTP desde otro proceso.
 - [../standard/vector-search.md](../standard/vector-search.md) — como va a
   funcionar la busqueda vectorial. **Es una especificacion, todavia no esta
   construido.**

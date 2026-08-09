@@ -107,6 +107,21 @@ eq('la version es semver', 1, \preg_match('/^\d+\.\d+\.\d+(-[a-z0-9.]+)?$/i', $v
 ok("el registro de cambios tiene la entrada de {$version}",
     \str_contains($cambios, "## [{$version}]"));
 
+/*
+ * Y el README dice la misma version que el codigo.
+ *
+ * Se quedo diciendo 0.6.0 con el motor ya en 0.6.1, y esa es la primera linea
+ * que lee quien llega: si ahi pone una version vieja, todo lo que siga se lee
+ * con desconfianza. Tambien se comprueba el numero de archivos de test, que se
+ * anuncia en la misma seccion y envejece igual de rapido.
+ */
+$portada = (string) @\file_get_contents($raiz . '/README.md');
+ok("el README anuncia la version {$version}", \str_contains($portada, "Version {$version}"));
+
+$cuantos = \count(\glob($raiz . '/core/tests/test_*.php') ?: []);
+ok("el README dice cuantos archivos de test hay ({$cuantos})",
+    \str_contains($portada, "{$cuantos} archivos de test"));
+
 // La primera entrada del registro tiene que ser la version actual: un changelog
 // donde lo ultimo publicado no esta arriba deja de servir para lo que sirve.
 \preg_match('/^## \[([^\]]+)\]/m', $cambios, $primera);

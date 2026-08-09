@@ -137,7 +137,7 @@ No hay `vendor/`, ni nada que descargar.
 | [docs/guide/15-relaciones.md](docs/guide/15-relaciones.md) | JOIN y subconsultas |
 | [docs/guide/16-salud.md](docs/guide/16-salud.md) | Saber que esta pasando: describir y revision |
 | [docs/guide/17-perfiles.md](docs/guide/17-perfiles.md) | Perfiles: core, docs y ai |
-| [examples/](examples/) | Una cristaleria, un blog, y la misma cristaleria en web |
+| [examples/](examples/) | Un almacen, una plantilla, unos pedidos y el puente HTTP |
 
 Con Composer, si lo prefieres:
 
@@ -151,11 +151,11 @@ Pero no hace falta, y ese es el punto.
 
 ## Estado
 
-**Version 0.6.0.** El 0 va en serio: la API todavia puede cambiar. Al llegar a
+**Version 0.6.1.** El 0 va en serio: la API todavia puede cambiar. Al llegar a
 1.0.0 dejara de poder hacerlo sin subir el numero mayor. Preferimos decirlo asi a
 poner un 1.0 y romperlo en la siguiente version.
 
-52 archivos de test y mas de 2.500 comprobaciones, en verde sobre PHP 8.1, 8.2,
+51 archivos de test y mas de 2.500 comprobaciones, en verde sobre PHP 8.1, 8.2,
 8.3 y 8.4, en Linux y en Windows.
 
 Lo que si esta asentado son las garantias de datos: escritura atomica,

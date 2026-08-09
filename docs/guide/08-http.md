@@ -26,8 +26,8 @@ Y en la pagina:
 ```
 
 Eso es todo. Hay un ejemplo completo y funcionando en
-[../../examples/cristaleria-web/](../../examples/cristaleria-web/): una pantalla
-de clientes y presupuestos con **cuatro lineas de PHP** en total.
+[../../examples/04-puente-http/](../../examples/04-puente-http/): un servidor de
+**cuatro lineas de PHP** y un cliente que no sabe donde estan los datos.
 
 ---
 

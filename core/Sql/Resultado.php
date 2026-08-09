@@ -73,10 +73,25 @@ final class Resultado
             $origen = ($grupo['documentos'][0] ?? []) ;
             $origen = $grupo['clave'] + $origen;
 
-            if (isset($ast['having']) && !Evaluator::matches($origen, $ast['having'], $grupo['valores'])) {
+            /*
+             * El HAVING se evalua sobre la fila ya proyectada, no solo sobre el
+             * documento: asi ve los alias del SELECT.
+             *
+             *   SELECT depto, SUM(salario) AS coste ... HAVING coste > 60000
+             *
+             * Antes eso devolvia cero filas, en silencio y sin error, porque
+             * `coste` no es un campo de ningun documento. Y el mismo alias si
+             * funcionaba en ORDER BY, que ordena sobre la fila proyectada: el
+             * motor se contradecia consigo mismo segun donde escribieras el
+             * nombre. Se resuelve igual que en MySQL y SQLite —primero el alias,
+             * despues el campo— y por eso la fila va delante en la suma.
+             */
+            $fila = self::proyectar($origen, $ast['fields'] ?? ['*'], $grupo['valores']);
+
+            if (isset($ast['having']) && !Evaluator::matches($fila + $origen, $ast['having'], $grupo['valores'])) {
                 continue;
             }
-            $pares[] = [self::proyectar($origen, $ast['fields'] ?? ['*'], $grupo['valores']), $origen];
+            $pares[] = [$fila, $origen];
         }
         return $pares;
     }

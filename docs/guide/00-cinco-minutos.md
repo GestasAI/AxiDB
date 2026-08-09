@@ -223,7 +223,8 @@ Y entonces basta con `$db = axidb();`.
 
 ## Ejemplos completos
 
-- [`examples/cristaleria/`](../../examples/cristaleria/) — clientes, presupuestos, metros cuadrados
-- [`examples/blog/`](../../examples/blog/) — entradas, categorias, comentarios
+- [`examples/01-almacen/`](../../examples/01-almacen/) — articulos, existencias, valor del inventario
+- [`examples/02-empleados/`](../../examples/02-empleados/) — plantilla, departamentos, medias por grupo
+- [`examples/03-pedidos/`](../../examples/03-pedidos/) — cabeceras, lineas y una transaccion
 
 Dos dominios sin nada en comun, el mismo motor, cero cambios en el nucleo.

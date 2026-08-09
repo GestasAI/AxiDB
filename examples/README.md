@@ -1,29 +1,27 @@
 # Ejemplos de AxiDB
 
-Dos aplicaciones de dominios que no tienen nada que ver entre si, sobre el mismo
-motor y sin una sola modificacion en `core/`. Esa es toda la demostracion.
+Cuatro programas que se ejecutan y enseñan lo que hace el motor. Tres son de
+consola y uno levanta el puente HTTP.
 
 ```bash
-php examples/cristaleria/index.php
-php examples/blog/index.php
+php examples/01-almacen/index.php
+php examples/02-empleados/index.php
+php examples/03-pedidos/index.php
 ```
 
-| Ejemplo | Dominio | Que enseña |
+| Ejemplo | Datos | Que enseña |
 |---|---|---|
-| [`cristaleria/`](cristaleria/) | clientes, presupuestos, medidas | CRUD completo, dos indices, consultas encadenadas, proyeccion, totales |
-| [`blog/`](blog/) | entradas, categorias, comentarios | Relacion entre colecciones, portada ordenada, busqueda por texto |
-| [`cristaleria-web/`](cristaleria-web/) | la misma cristaleria, con pantalla | El puente HTTP y `axi.js`: la aplicacion entera con **cuatro lineas de PHP** |
-
-El de la cristaleria esta a proposito dos veces, en PHP y en navegador: son el
-mismo dominio resuelto por los dos caminos que ofrece AxiDB, y compararlos dice
-mas que cualquier explicacion.
+| [`01-almacen/`](01-almacen/) | articulos y movimientos | Altas, indices, `UNIQUE`, consultas encadenadas y agregados con `GROUP BY` |
+| [`02-empleados/`](02-empleados/) | empleados y departamentos | Esquema obligatorio, `JOIN` entre colecciones, medias por grupo y `HAVING` |
+| [`03-pedidos/`](03-pedidos/) | clientes, pedidos y lineas | Transacciones todo-o-nada, `LEFT JOIN` y subconsultas `IN (SELECT ...)` |
+| [`04-puente-http/`](04-puente-http/) | lecturas de sensores | La base de datos desde otro proceso, por HTTP, sin escribir backend |
 
 Cada uno crea su propio directorio `datos/` al ejecutarse y lo deja limpio al
-empezar, asi que puedes lanzarlos las veces que quieras.
+empezar, asi que se pueden lanzar las veces que haga falta.
 
 ## Lo que hay que mirar
 
-Las dos primeras lineas de `cristaleria/index.php`:
+Las dos primeras lineas de cualquiera de ellos:
 
 ```php
 require __DIR__ . '/../../core/axidb.php';
@@ -33,8 +31,8 @@ $db = axidb(__DIR__ . '/datos');
 No hay mas instalacion. Ni configuracion, ni esquema que declarar, ni servidor
 que arrancar, ni `composer install`.
 
-Y en `blog/index.php`, exactamente las mismas dos lineas para un dominio
-completamente distinto.
+Y son las mismas dos lineas en los tres, para tres conjuntos de datos que no
+tienen nada que ver entre si. El nucleo no sabe que existe un albaran.
 
 ## Empezar el tuyo
 

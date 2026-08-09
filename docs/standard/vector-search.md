@@ -1,8 +1,7 @@
 # AxiDB — Especificacion de busqueda vectorial
 
-Estado: propuesta de diseño. No implementado.
-Fecha: 8 de agosto de 2026
-Requisito previo: olas S1 y S2 de [`docs/EVALUACION-2026-08.md`](../EVALUACION-2026-08.md).
+Estado: implementado desde la version 0.4.0. Esta pagina describe como funciona
+por dentro; para usarlo, la guia es [09-vectores](../guide/09-vectores.md).
 
 ---
 
@@ -117,8 +116,8 @@ Rango de operacion recomendado:
 | 50.000 - 200.000 | 95-400 ms | Viable con particionado y cache APCu |
 | > 200.000 | > 400 ms | Fuera de alcance. Hace falta un indice HNSW o un motor dedicado |
 
-Para contexto: un restaurante con 300 platos usa 300 vectores. Los 50.000 son
-toda la plataforma MyLocal con miles de locales indexados a la vez.
+Para contexto: un catalogo de 300 articulos usa 300 vectores. Los 50.000 son un
+sistema entero, con miles de fichas indexadas a la vez.
 
 ---
 

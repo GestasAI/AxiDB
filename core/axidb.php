@@ -22,7 +22,7 @@ declare(strict_types=1);
 
 if (!\defined('AXIDB_CORE')) {
     \define('AXIDB_CORE', __DIR__);
-    \define('AXIDB_VERSION', '0.6.0');
+    \define('AXIDB_VERSION', '0.6.1');
 
     \spl_autoload_register(static function (string $class): void {
         if (!\str_starts_with($class, 'Axi\\Core\\')) {

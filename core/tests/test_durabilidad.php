@@ -1,10 +1,10 @@
 <?php
 /**
- * AxiDB - test de durabilidad. Cubre el fallo F1.
+ * AxiDB - test de durabilidad: que un corte no se lleve un documento por delante.
  *
- * F1 (en spa/server/lib.php): data_put() hace ftruncate(0) y luego fwrite().
- * Si el proceso muere en medio, el documento queda vacio o a medias y
- * data_get() devuelve null: el dato desaparece.
+ * El patron ingenuo trunca el archivo y luego escribe encima. Si el proceso
+ * muere en medio, el documento queda vacio o a medias y al leerlo devuelve null:
+ * el dato ha desaparecido, sin un solo error por ninguna parte.
  *
  * Core\Storage escribe en un temporal y hace rename(), que es atomico. Un
  * lector ve el contenido viejo o el nuevo, nunca uno a medias.
@@ -97,14 +97,16 @@ eq('tras el barrido no queda ningun temporal', 0,
 section('D] Lectura simultanea a la escritura: el documento roto en vivo');
 
 /*
- * Este es el escenario real y determinista de F1, y no requiere matar a nadie:
- * en lib.php, data_put() trunca el archivo bajo LOCK_EX, pero data_get() hace
- * file_get_contents SIN pedir el lock. Un lector que llega mientras el escritor
- * esta entre ftruncate() y fwrite() lee un archivo vacio o a medias, y
- * json_decode devuelve null: para la aplicacion, el documento no existe.
+ * El escenario que no necesita matar a nadie para romperse.
  *
- * Traducido a MyLocal: un cliente carga la carta por QR justo cuando el
- * hostelero guarda un plato, y el plato no aparece.
+ * El patron ingenuo —el que escribe casi todo el mundo— trunca el archivo bajo
+ * LOCK_EX y luego escribe encima, mientras el lector hace file_get_contents SIN
+ * pedir el cerrojo. Quien llega entre el truncado y la escritura lee un archivo
+ * vacio o a medias, `json_decode` devuelve null y, para la aplicacion, el
+ * documento ha dejado de existir. Sin errores, sin avisos: simplemente no esta.
+ *
+ * Es el fallo que aparece un dia sin explicacion y no se reproduce nunca cuando
+ * lo buscas, porque solo pasa si dos procesos coinciden en unos microsegundos.
  *
  * Con tmp+rename no hay ventana: el destino siempre contiene un documento
  * completo, el viejo o el nuevo.
@@ -117,8 +119,26 @@ function lecturasRotas(string $dir, string $modo, int $intentos): array
     $leidas = 0;
     $rotas  = 0;
     $vacias = 0;
-    $limite = \microtime(true) + 3.0;
-    while ($leidas < $intentos && \microtime(true) < $limite) {
+
+    /*
+     * Se para por muestras, no por reloj.
+     *
+     * Antes eran tres segundos y ya. En esta maquina daban 106 lecturas con el
+     * patron viejo, contra un minimo exigido de 100: al filo. Con la maquina
+     * cargada bajaba de 100 y el test se ponia rojo diciendo "no llego a leer
+     * durante la escritura", que no es un fallo del motor sino de la prueba,
+     * que no habia tenido tiempo de mirar.
+     *
+     * Ahora sigue hasta reunir muestras suficientes. Los tres segundos quedan
+     * como lo normal, y el techo duro esta para que una maquina imposible no
+     * cuelgue la suite.
+     */
+    $suficientes = 300;
+    $blando      = \microtime(true) + 3.0;
+    $duro        = \microtime(true) + 25.0;
+
+    while ($leidas < $intentos && \microtime(true) < $duro
+        && ($leidas < $suficientes || \microtime(true) < $blando)) {
         if (!\is_file($file)) {
             \usleep(200);
             continue;
@@ -148,7 +168,7 @@ $dir3 = tmpdir('durabilidad_lectura');
 \printf("    patron nuevo (tmp+rename):       %d lecturas, %d rotas -> %.1f%%\n",
     $leidasN, $rotasN, $leidasN > 0 ? $rotasN * 100 / $leidasN : 0);
 
-ok('la prueba llego a leer durante la escritura', $leidasV > 100 && $leidasN > 100);
+ok("la prueba reunio muestras suficientes: {$leidasV} y {$leidasN} lecturas", $leidasV >= 300 && $leidasN >= 300);
 ok("el patron viejo entrega documentos rotos al lector ({$rotasV} de {$leidasV})", $rotasV > 0);
 eq('el patron nuevo no entrega ni una lectura rota', 0, $rotasN);
 

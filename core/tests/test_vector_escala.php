@@ -30,14 +30,52 @@ $almacen = almacenNuevo($dir, DIMS);
 
 section('A] Indexar 50.000 vectores');
 
-$t = \microtime(true);
-sembrarVectores($almacen, CUANTOS, DIMS, true);
-$segundos = \microtime(true) - $t;
+/*
+ * Lo que se vigila: que el alta numero 49.000 cueste lo mismo que la 25.000.
+ *
+ * Habia un tope de 2 ms por vector y se puso rojo con 2,06 y con 2,15 en una
+ * maquina cargada, sin que nadie hubiera tocado el indexado. Un numero absoluto
+ * mide el ordenador; lo que es del motor es que el coste por alta no crezca con
+ * el tamaño de la coleccion. Si algun dia el indexado pasara a reescribir el
+ * archivo entero en cada alta —el error clasico— el ultimo bloque se disparara
+ * frente al anterior en cualquier maquina.
+ *
+ * Los dos bloques se toman en regimen, y esto importa: el primer intento
+ * comparaba el primer millar contra el ultimo y daba x4,77, con el test en rojo
+ * y el motor intacto. Los primeros miles caben en la cache del sistema. Medido
+ * de fuera, indexando desde cero cada vez:
+ *
+ *   5.000 vectores -> 0,751 ms cada uno    (todavia en cache)
+ *  10.000 vectores -> 2,054 ms cada uno
+ *  20.000 vectores -> 2,026 ms cada uno
+ *  40.000 vectores -> 2,068 ms cada uno
+ *
+ * Plano a partir de los diez mil. Asi que se calienta hasta bien pasado eso y se
+ * comparan dos millares separados por veinticuatro mil altas.
+ */
+$bloque   = 1000;
+$calentar = 24000;
 
-\printf("    %d vectores en %.1f s (%.2f ms cada uno)\n", CUANTOS, $segundos, $segundos * 1000 / CUANTOS);
+sembrarVectores($almacen, $calentar, DIMS, true, 'w');
+
+$t = \microtime(true);
+sembrarVectores($almacen, $bloque, DIMS, true, 'a');
+$msPrimeros = (\microtime(true) - $t) * 1000 / $bloque;
+
+sembrarVectores($almacen, CUANTOS - $calentar - (2 * $bloque), DIMS, true, 'b');
+
+$t = \microtime(true);
+sembrarVectores($almacen, $bloque, DIMS, true, 'c');
+$msUltimos = (\microtime(true) - $t) * 1000 / $bloque;
+
 eq('estan los 50.000', CUANTOS, $almacen->manifiesto()->cuenta);
-ok(\sprintf('indexar cuesta menos de 2 ms por vector: %.2f ms', $segundos * 1000 / CUANTOS),
-    $segundos * 1000 / CUANTOS < 2.0);
+
+$degrada = $msUltimos / \max($msPrimeros, 0.0001);
+\printf("    el millar 25.000: %.2f ms por vector | el ultimo: %.2f ms | x%.2f\n",
+    $msPrimeros, $msUltimos, $degrada);
+
+ok(\sprintf('indexar no se encarece segun crece la coleccion: x%.2f entre el millar 25.000 y el ultimo', $degrada),
+    $degrada < 2.0);
 
 $mbDisco = (\filesize($dir . '/vectores.f32') + \filesize($dir . '/codigos.bin')
           + \filesize($dir . '/ids.bin')) / 1048576;
