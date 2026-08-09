@@ -626,7 +626,9 @@ coexiste como un transport alternativo que tunela al mismo storage.
    soportada via `Op\System\LegacyAction`.
 3. Opcionalmente, mover handlers privativos a Ops formales.
 
-Ver [`docs/standard/migration-socola.md`](docs/standard/migration-socola.md).
+La guia `docs/standard/migration-socola.md` que se citaba aqui describia la
+migracion desde el motor anterior y dejo de entregarse cuando ese motor se
+retiro. Se conserva junto a el, fuera del paquete.
 
 ### Excluded from v1.0 (planned for P2)
 

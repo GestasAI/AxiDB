@@ -108,5 +108,5 @@ $db = new Axi\Sdk\Php\Client('http://mi-host/axidb/api/axi.php', 'bearer-token')
 
 - [`../portfolio/`](../portfolio/) — plantilla mas minimal (un solo archivo).
 - [`../remote-client/`](../remote-client/) — mismo flujo via HTTP.
-- [`../../docs/guide/01-quickstart.md`](../../docs/guide/01-quickstart.md).
-- [`../../docs/guide/03-axisql.md`](../../docs/guide/03-axisql.md) — sintaxis AxiSQL.
+- [`../../docs/guide/00-cinco-minutos.md`](../../docs/guide/00-cinco-minutos.md).
+- [`../../docs/guide/14-axisql.md`](../../docs/guide/14-axisql.md) — sintaxis AxiSQL.

@@ -1,0 +1,85 @@
+name: Publicar la documentacion como web
+
+# Esto NO se dispara solo, y es a proposito.
+#
+# Vivia en el repositorio de MyLocal, disparandose en cada push que tocara la
+# documentacion, y fallaba desde abril sin haber desplegado nunca nada. Falla
+# por dos motivos distintos:
+#
+#   1. Copiaba una lista de carpetas escrita a mano —guide, standard, api,
+#      demos— y api/ y demos/ dejaron de existir. Arreglado abajo: ahora se
+#      recorre lo que hay.
+#   2. GitHub Pages no esta habilitado, porque este repositorio es privado por
+#      decision de su dueño. Eso no se arregla con codigo.
+#
+# Publicar es una decision, no un efecto secundario de hacer push. Asi que se
+# ejecuta solo cuando alguien lo pide desde la pestaña Actions. Para que
+# funcione hay que habilitar antes Pages en Settings, y eso deja la
+# documentacion accesible en internet aunque el repositorio siga siendo privado.
+#
+# Que la documentacion no se pudra NO depende de este archivo: de eso se ocupa
+# test_readme.php, que ejecuta los ejemplos de cada guia y comprueba que los 63
+# enlaces internos llevan a algo que existe. Corre en el gate local y en los
+# ocho entornos de la CI, no solo al publicar.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages:    write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Montar el sitio en _site/
+        run: |
+          mkdir -p _site
+          cp README.md    _site/index.md
+          cp CHANGELOG.md _site/CHANGELOG.md
+
+          # Las carpetas se descubren, no se enumeran: una lista escrita a mano
+          # solo publica lo que alguien se acordo de actualizar.
+          #
+          # Solo carpetas, tambien a proposito: los .md sueltos de docs/ son
+          # notas internas —evaluacion, viabilidad— y no son parte del sitio.
+          for carpeta in docs/*/; do
+            cp -r "$carpeta" "_site/$(basename "$carpeta")"
+          done
+
+          # Las rutas relativas se aplanan: docs/guide/x.md -> /guide/x.md
+          find _site -name "*.md" -exec sed -i 's|\.\./standard/|/standard/|g; s|\.\./guide/|/guide/|g' {} +
+
+          cat > _site/_config.yml <<'YAML'
+          title: AxiDB
+          description: Motor de base de datos sobre ficheros para PHP 8.1+
+          theme: minima
+          markdown: GFM
+          plugins:
+            - jekyll-relative-links
+          relative_links:
+            enabled: true
+            collections: true
+          YAML
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -189,5 +189,50 @@ foreach ($anunciados as $op) {
 eq('IS NULL anunciado y funcionando',     1, \count($db->find('c')->where('otro', 'IS NULL')->get()));
 eq('IS NOT NULL anunciado y funcionando', 1, \count($db->find('c')->where('n', 'IS NOT NULL')->get()));
 
+/* ─────────────────────────────────────────────────────────────────────────── */
+section('E] Ningun enlace de la documentacion apunta al vacio');
+
+/*
+ * El despliegue de la web se rompio copiando docs/api, que habia dejado de
+ * existir al reordenar la documentacion. Los enlaces dentro de los textos se
+ * pudren igual, y de esos no avisa nadie: se descubren cuando un lector hace
+ * clic y llega a una pagina que no esta. Habia tres asi.
+ *
+ * Comprobarlo en el despliegue solo lo miraria al publicar. Aqui se mira en el
+ * gate, antes de commitear, y en los ocho entornos de la CI.
+ *
+ * Fuera quedan _archivo/ —que no se entrega con el producto— y los datos que
+ * los ejemplos escriben al ejecutarse.
+ */
+$rotos   = 0;
+$mirados = 0;
+$paseo   = new \RecursiveIteratorIterator(
+    new \RecursiveDirectoryIterator($raiz, \FilesystemIterator::SKIP_DOTS)
+);
+foreach ($paseo as $archivo) {
+    $ruta = \str_replace('\\', '/', $archivo->getPathname());
+    if (!\str_ends_with($ruta, '.md')) {
+        continue;
+    }
+    foreach (['/_archivo/', '/datos/', '/.git/', '/vendor/'] as $fuera) {
+        if (\str_contains($ruta, $fuera)) {
+            continue 2;
+        }
+    }
+    \preg_match_all('/\]\(([^)]+)\)/', (string) \file_get_contents($ruta), $m);
+    foreach ($m[1] as $destino) {
+        $destino = \explode('#', $destino)[0];
+        if ($destino === '' || \preg_match('#^(https?:|mailto:)#', $destino) === 1) {
+            continue;
+        }
+        $mirados++;
+        if (!\file_exists(\dirname($ruta) . '/' . $destino)) {
+            ok('enlace roto en ' . \substr($ruta, \strlen($raiz) + 1) . ' -> ' . $destino, false);
+            $rotos++;
+        }
+    }
+}
+ok("los {$mirados} enlaces internos de la documentacion llevan a algo que existe", $rotos === 0);
+
 rmrf($tmp);
 summary();
