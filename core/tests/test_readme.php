@@ -226,8 +226,12 @@ foreach ($paseo as $archivo) {
             continue;
         }
         $mirados++;
-        if (!\file_exists(\dirname($ruta) . '/' . $destino)) {
-            ok('enlace roto en ' . \substr($ruta, \strlen($raiz) + 1) . ' -> ' . $destino, false);
+        $apunta = \realpath(\dirname($ruta) . '/' . $destino);
+        $dentro = $apunta !== false
+            && \str_starts_with(\str_replace('\\', '/', $apunta) . '/', \str_replace('\\', '/', (string) \realpath($raiz)) . '/');
+        if (!$dentro) {
+            $porque = $apunta === false ? 'no existe' : 'se sale del paquete';
+            ok('enlace roto en ' . \substr($ruta, \strlen($raiz) + 1) . ' -> ' . $destino . " ({$porque})", false);
             $rotos++;
         }
     }

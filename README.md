@@ -80,9 +80,10 @@ Conviene decirlo antes que las virtudes:
   actualizacion perdida. Lo que no hay es aislamiento: mientras se aplican los
   cambios, unos milisegundos, otro proceso que lea puede ver la mitad. Eso
   necesita MVCC, que es otro motor.
-- **Si necesitas subconsultas correlacionadas.** Hay `JOIN`, `LEFT JOIN` e
-  `IN (SELECT ...)`, pero no una subconsulta que mire el documento de fuera:
-  obligaria a una consulta completa por documento.
+- **Si necesitas subconsultas correlacionadas.** Hay `JOIN`, `LEFT JOIN`,
+  `IN (SELECT ...)` y `EXISTS (SELECT ...)`, pero no una subconsulta que mire el
+  documento de fuera —`WHERE EXISTS (SELECT ... WHERE lineas.pedido = pedidos.id)`—:
+  obligaria a una consulta completa por cada documento.
 - **Si necesitas el maximo rendimiento bruto.** SQLite escribe unas 17 veces mas
   rapido. Los numeros estan mas abajo, sin maquillar.
 - **Si vas a tener decenas de millones de documentos.** Esto es un motor de

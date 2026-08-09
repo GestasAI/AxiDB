@@ -250,9 +250,10 @@ No es rehacer nada. Es **extraer y generalizar**:
 | 7 | Cambiar las llamadas de MyLocal de `data_put()` a `$db->put()` |
 | 8 | Archivar `axidb/engine/` (el motor viejo: CMS, temas, Gmail, Three.js) |
 
-Los pasos 1 a 4 son los mismos que el plan de
-[`claude/planes/endurecimiento-datos.md`](../../claude/planes/endurecimiento-datos.md),
-solo que escribiendo el resultado en `axidb/` en vez de en `lib.php`.
+Los pasos 1 a 4 son los mismos que el plan de endurecimiento de datos de la
+aplicacion que uso AxiDB primero —un documento interno de ese proyecto, que no
+se entrega aqui—, solo que escribiendo el resultado en `axidb/` en vez de en
+`lib.php`.
 
 **El trabajo urgente y el trabajo del producto son el mismo trabajo.**
 
