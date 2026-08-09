@@ -47,14 +47,22 @@ datos/
 | | |
 |---|---|
 | **CRUD** | `insert`, `get`, `update`, `delete`, `all`, `count` |
-| **Consultas** | `where / orderBy / limit / offset / select`, encadenadas |
+| **Consultas** | `where / orderBy / limit / offset / select / join`, encadenadas |
 | **Indices** | por cualquier campo; se usan solos cuando la consulta encaja |
-| **AxiSQL** | `SELECT`, `INSERT`, `UPDATE`, `DELETE`, indices y `EXPLAIN` |
+| **AxiSQL** | `SELECT` con `JOIN`, agregados, `GROUP BY`, funciones de fecha y texto, subconsultas, `ALTER`, `SHOW`, `DESCRIBE`, vistas y `EXPLAIN` |
+| **Transacciones** | entre colecciones, atomicas tambien tras un corte de luz |
+| **Integridad** | `UNIQUE` que se cumple, esquema opcional, caducidad de documentos |
+| **Copias** | completas e incrementales, restauracion comprobada, JSON y CSV |
 | **Dos formatos** | `fs` legible archivo a archivo, o `packed` unas 40 veces mas rapido escribiendo |
 | **Puente HTTP** | la base de datos desde el navegador, con tokens y CORS |
 | **Cliente JavaScript** | `axi.js`, un modulo ES sin dependencias ni empaquetador |
 | **Busqueda por significado** | vectores con criba binaria: 45 ms sobre 10.000 documentos, 6 MB de memoria |
 | **Agentes** | una vista de la base de datos con permisos, rastro de todo y boton de parada |
+| **Cifrado** | AES-256-GCM por coleccion. Lo unico que necesita `openssl` |
+| **Operacion** | describir, estadisticas y una revision con avisos que dicen que hacer |
+| **Perfiles** | `core`, `docs` o `ai`: declara para que es esta base y el motor lo hace cumplir |
+
+Todo con **cero dependencias** y solo la extension `json` de PHP.
 
 Escritura atomica siempre, `fsync` opcional, y bloqueo para que varios procesos
 escriban a la vez sin pisarse. Eso no es una caracteristica: es el minimo para
@@ -82,27 +90,6 @@ Conviene decirlo antes que las virtudes:
 
 Para una web, una tienda pequeña, un panel interno, un blog o el estado de un
 agente de IA, encaja bien. Para el sistema de una aerolinea, no.
-
-## Lo que si hace
-
-```
-documentos     CRUD, indices secundarios, consultas encadenables
-AxiSQL         SELECT/INSERT/UPDATE/DELETE, JOIN, agregados, GROUP BY,
-               funciones de fecha y texto, ALTER, SHOW, DESCRIBE, vistas
-integridad     transacciones entre colecciones, UNIQUE que se cumple,
-               esquema opcional, caducidad de documentos
-respaldo       copias completas e incrementales, restauracion comprobada,
-               exportar e importar JSON y CSV
-IA             busqueda vectorial con tres modos de precision, agentes con
-               permisos y rastro
-seguridad      cifrado AES-256-GCM por coleccion, puente HTTP con tokens
-operacion      describir, estadisticas y una revision con avisos accionables
-```
-
-Todo eso con **cero dependencias** y solo la extension `json` de PHP. El cifrado
-es la unica excepcion y necesita `openssl`; se dice al usarlo.
-
----
 
 ## Rendimiento, sin maquillar
 
@@ -148,6 +135,7 @@ No hay `vendor/`, ni nada que descargar.
 | [docs/guide/14-axisql.md](docs/guide/14-axisql.md) | AxiSQL completo: agregados, funciones, ALTER |
 | [docs/guide/15-relaciones.md](docs/guide/15-relaciones.md) | JOIN y subconsultas |
 | [docs/guide/16-salud.md](docs/guide/16-salud.md) | Saber que esta pasando: describir y revision |
+| [docs/guide/17-perfiles.md](docs/guide/17-perfiles.md) | Perfiles: core, docs y ai |
 | [examples/](examples/) | Una cristaleria, un blog, y la misma cristaleria en web |
 
 Con Composer, si lo prefieres:
@@ -162,9 +150,12 @@ Pero no hace falta, y ese es el punto.
 
 ## Estado
 
-**Version 0.2.0.** El 0 va en serio: la API todavia puede cambiar. Al llegar a
+**Version 0.6.0.** El 0 va en serio: la API todavia puede cambiar. Al llegar a
 1.0.0 dejara de poder hacerlo sin subir el numero mayor. Preferimos decirlo asi a
 poner un 1.0 y romperlo en la siguiente version.
+
+52 archivos de test y mas de 2.500 comprobaciones, en verde sobre PHP 8.1, 8.2,
+8.3 y 8.4, en Linux y en Windows.
 
 Lo que si esta asentado son las garantias de datos: escritura atomica,
 concurrencia y durabilidad tienen tests que los demuestran matando el proceso, no

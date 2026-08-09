@@ -71,6 +71,21 @@ final class Buscador
      */
     private function candidatos(array $consulta, ?int $cuantos, array $vivos): array
     {
+        /*
+         * Si caben todos, no se criba.
+         *
+         * Con 150 documentos y 200 candidatos, la criba binaria no descarta a
+         * nadie: recorre los 150, ordena por distancia de Hamming y devuelve los
+         * 150. Es trabajo que no cambia el resultado. Saltarsela da el mismo
+         * conjunto, exacto por construccion, y mas rapido.
+         *
+         * Por eso una coleccion pequeña sale exacta sin que haya que pensarlo.
+         */
+        $vivosTotal = $this->almacen->manifiesto()->vivos();
+        if ($cuantos !== null && $cuantos >= $vivosTotal) {
+            $cuantos = null;
+        }
+
         if ($cuantos !== null) {
             return Codigos::masCercanos(
                 $this->almacen->codigos(),

@@ -65,8 +65,23 @@ final class Archivos
         return $this->dir . '/' . self::NOMBRES[$cual];
     }
 
+    /**
+     * Si el archivo existe. Con la cache de stat limpiada antes, por lo mismo
+     * que en `tamaño()`.
+     *
+     * PHP recuerda el resultado de mirar un archivo, y aqui se pregunta por
+     * archivos que se acaban de crear o de reemplazar: `escribirAtomico` escribe
+     * un temporal y lo renombra encima, y un `is_file` cacheado de antes puede
+     * seguir diciendo que no existe.
+     *
+     * Lo destapo un test que fallaba solo con la maquina cargada, y siempre en
+     * el mismo sitio: "esta coleccion no tiene vectores activados" sobre una que
+     * si los tenia. Un fallo intermitente que dependia de la cache del
+     * interprete, no de los datos.
+     */
     public function hay(string $cual): bool
     {
+        \clearstatcache(true, $this->ruta($cual));
         return \is_file($this->ruta($cual));
     }
 

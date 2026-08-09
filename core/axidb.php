@@ -9,7 +9,7 @@
  * alla de json, sin configuracion obligatoria.
  *
  * Configuracion opcional: si existe un axidb.json en el directorio de trabajo o
- * junto al nucleo, se leen de el 'data' y 'durable'.
+ * junto al nucleo, se leen de el 'data', 'durable', 'clave' y 'perfil'.
  *
  * Por que las funciones van dentro de un if y no tras un `return` de guardia:
  * PHP eleva las declaraciones de funcion de nivel superior en tiempo de
@@ -22,7 +22,7 @@ declare(strict_types=1);
 
 if (!\defined('AXIDB_CORE')) {
     \define('AXIDB_CORE', __DIR__);
-    \define('AXIDB_VERSION', '0.5.0');
+    \define('AXIDB_VERSION', '0.6.0');
 
     \spl_autoload_register(static function (string $class): void {
         if (!\str_starts_with($class, 'Axi\\Core\\')) {
@@ -42,7 +42,7 @@ if (!\function_exists('axidb')) {
      *
      * @param string|null $dataPath Directorio de datos. Si se omite, se resuelve
      *                              desde axidb.json y, en su defecto, './data'.
-     * @param array       $options  durable: bool. Sobrescribe lo del axidb.json.
+     * @param array       $options  durable, clave, perfil. Manda sobre el axidb.json.
      */
     function axidb(?string $dataPath = null, array $options = []): \Axi\Core\Db
     {
@@ -50,7 +50,17 @@ if (!\function_exists('axidb')) {
 
         $config    = axidb_config();
         $dataPath  = $dataPath ?? ($config['data'] ?? 'data');
+        /*
+         * Lo que se pasa aqui manda sobre el archivo: el axidb.json es para el
+         * despliegue y el argumento para dejarlo escrito en el codigo. Con `+=`
+         * la clave que ya viene no se pisa, que es justo ese orden.
+         */
         $options  += ['durable' => $config['durable'] ?? true];
+        foreach (['clave', 'perfil'] as $ajuste) {
+            if (isset($config[$ajuste])) {
+                $options += [$ajuste => $config[$ajuste]];
+            }
+        }
 
         $key = $dataPath . '|' . \json_encode($options);
         return $instances[$key] ??= new \Axi\Core\Db($dataPath, $options);

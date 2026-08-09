@@ -42,7 +42,8 @@ final class Query
         private Storage $storage,
         private Index $index,
         private string $collection,
-        private ?\Closure $fuente = null
+        private ?\Closure $fuente = null,
+        private ?Perfil $perfil = null
     ) {
     }
 
@@ -105,6 +106,8 @@ final class Query
      */
     public function join(string $coleccion, string $campoAqui, string $campoAlla, bool $izquierdo = false): self
     {
+        $this->perfil?->exigir('relaciones', 'join() y JOIN');
+
         $this->uniones[] = [
             'coleccion' => $coleccion,
             'alias'     => $coleccion,

@@ -34,6 +34,7 @@ trait ConTransacciones
      */
     public function abrir(): void
     {
+        $this->perfil()->exigir('transacciones', 'transaccion() y BEGIN');
         if ($this->abierta !== null) {
             throw new \Axi\Core\Exception('Tx: ya hay una transaccion abierta. AxiDB no las anida.');
         }

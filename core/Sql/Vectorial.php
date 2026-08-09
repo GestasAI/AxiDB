@@ -11,6 +11,17 @@
  * siempre y la busqueda por significado solo mira entre los que quedan. Al reves
  * habria que traer los mas parecidos de toda la coleccion y tirar la mayoria,
  * que ademas devolveria menos de los pedidos.
+ *
+ * Con una excepcion: una condicion sobre `parecido` no se puede aplicar antes,
+ * porque el parecido no existe hasta haber buscado. Esa se separa del resto y se
+ * usa como umbral despues:
+ *
+ *   SELECT titulo FROM articulos WHERE parecido > 0.8
+ *   ORDER BY EMBEDDING <-> 'pan de masa madre' LIMIT 20
+ *
+ * Sirve para lo que uno espera de una busqueda por significado: "damelos si se
+ * parecen de verdad, y si no, ninguno". Sin umbral, pedir 20 devuelve 20 aunque
+ * el ultimo no tenga nada que ver.
  */
 
 declare(strict_types=1);
@@ -28,9 +39,12 @@ final class Vectorial
     /** @return list<array>|array el resultado, o el plan si se pidio EXPLAIN */
     public function ejecutar(array $ast, bool $explicar): array
     {
-        $k      = (int) ($ast['limit'] ?? 10);
-        $filtro = $ast['where_expr'] !== null
-            ? $this->db->find($ast['collection'])->whereExpr($ast['where_expr'])
+        $k = (int) ($ast['limit'] ?? 10);
+
+        [$antes, $umbral] = Umbral::separar($ast['where_expr']);
+
+        $filtro = $antes !== null
+            ? $this->db->find($ast['collection'])->whereExpr($antes)
             : null;
 
         if ($explicar) {
@@ -40,6 +54,7 @@ final class Vectorial
                 'consulta'  => $ast['vector'],
                 'k'         => $k,
                 'prefiltro' => $filtro !== null ? $filtro->plan() : 'ninguno',
+                'umbral'    => $umbral === null ? 'ninguno' : Umbral::describir($umbral),
                 'como'      => 'criba binaria sobre todos, coseno exacto sobre los candidatos',
             ];
         }
@@ -47,6 +62,9 @@ final class Vectorial
         $campos = $ast['fields'] ?? ['*'];
         $salida = [];
         foreach ($this->db->similar($ast['collection'], (string) $ast['vector'], $k, $filtro) as $fila) {
+            if ($umbral !== null && !Umbral::pasa($fila['score'], $umbral)) {
+                continue;                       // los resultados vienen ordenados
+            }
             $salida[] = $this->proyectar($fila['doc'], $fila['score'], $campos);
         }
         return $salida;

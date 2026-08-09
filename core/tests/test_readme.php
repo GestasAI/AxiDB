@@ -17,20 +17,23 @@ require_once __DIR__ . '/_harness.php';
 use Axi\Core\Db;
 
 $raiz = \dirname(\dirname(__DIR__));          // axidb/
-$docs = [
-    'docs/guide/00-cinco-minutos.md',
-    'docs/guide/07-drivers.md',
-    'docs/guide/08-http.md',
-    'docs/guide/09-vectores.md',
-    'docs/guide/10-cifrado.md',
-    'docs/guide/11-transacciones.md',
-    'docs/guide/12-reglas.md',
-    'docs/guide/13-copias.md',
-    'docs/guide/14-axisql.md',
-    'docs/guide/15-relaciones.md',
-    'docs/guide/16-salud.md',
-    'examples/README.md',
-];
+/*
+ * Las guias se descubren solas, no se listan a mano.
+ *
+ * Antes iban en una lista escrita aqui, y bastaba con añadir una guia y no
+ * acordarse de apuntarla para que sus ejemplos no se ejecutaran nunca. Una guia
+ * sin comprobar es exactamente la que se queda desfasada, porque nada avisa.
+ *
+ * El README de las guias es un indice, no una guia: no lleva codigo.
+ */
+$docs = [];
+foreach (\glob($raiz . '/docs/guide/*.md') ?: [] as $guia) {
+    if (\basename($guia) !== 'README.md') {
+        $docs[] = 'docs/guide/' . \basename($guia);
+    }
+}
+\sort($docs, SORT_STRING);
+$docs[] = 'examples/README.md';
 
 $tmp = tmpdir('readme');
 

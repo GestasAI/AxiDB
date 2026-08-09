@@ -46,6 +46,36 @@ ok('y se revisa tambien el subpaquete Sql (' . \count($fuentes) . ' archivos)',
     \count(\array_filter(\array_keys($fuentes), static fn($f) => \str_starts_with($f, 'Sql/'))) >= 6);
 
 /* ─────────────────────────────────────────────────────────────────────────── */
+section('A0] Sin bytes de control en el codigo');
+
+/*
+ * Va lo PRIMERO, y no es capricho: solo lee texto, mientras que las secciones de
+ * mas abajo cargan clases. Un byte corrupto revienta el autoloader y mata el
+ * proceso antes de llegar aqui, asi que un guardian colocado al final no se
+ * ejecuta justo el dia que hace falta. Se descubrio probandolo.
+ *
+ * Un guardian barato contra un accidente que ha pasado muchas veces editando
+ * estos archivos con herramientas: `\trim` convertido en un tabulador seguido de
+ * `rim`, o `\array_map` en un 0x07 seguido de `rray_map`.
+ *
+ * Cuando rompe la sintaxis, PHP protesta —aunque señalando una linea que no es—.
+ * Lo peligroso es cuando NO la rompe: un 0x07 dentro de una cadena compila
+ * perfectamente y cambia el valor sin que nada avise.
+ *
+ * En este nucleo se sangra con espacios, asi que no hay ningun motivo para que
+ * un archivo lleve un tabulador, un retorno de carro ni una campana.
+ */
+$conBasura = [];
+foreach ($fuentes as $archivo => $codigo) {
+    if (\preg_match('/[\x00-\x08\x0B-\x0C\x0E-\x1F]/', $codigo, $m) === 1) {
+        $conBasura[] = $archivo . ' (0x' . \strtoupper(\dechex(\ord($m[0]))) . ')';
+    }
+}
+ok('ningun byte de control raro en el nucleo'
+    . ($conBasura === [] ? '' : ' -> ' . \implode(', ', \array_slice($conBasura, 0, 5))),
+    $conBasura === []);
+
+/* ─────────────────────────────────────────────────────────────────────────── */
 section('A] Cero dominio de MyLocal en el nucleo');
 
 $prohibidas = [
@@ -225,6 +255,73 @@ ok("composer.json sigue pidiendo >={$minimo}",
         (string) @\file_get_contents(\dirname(AXIDB_CORE) . '/composer.json'),
         '">=' . $minimo . '"'
     ));
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+section('H] Los tipos declarados apuntan a clases que existen');
+
+/*
+ * Esto nace de haberlo hecho mal dos veces el mismo dia.
+ *
+ * Un metodo declarado dentro de un trait resuelve sus tipos en el espacio de
+ * nombres DEL TRAIT, no en el de la clase que lo usa. Poner `: Index` dentro de
+ * `Axi\Core\Fachada\ConIndices` sin importarlo apunta a
+ * `Axi\Core\Fachada\Index`, que no existe.
+ *
+ * Y `php -l` no lo ve, porque es sintacticamente correcto. Solo revienta al
+ * llamar al metodo. Si ese metodo no tiene test, se publica roto.
+ *
+ * Se comprueba con reflexion sobre todas las clases del nucleo: parametros y
+ * retornos, publicos y privados.
+ */
+$sinResolver = [];
+foreach ($fuentes as $archivo => $codigo) {
+    if (\preg_match('/^\s*(?:final\s+)?class\s+(\w+)/m', $codigo, $m) !== 1) {
+        continue;                               // traits e interfaces se ven via su clase
+    }
+    if (\preg_match('/^namespace\s+([^;]+);/m', $codigo, $ns) !== 1) {
+        continue;
+    }
+    $clase = \trim($ns[1]) . '\\' . $m[1];
+    if (!\class_exists($clase)) {
+        continue;
+    }
+    $r = new \ReflectionClass($clase);
+    foreach ($r->getMethods() as $metodo) {
+        $tipos = [];
+        if ($metodo->getReturnType() !== null) {
+            $tipos[] = $metodo->getReturnType();
+        }
+        foreach ($metodo->getParameters() as $param) {
+            if ($param->getType() !== null) {
+                $tipos[] = $param->getType();
+            }
+        }
+        foreach ($tipos as $tipo) {
+            $partes = $tipo instanceof \ReflectionNamedType
+                ? [$tipo]
+                : (\method_exists($tipo, 'getTypes') ? $tipo->getTypes() : []);
+
+            foreach ($partes as $parte) {
+                if (!$parte instanceof \ReflectionNamedType || $parte->isBuiltin()) {
+                    continue;
+                }
+                $nombre = $parte->getName();
+
+                // `self`, `static` y `parent` son relativos a la clase y no hay
+                // nada que resolver: no son un nombre que pueda estar mal.
+                if (\in_array($nombre, ['self', 'static', 'parent'], true)) {
+                    continue;
+                }
+                if (!\class_exists($nombre) && !\interface_exists($nombre)) {
+                    $sinResolver[] = "{$archivo} {$metodo->getName()}(): {$nombre}";
+                }
+            }
+        }
+    }
+}
+ok('ningun tipo apunta a una clase inexistente'
+    . ($sinResolver === [] ? '' : ' -> ' . \implode(' | ', \array_slice($sinResolver, 0, 5))),
+    $sinResolver === []);
 
 rmrf($tmp);
 summary();

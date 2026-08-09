@@ -11,6 +11,89 @@ romperlo en la version siguiente.
 
 ---
 
+## [0.6.0] — 2026-08-09
+
+Perfiles: declarar para que es esta base de datos.
+
+### Añadido
+
+- **Tres perfiles: `core`, `docs` y `ai`.** Guia:
+  [17-perfiles](docs/guide/17-perfiles.md).
+
+  ```php
+  $db = new Axi\Core\Db('./datos', ['perfil' => 'core']);
+  ```
+
+  Acumulativos, y sin declarar ninguno esta todo disponible: una instalacion que
+  actualiza no puede empezar a fallar por una funcion que ya usaba.
+
+  Un perfil **no carga menos codigo** —el autoloader ya es perezoso, asi que eso
+  seria teatro— sino que reduce la superficie que hay que aprender y avisa
+  cuando el proyecto se sale de lo que dijo ser. El error trae las tres cosas
+  para resolverlo sin buscar nada: que se ha intentado, en que perfil vive y la
+  linea exacta que hay que cambiar.
+
+  Cambiar de perfil es cambiar una linea. Hay un test que lleva un blog a tienda
+  y luego a busqueda por significado comprobando en cada salto que los datos
+  siguen intactos.
+
+  El plan listaba tambien "colas" en el perfil `docs`. **No existen**, y por eso
+  no estan en la tabla.
+- `axidb.json` acepta `perfil` y `clave`, ademas de `data` y `durable`.
+
+### Corregido
+
+- **Un `is_file` cacheado hacia creer que una coleccion no tenia vectores.**
+  `Archivos::tamaño()` limpiaba la cache de stat de PHP —con un comentario que
+  explicaba por que— y `Archivos::hay()` no. Y `hay()` es justo lo que decide si
+  una coleccion tiene vectores activados.
+
+  Solo fallaba con la maquina cargada, y siempre igual: "esta coleccion no tiene
+  vectores activados" sobre una que si los tenia. Lo caza el gate, no la suite
+  suelta: cinco ejecuciones seguidas del test en verde y la sexta, bajo carga, en
+  rojo. Un fallo que depende de la cache del interprete y no de los datos.
+- **`similar()` no estaba protegido por el perfil.** Solo lo estaba `vectores()`,
+  la activacion: con perfil `core` se podia seguir buscando por significado. Lo
+  destapo probar el camino de vuelta —abrir con `core` una base montada en `ai`—,
+  que era el que faltaba por probar. Ahora estan protegidas las cuatro puertas:
+  `vectores()`, `similar()`, `vectorial()` y `hibrida()`, mas `agente()`.
+- **Activar vectores sobre una coleccion con documentos no indexaba los que ya
+  habia.** Solo entraban los escritos despues: `similar()` no encontraba los
+  anteriores y no habia ningun error que lo dijera. El mismo fallo silencioso
+  que tuvo `cifrar()`. Ahora se indexan al activar, y reactivar reindexa, que es
+  tambien la forma de reparar un indice vectorial incompleto.
+- **Las constantes en traits son de PHP 8.2** y aqui se soporta desde 8.1. En la
+  maquina de desarrollo hay 8.2, asi que compilaba sin decir nada; el motor no
+  arrancaba en 8.1. Lo caza la CI, que corre las cuatro versiones.
+
+### Tests que evitan repetir errores
+
+- Las guias se descubren solas en `test_readme`, ya no van en una lista escrita a
+  mano: añadir una guia y olvidarse de apuntarla dejaba sus ejemplos sin ejecutar,
+  y una guia sin comprobar es justo la que se queda desfasada.
+- **Ningun byte de control en el nucleo.** Un `	rim` convertido en tabulador o un
+  `rray_map` en 0x07 al editar con herramientas. Cuando rompe la sintaxis, PHP
+  protesta; lo peligroso es cuando no la rompe, porque cambia una cadena en
+  silencio. Va lo primero del test: colocado al final no se ejecutaba, porque el
+  byte corrupto mata el autoloader antes de llegar.
+- Bajar de perfil tiene su propia seccion: los datos siguen, **lo ya declarado se
+  sigue cumpliendo** —apagar la unicidad al bajar de perfil dejaria entrar
+  duplicados sin que nadie lo pidiera— y lo que ya no esta en el perfil se niega
+  con un error, no se ignora.
+- Y que el perfil solo se consulte en las puertas de entrada: si alguien mete un
+  `if` de perfil dentro de Storage o Query, salta. Un motor, no tres.
+
+- `test_agnostico` comprueba que el nucleo no use construcciones posteriores a
+  lo que promete `composer.json`: constantes en traits, clases `readonly`,
+  `true`/`false` como tipo suelto, `#[Override]`, `json_validate`, `array_find`.
+- Y que **ningun tipo declarado apunte a una clase inexistente**. Un metodo
+  dentro de un trait resuelve sus tipos en el espacio de nombres del trait: poner
+  `: Index` en `Axi\Core\Fachada\ConIndices` sin importarlo apunta a
+  `Axi\Core\Fachada\Index`, que no existe. `php -l` no lo ve; solo revienta al
+  llamar al metodo.
+
+---
+
 ## [0.5.0] — 2026-08-09
 
 La ola A8: completitud. Transacciones, JOIN, AxiSQL entero, esquema,

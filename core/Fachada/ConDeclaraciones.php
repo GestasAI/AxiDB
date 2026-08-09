@@ -18,9 +18,21 @@ declare(strict_types=1);
 namespace Axi\Core\Fachada;
 
 use Axi\Core\Esquema;
+use Axi\Core\Perfil;
 
 trait ConDeclaraciones
 {
+    /**
+     * El perfil con el que se abrio: que partes del motor se pueden usar.
+     *
+     * Se consulta desde las fachadas antes de dejar pasar una funcion que no
+     * es del perfil basico.
+     */
+    public function perfil(): Perfil
+    {
+        return $this->perfil;
+    }
+
     /**
      * Declara que forma tienen los documentos de una coleccion.
      *
@@ -39,6 +51,7 @@ trait ConDeclaraciones
      */
     public function declararEsquema(string $collection, array $reglas): void
     {
+        $this->perfil()->exigir('esquema', 'declararEsquema()');
         $this->storage->declararEsquema($collection, $reglas);
     }
 
@@ -58,6 +71,7 @@ trait ConDeclaraciones
      */
     public function declararCaducidad(string $collection, int $segundos): void
     {
+        $this->perfil()->exigir('caducidad', 'declararCaducidad()');
         $this->storage->declararCaducidad($collection, $segundos);
     }
 
@@ -75,6 +89,7 @@ trait ConDeclaraciones
      */
     public function cifrar(string $collection): int
     {
+        $this->perfil()->exigir('cifrado', 'cifrar()');
         return $this->storage->cifrar($collection);
     }
 

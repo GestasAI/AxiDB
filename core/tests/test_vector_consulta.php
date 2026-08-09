@@ -161,4 +161,95 @@ ok('o sea, dentro de lo blindado',
 ok('y el archivo de vectores no contiene el texto en claro',
     !\str_contains((string) \file_get_contents($vec . '/vectores.f32'), 'olivo'));
 
+/* ─────────────────────────────────────────────────────────────────────────── */
+section('Activar vectores indexa lo que ya habia');
+
+/*
+ * Antes solo entraban los documentos escritos DESPUES de activar: `similar()`
+ * no encontraba los anteriores y no habia ningun error que lo dijera. El mismo
+ * fallo silencioso que tuvo `cifrar()` con el formato empaquetado.
+ */
+$dirYa = tmpdir('vector_ya_habia');
+$ya = new Db($dirYa, ['durable' => false]);
+$ya->insert('notas', ['texto' => 'pan de masa madre'], 'n1');
+$ya->insert('notas', ['texto' => 'cerveza artesana'], 'n2');
+$ya->insert('notas', ['texto' => 'huerto en marzo'], 'n3');
+
+$ya->vectores('notas', ['auto' => ['texto']]);
+
+eq('los tres que ya estaban quedan indexados', 3, $ya->vectorial('notas')->manifiesto()->vivos());
+eq('y la busqueda los encuentra', 3, \count($ya->similar('notas', 'pan', 3)));
+
+$ya->insert('notas', ['texto' => 'levadura natural'], 'n4');
+eq('los nuevos siguen entrando', 4, $ya->vectorial('notas')->manifiesto()->vivos());
+
+// Reactivar reindexa: es tambien la forma de reparar un indice incompleto.
+$ya->vectores('notas', ['auto' => ['texto']]);
+eq('volver a activar es idempotente', 4, $ya->vectorial('notas')->manifiesto()->vivos());
+
+$ya->storage()->cerrar();
+rmrf($dirYa);
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+section('Umbral de parecido, busqueda hibrida y exacta automatica');
+
+$dirU = tmpdir('vector_umbral');
+$u = new Db($dirU, ['durable' => false]);
+foreach ([
+    'Pan de masa madre casero', 'Cerveza artesana en el garaje',
+    'Huerto urbano en marzo',   'Levadura natural paso a paso',
+    'REF-4471 recambio de bomba',
+] as $i => $t) {
+    $u->insert('art', ['titulo' => $t, 'zona' => $i < 3 ? 'norte' : 'sur'], 'a' . $i);
+}
+$u->vectores('art', ['auto' => ['titulo']]);
+
+$todos = $u->sql("SELECT titulo FROM art ORDER BY EMBEDDING <-> 'masa madre' LIMIT 5");
+eq('sin umbral devuelve los cinco, se parezcan o no', 5, \count($todos));
+ok('el mas parecido va primero', \str_contains($todos[0]['titulo'], 'masa madre'));
+
+$conUmbral = $u->sql("SELECT titulo FROM art WHERE parecido > 0.5
+                      ORDER BY EMBEDDING <-> 'masa madre' LIMIT 5");
+ok('con umbral salen solo los que se parecen de verdad: ' . \count($conUmbral),
+    \count($conUmbral) < 5 && \count($conUmbral) >= 1);
+ok('y el que sale lo supera', ($conUmbral[0]['_score'] ?? 0) > 0.5);
+
+eq('un umbral imposible no devuelve nada', [],
+    $u->sql("SELECT titulo FROM art WHERE parecido > 0.99
+             ORDER BY EMBEDDING <-> 'algo que no esta' LIMIT 5"));
+
+// El umbral se combina con un filtro normal, y cada uno actua donde debe.
+$mixto = $u->sql("SELECT titulo FROM art WHERE zona = 'norte' AND parecido > 0.01
+                  ORDER BY EMBEDDING <-> 'masa madre' LIMIT 5");
+ok('el filtro de campo va antes y el umbral despues', \count($mixto) >= 1);
+foreach ($mixto as $fila) {
+    ok('todos los que salen son de la zona filtrada',
+        \str_contains($fila['titulo'], 'Pan') || \str_contains($fila['titulo'], 'Cerveza')
+        || \str_contains($fila['titulo'], 'Huerto'));
+}
+
+eq('EXPLAIN cuenta el umbral', 'parecido > 0.5',
+    $u->sql("EXPLAIN SELECT * FROM art WHERE parecido > 0.5 ORDER BY EMBEDDING <-> 'x'")['umbral']);
+
+throws('dentro de un OR se niega en vez de dar algo parecido',
+    static fn () => $u->sql("SELECT * FROM art WHERE parecido > 0.5 OR zona = 'sur'
+                             ORDER BY EMBEDDING <-> 'y'"));
+
+/*
+ * La hibrida existe para esto: un codigo de referencia que la busqueda por
+ * significado no entiende, pero que aparece literal en el titulo. Al salir en
+ * las dos listas, sube al primer puesto.
+ */
+$hibrida = $u->hibrida('art', 'REF-4471', 3);
+eq('la hibrida pone primero al que sale en las dos listas', 'a4', $hibrida[0]['id']);
+eq('y lo dice', ['significado', 'palabra'], $hibrida[0]['en']);
+ok('los demas salen solo por significado', $hibrida[1]['en'] === ['significado']);
+ok('y trae el documento entero', isset($hibrida[0]['doc']['titulo']));
+
+// Con cinco documentos y 200 candidatos, la criba no descarta a nadie: se salta.
+eq('una coleccion pequeña devuelve todo lo pedido', 5, \count($u->similar('art', 'pan', 5)));
+
+$u->storage()->cerrar();
+rmrf($dirU);
+
 summary();

@@ -65,6 +65,7 @@ trait ConIndices
      */
     public function unico(string $collection, string $field): int
     {
+        $this->perfil()->exigir('unicidad', 'unico() y CREATE UNIQUE INDEX');
         Unicidad::exigirSinRepetidos($this->storage, $collection, $field);
         $valores = $this->index->build($collection, $field);
         $this->storage->declararUnico($collection, $field);

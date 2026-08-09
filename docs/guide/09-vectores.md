@@ -134,6 +134,59 @@ asi que habria salido mas lento ademas de mas grande.
 
 ---
 
+## Umbral: solo si se parecen de verdad
+
+```php
+$db->sql("SELECT titulo FROM articulos WHERE parecido > 0.5
+          ORDER BY EMBEDDING <-> 'masa madre' LIMIT 20");
+```
+
+Sin umbral, pedir veinte devuelve veinte aunque el ultimo no tenga nada que ver.
+Con el, devuelve los que de verdad se parecen, y si no hay ninguno, ninguno.
+
+`parecido` no es un campo del documento: es lo que devuelve la busqueda. Por eso
+se aplica DESPUES de buscar, mientras que el resto del `WHERE` se aplica antes,
+con sus indices. La consulta se parte sola:
+
+```php
+$db->sql("SELECT titulo FROM articulos WHERE zona = 'norte' AND parecido > 0.5
+          ORDER BY EMBEDDING <-> 'masa madre' LIMIT 20");
+//                            └── antes, con indice   └── despues, como umbral
+```
+
+Dentro de un `OR` se niega: partir la condicion ahi cambiaria lo que significa,
+y devolver algo parecido-pero-no-igual seria peor que decir que no.
+
+## Busqueda hibrida
+
+```php
+$db->hibrida('articulos', 'REF-4471', 10);
+```
+
+Busca por significado y por palabra a la vez, y funde los dos resultados. Las
+dos fallan de maneras distintas, y por eso juntas encuentran mas:
+
+- **por significado** encuentra "pan de masa madre" buscando "levadura casera",
+  pero puede no dar con un codigo de referencia exacto;
+- **por palabra** encuentra `REF-4471` clavado, y no entiende sinonimos.
+
+Se combinan por **posicion en cada lista**, no sumando puntuaciones. El parecido
+de un coseno va de -1 a 1 y "contiene la palabra" no tiene escala: sumarlos
+obligaria a inventar un factor de conversion que nadie sabe justificar, y ese
+factor decidiria el resultado.
+
+La formula es Reciprocal Rank Fusion: cada documento suma `1 / (60 + posicion)`
+por cada lista en la que aparece. Un documento que sale segundo en las dos gana
+a uno que sale primero en una y no aparece en la otra.
+
+Cada resultado dice de donde viene:
+
+```
+['id' => 'a4', 'puntos' => 0.03279, 'en' => ['significado', 'palabra'], 'doc' => [...]]
+```
+
+---
+
 ## Filtrar y buscar a la vez
 
 ```php

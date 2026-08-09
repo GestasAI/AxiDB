@@ -47,6 +47,22 @@ final class Vectores
         $indice = new Indice(new Almacen($this->dir($coleccion)), $this->embedder);
         $m      = $indice->activar($opciones);
         $this->indices[$coleccion] = $indice;
+
+        /*
+         * Los documentos que ya estaban se indexan ahora.
+         *
+         * Sin esto, activar los vectores sobre una coleccion con contenido
+         * dejaba fuera todo lo anterior: `similar()` solo encontraba lo escrito
+         * DESPUES, y no habia ningun error que lo dijera. El mismo fallo
+         * silencioso que ya se corrigio en `cifrar()`, que si reescribe lo que
+         * hay, y que `index()` nunca tuvo porque siempre recorre la coleccion.
+         *
+         * Es idempotente: volver a activar reindexa, que es tambien la forma de
+         * reparar un indice vectorial incompleto.
+         */
+        foreach ($this->storage->all($coleccion) as $doc) {
+            $indice->indexar((string) ($doc['id'] ?? ''), $doc);
+        }
         return $m;
     }
 

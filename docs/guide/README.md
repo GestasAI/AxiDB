@@ -17,6 +17,7 @@ se pone roja. Una guia que miente es peor que no tener guia.
 | [**14-axisql.md**](14-axisql.md) | Agregados, GROUP BY, funciones, ALTER, SHOW y vistas |
 | [**15-relaciones.md**](15-relaciones.md) | JOIN, LEFT JOIN y subconsultas |
 | [**16-salud.md**](16-salud.md) | Describir, estadisticas y revision con avisos |
+| [**17-perfiles.md**](17-perfiles.md) | core, docs y ai: para que es esta base |
 
 Los numeros saltan de 00 a 07: los intermedios documentaban un motor anterior que
 ya no forma parte de AxiDB. Se conservan los numeros que tenian estos para no

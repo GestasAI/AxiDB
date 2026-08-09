@@ -36,16 +36,19 @@ final class Db
     private Storage $storage;
     private Index $index;
     private Vectores $vectores;
+    private Perfil $perfil;
     private ?Agentes\Auditoria $auditoria = null;
 
     /**
      * @param string $dataPath Directorio de datos. Se crea si no existe.
      * @param array  $options  durable: bool (fsync en cada escritura, def. true)
      *                          clave:   string, contraseña de las colecciones cifradas
+     *                          perfil:  core | docs | ai. Sin el, todo disponible
      */
     public function __construct(string $dataPath, array $options = [])
     {
         $durable       = (bool) ($options['durable'] ?? true);
+        $this->perfil   = new Perfil((string) ($options['perfil'] ?? Perfil::TODO));
         $this->storage  = new Storage($dataPath, $durable, $options['clave'] ?? null);
         $this->index    = new Index($this->storage);
         $this->vectores = new Vectores($this->storage, $options['embedder'] ?? null);
@@ -170,7 +173,8 @@ final class Db
             $this->storage,
             $this->index,
             $collection,
-            $tx === null ? null : static fn(): array => $tx->all($collection)
+            $tx === null ? null : static fn(): array => $tx->all($collection),
+            $this->perfil
         );
     }
 

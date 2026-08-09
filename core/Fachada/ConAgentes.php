@@ -29,6 +29,7 @@ trait ConAgentes
      */
     public function agente(string $nombre, array $puede, ?array $colecciones = null): Agentes\Agente
     {
+        $this->perfil()->exigir('agentes', 'los agentes');
         return new Agentes\Agente(
             $nombre,
             $this,
