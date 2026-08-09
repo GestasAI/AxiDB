@@ -2,9 +2,10 @@
 /**
  * AxiDB - test de indices secundarios.
  *
- * El indice generico sustituye al "indice por inquilino" que MyLocal tenia
- * clavado a local_id. Aqui se comprueba que funciona con cualquier campo y
- * cualquier valor, sin que el motor sepa nada del dominio.
+ * El indice es generico: un campo, un valor, sin que el motor sepa que
+ * significan. Sustituye al patron habitual de clavar el indice a una columna
+ * concreta —el identificador de inquilino, el del cliente— que obliga a tocar el
+ * motor cada vez que hace falta indexar otra cosa.
  */
 
 declare(strict_types=1);

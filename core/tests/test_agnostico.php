@@ -2,13 +2,16 @@
 /**
  * AxiDB - test de frontera. Es el guardian de la regla de oro del proyecto:
  *
- *   WordPress es a MySQL lo que MyLocal es a AxiDB.
+ *   una base de datos no sabe para que la usan.
  *
- * MySQL no sabe que existe un wp_post. AxiDB no puede saber que existe un plato,
- * un local ni un alergeno. Si este test falla, el nucleo dejo de ser una base de
- * datos y volvio a ser el motor de una aplicacion concreta.
+ * MySQL no sabe que existe un wp_post, y AxiDB no puede saber que existe un
+ * albaran, una ficha de paciente ni un articulo. Si este test falla, el nucleo
+ * dejo de ser una base de datos y volvio a ser el motor de una aplicacion
+ * concreta.
  *
- * Ver claude/planes/axidb-nucleo.md seccion 0.1.
+ * La lista de palabras prohibidas de mas abajo incluye nombres propios de la
+ * aplicacion donde AxiDB nacio. Estan a proposito: son exactamente las que no
+ * pueden reaparecer.
  */
 
 declare(strict_types=1);
@@ -76,7 +79,7 @@ ok('ningun byte de control raro en el nucleo'
     $conBasura === []);
 
 /* ─────────────────────────────────────────────────────────────────────────── */
-section('A] Cero dominio de MyLocal en el nucleo');
+section('A] Cero dominio de aplicacion en el nucleo');
 
 $prohibidas = [
     'local_id', 'locales', 'carta', 'plato', 'alergeno', 'hostelero', 'mesa',
