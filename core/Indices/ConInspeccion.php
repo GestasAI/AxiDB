@@ -25,8 +25,16 @@ trait ConInspeccion
      * la carpeta sea portable entre sistemas de archivos que no distinguen
      * mayusculas, `createdAt` se guarda como `createdat~4f2a1c9b`. Y eso no se
      * puede deshacer.
+     *
+     * Es un metodo y no una constante porque **las constantes en traits son de
+     * PHP 8.2** y aqui se soporta desde 8.1. En la maquina de desarrollo hay
+     * 8.2, asi que compilaba sin decir nada; lo caza la CI, que corre las
+     * cuatro versiones. Es exactamente para esto que existe.
      */
-    private const NOMBRE_CAMPO = '_campo.json';
+    private static function nombreDelArchivoDeCampo(): string
+    {
+        return '_campo.json';
+    }
 
     /**
      * Campos con indice en una coleccion, con su nombre de verdad.
@@ -87,7 +95,7 @@ trait ConInspeccion
 
     private static function leerNombre(string $dir): ?string
     {
-        $path = $dir . '/' . self::NOMBRE_CAMPO;
+        $path = $dir . '/' . self::nombreDelArchivoDeCampo();
         if (!\is_file($path)) {
             return null;
         }
@@ -100,7 +108,7 @@ trait ConInspeccion
     private function anotarCampo(string $dir, string $field): void
     {
         @\file_put_contents(
-            $dir . '/' . self::NOMBRE_CAMPO,
+            $dir . '/' . self::nombreDelArchivoDeCampo(),
             \json_encode(['campo' => $field], JSON_UNESCAPED_UNICODE) . "\n"
         );
     }
@@ -123,7 +131,7 @@ trait ConInspeccion
         $fuera = [];
         foreach (\glob($dir . '/*.json') ?: [] as $archivo) {
             $nombre = \basename($archivo, '.json');
-            if ($nombre === \basename(self::NOMBRE_CAMPO, '.json')) {
+            if ($nombre === \basename(self::nombreDelArchivoDeCampo(), '.json')) {
                 continue;                       // la anotacion del campo no es un valor
             }
             $ids = \json_decode((string) @\file_get_contents($archivo), true);

@@ -181,5 +181,50 @@ $salida = (string) \shell_exec(\escapeshellarg(PHP_BINARY) . ' -n ' . \escapeshe
 ok('funciona con php -n (sin ningun php.ini ni extension cargada): ' . \trim($salida),
     \str_contains($salida, 'OK'));
 
+/* ─────────────────────────────────────────────────────────────────────────── */
+section('G] Nada que necesite un PHP mas nuevo del que se promete');
+
+/*
+ * composer.json dice `php: >=8.1`, y esa promesa hay que poder comprobarla aqui.
+ *
+ * Esto nacio de un fallo real: se uso una constante dentro de un trait, que es
+ * de PHP 8.2. En la maquina de desarrollo hay 8.2, asi que compilaba sin decir
+ * nada; la CI lo caza porque corre las cuatro versiones, pero eso son diez
+ * minutos y un rojo publico. Aqui cuesta un segundo.
+ *
+ * No pretende detectarlo todo —para eso esta la CI— sino las construcciones
+ * concretas que uno escribe sin pensar viniendo de una version mas nueva.
+ */
+$minimo = '8.1';
+$posteriores = [
+    // [patron, version, que es]
+    ['/\btrait\s+\w+[^{]*\{(?:[^{}]|\{[^{}]*\})*?\bconst\s+\w+/s', '8.2', 'constantes dentro de un trait'],
+    ['/\breadonly\s+(?:final\s+)?class\b/',                        '8.2', 'clases readonly enteras'],
+    ['/:\s*(?:true|false)\s*(?:\{|;)/',                            '8.2', 'true o false como tipo suelto'],
+    ['/#\[\\\\?Override\]/',                                       '8.3', 'el atributo Override'],
+    ['/\bjson_validate\s*\(/',                                     '8.3', 'json_validate()'],
+    ['/\barray_(?:find|any|all)\s*\(/',                            '8.4', 'array_find, array_any o array_all'],
+];
+
+foreach ($posteriores as [$patron, $version, $que]) {
+    $donde = [];
+    foreach ($fuentes as $archivo => $codigo) {
+        if (\preg_match($patron, $codigo) === 1) {
+            $donde[] = $archivo;
+        }
+    }
+    ok(
+        "nada de PHP {$version} ({$que}), que composer promete {$minimo}"
+        . ($donde === [] ? '' : ' -> ' . \implode(', ', $donde)),
+        $donde === []
+    );
+}
+
+ok("composer.json sigue pidiendo >={$minimo}",
+    \str_contains(
+        (string) @\file_get_contents(\dirname(AXIDB_CORE) . '/composer.json'),
+        '">=' . $minimo . '"'
+    ));
+
 rmrf($tmp);
 summary();
