@@ -89,25 +89,58 @@ for ($c = 0; $c < 5; $c++) {
 $medio = \array_sum($tiempos) / \count($tiempos);
 \printf("    busqueda: %.0f ms de media, %.0f ms la peor\n", $medio, \max($tiempos));
 
+\printf("    (objetivo del plan: 150 ms por busqueda)\n");
+
 /*
- * El objetivo del plan eran 150 ms y en esta maquina salen 143. El test, en
- * cambio, exige 400: no por conformarse, sino porque un test de tiempos con el
- * margen pegado al valor real se pone rojo en cuanto corre en un runner
- * compartido, y un rojo que no significa nada acaba con que nadie mire los
- * rojos. La medicion buena se anota en el plan; esto vigila que no aparezca una
- * regresion estructural, que se veria como un x3, no como un x1,05.
+ * Aqui habia un tope de 400 ms. Se puso rojo en la CI de Windows con 448: un
+ * x1,12 sobre el margen, en un runner compartido, midiendo tiempo de pared. No
+ * era una regresion, y el comentario que acompañaba al tope ya decia que lo que
+ * se quiere vigilar es un x3 y no un x1,05. Un numero absoluto no sabe distinguir
+ * las dos cosas, porque no sabe en que maquina corre.
+ *
+ * Lo que si es una propiedad del motor y no de la maquina: la criba binaria hace
+ * que la segunda pasada lea doscientos vectores en vez de cincuenta mil. Eso se
+ * mide contra `exacta`, que es esta misma busqueda sin criba, en la misma maquina
+ * y en la misma ejecucion. Si alguien rompe la criba, la ventaja se desploma
+ * hacia x1 en cualquier hardware; si el runner va lento, van lentas las dos
+ * medidas y la proporcion aguanta.
  */
-\printf("    (objetivo del plan: 150 ms. Tope del test: 400 ms, holgura para runners lentos)\n");
-ok(\sprintf('por debajo de 400 ms de media: %.0f ms', $medio), $medio < 400.0);
-ok(\sprintf('y ninguna pasa de 600 ms: %.0f ms', \max($tiempos)), \max($tiempos) < 600.0);
+$picoSinExacta = \memory_get_peak_usage(true) / 1048576;
+
+$t        = \microtime(true);
+$conTodos = $buscador->buscar($almacen->vectorDe(31337 % CUANTOS), 10, [], 'exacta');
+$sinCriba = (\microtime(true) - $t) * 1000;
+eq('sin criba tambien devuelve los diez', 10, \count($conTodos));
+
+$ventaja = $sinCriba / \max($medio, 0.001);
+\printf("    sin criba (exacta, lee los 50.000): %.0f ms; la criba ahorra x%.0f\n", $sinCriba, $ventaja);
+ok(\sprintf('la criba binaria ahorra al menos x5: x%.1f', $ventaja), $ventaja >= 5.0);
+
+/*
+ * Y un techo absoluto, pero muy holgado y solo como aviso de catastrofe: 143 ms
+ * en esta maquina, 448 en el runner mas lento que hemos visto. Dos segundos no
+ * los cruza el ruido de una maquina compartida; si se cruzan, ha pasado algo
+ * gordo que merece mirarse en cualquier hardware.
+ */
+ok(\sprintf('ninguna busqueda llega a 2 s: %.0f ms la peor', \max($tiempos)), \max($tiempos) < 2000.0);
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('C] La memoria, que es lo que decide si cabe en un hosting');
 
-$pico = \memory_get_peak_usage(true) / 1048576;
+/*
+ * El pico que se mide es el de antes de la busqueda exacta, y no por maquillarlo:
+ * `exacta` puntua los cincuenta mil de una vez, asi que su memoria crece con el
+ * tamaño de la coleccion. Es el precio conocido del modo que renuncia a la criba,
+ * y mezclarlo aqui convertiria esta cifra —la del funcionamiento normal, que es
+ * la que decide si esto cabe en un hosting compartido— en otra cosa. Se enseñan
+ * las dos, porque las dos son verdad.
+ */
+$pico = $picoSinExacta;
 $uso  = \memory_get_usage(true) / 1048576;
 \printf("    memoria: %.1f MB en uso, %.1f MB de pico con %d vectores de %d dimensiones\n",
     $uso, $pico, CUANTOS, DIMS);
+\printf("    (con una busqueda exacta de por medio, el pico sube a %.1f MB)\n",
+    \memory_get_peak_usage(true) / 1048576);
 
 ok(\sprintf('el pico no pasa de 32 MB: %.1f MB', $pico), $pico < 32.0);
 

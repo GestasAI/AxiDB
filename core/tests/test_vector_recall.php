@@ -66,14 +66,21 @@ $medio  = \array_sum($tiempos) / \count($tiempos);
 ok("recall@10 medio del 95% o mas: {$recall}% (GATE DE LA OLA)", $recall >= 95.0);
 ok("y ninguna consulta suelta baja del 80%: {$peor}%",           $peor >= 80.0);
 /*
- * El gate de la ola son 50 ms y en esta maquina salen unos 45. El test exige
- * 150, por lo mismo que en test_vector_escala: la medicion que vale para el
- * gate esta anotada en el plan, y aqui lo que se vigila es que no aparezca una
- * regresion de las que se ven a simple vista.
+ * El gate de la ola son 50 ms y en esta maquina salen unos 45.
+ *
+ * Aqui habia un tope de 150 ms, y hay que decir de donde viene que ya no este:
+ * el mismo tipo de tope en test_vector_escala se puso rojo en un runner de
+ * Windows que iba 3,1 veces mas lento que este portatil. Este tenia todavia
+ * menos holgura —45 contra 150 son 3,3 veces— asi que estaba a un runner malo
+ * de ponerse rojo sin que nadie hubiera roto nada.
+ *
+ * No se pierde cobertura al quitarlo: la seccion B de este mismo archivo ya
+ * compara las dos pasadas contra la fuerza bruta en la misma maquina, que es la
+ * medida que de verdad detecta si la criba deja de servir. Esto de abajo se
+ * queda solo como aviso de catastrofe, con un margen que el ruido no cruza.
  */
-\printf("    (gate: 50 ms. Tope del test: 150 ms, con holgura para runners lentos)\n");
-ok(\sprintf('por debajo de 150 ms de media: %.1f ms', $medio), $medio < 150.0);
-ok(\sprintf('y ninguna pasa de 250 ms: %.1f ms', \max($tiempos)), \max($tiempos) < 250.0);
+\printf("    (gate de la ola: 50 ms por consulta)\n");
+ok(\sprintf('ninguna consulta llega a 1 s: %.1f ms la peor', \max($tiempos)), \max($tiempos) < 1000.0);
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('B] Lo que cuesta hacerlo exacto');

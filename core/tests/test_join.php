@@ -155,23 +155,48 @@ section('G] Un cruce de N por M no cuesta N x M');
  * los resultados, se ve en el reloj. Con 400 x 400, todos contra todos son
  * 160.000 comparaciones; el hash join, 800 pasos.
  */
-$grande = tmpdir('join_grande');
-$g = new Db($grande, ['durable' => false]);
-for ($i = 0; $i < 400; $i++) {
-    $g->insert('izq', ['k' => 'k' . $i, 'n' => $i], 'i' . $i);
-    $g->insert('der', ['k' => 'k' . $i, 'txt' => 'fila ' . $i], 'd' . $i);
-}
+/*
+ * Y se mide con dos tamaños, no con un cronometro contra un tope fijo.
+ *
+ * Un tope en milisegundos no distingue "alguien ha roto el hash join" de "este
+ * runner va lento": aqui salian 682 ms contra un tope de 2.000, y en la CI hemos
+ * visto una maquina 3,1 veces mas lenta que esta, que lo habria cruzado sin que
+ * nadie hubiera tocado nada.
+ *
+ * Multiplicar el tamaño por cuatro si dice la verdad en cualquier maquina. Con
+ * hash join el trabajo es N+M, asi que el tiempo se multiplica por unos cuatro.
+ * Comparando todos contra todos el trabajo es N*M: por dieciseis. Entre 4 y 16
+ * hay sitio de sobra para poner la raya sin que el ruido la alcance.
+ */
+$ultimasFilas = 0;
+$cruce = static function (int $n) use (&$ultimasFilas): float {
+    $dir = tmpdir('join_grande_' . $n);
+    $g   = new Db($dir, ['durable' => false]);
+    for ($i = 0; $i < $n; $i++) {
+        $g->insert('izq', ['k' => 'k' . $i, 'n' => $i], 'i' . $i);
+        $g->insert('der', ['k' => 'k' . $i, 'txt' => 'fila ' . $i], 'd' . $i);
+    }
+    $t             = \microtime(true);
+    $r             = $g->sql("SELECT n, der.txt FROM izq JOIN der ON izq.k = der.k");
+    $ms            = (\microtime(true) - $t) * 1000;
+    $ultimasFilas  = \count($r);
+    $g->storage()->cerrar();
+    rmrf($dir);
+    return $ms;
+};
 
-$t = \microtime(true);
-$r = $g->sql("SELECT n, der.txt FROM izq JOIN der ON izq.k = der.k");
-$ms = (\microtime(true) - $t) * 1000;
+$msPequeño = $cruce(200);
+eq('cruza las doscientas', 200, $ultimasFilas);
 
-eq('cruza las cuatrocientas', 400, \count($r));
-\printf("    400 x 400 en %.0f ms\n", $ms);
-ok(\sprintf('y no tarda como si fueran 160.000 comparaciones: %.0f ms', $ms), $ms < 2000.0);
+$msGrande = $cruce(800);
+eq('y las ochocientas', 800, $ultimasFilas);
 
-$g->storage()->cerrar();
-rmrf($grande);
+$crecimiento = $msGrande / \max($msPequeño, 0.001);
+\printf("    200 x 200 en %.0f ms | 800 x 800 en %.0f ms | cuatro veces mas grande cuesta x%.1f\n",
+    $msPequeño, $msGrande, $crecimiento);
+
+ok(\sprintf('crece como N+M y no como N*M: x%.1f al cuadruplicar (N*M seria x16)', $crecimiento),
+    $crecimiento < 8.0);
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('H] Lo que se rechaza, y con que mensaje');
