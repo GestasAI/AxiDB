@@ -23,8 +23,8 @@ use Axi\Core\Drivers\PackedDriver;
 
 final class Storage
 {
-    use \Axi\Core\Almacen\ConCifrado;
-    use \Axi\Core\Almacen\ConDrivers;
+    use \Axi\Core\Storage\ConCifrado;
+    use \Axi\Core\Storage\ConDrivers;
 
     public const DRIVERS     = Ajustes::DRIVERS;
     public const POR_DEFECTO = 'fs';
@@ -145,7 +145,7 @@ final class Storage
      * viven dentro de la carpeta, asi que van con ella. Cuesta lo mismo con
      * diez documentos que con un millon.
      */
-    public function renombrarColeccion(string $de, string $a): bool
+    public function renameCollection(string $de, string $a): bool
     {
         self::name($de, 'coleccion');
         self::name($a, 'coleccion');
@@ -173,7 +173,7 @@ final class Storage
     /** @return list<string> campos que no admiten valores repetidos */
     public function unicosDe(string $collection): array
     {
-        return $this->ajustes->unicos($collection);
+        return $this->ajustes->uniques($collection);
     }
 
     /** Declara o retira la unicidad de un campo. No comprueba los datos: eso es de Db. */
@@ -184,7 +184,7 @@ final class Storage
             ? [...$campos, $field]
             : \array_values(\array_filter($campos, static fn($c) => $c !== $field));
 
-        $this->ajustes->fijar($collection, ['unicos' => $campos]);
+        $this->ajustes->fijar($collection, ['uniques' => $campos]);
     }
 
     /* ─────────────────────────────── Esquema y caducidad ───────────────────── */
@@ -192,26 +192,26 @@ final class Storage
     /** @return array<string, array> reglas por campo. Vacio: la coleccion no tiene esquema */
     public function esquemaDe(string $collection): array
     {
-        return $this->ajustes->esquema($collection);
+        return $this->ajustes->schema($collection);
     }
 
-    public function declararEsquema(string $collection, array $reglas): void
+    public function defineSchema(string $collection, array $reglas): void
     {
-        $this->ajustes->fijar($collection, ['esquema' => Esquema::validarReglas($reglas)]);
+        $this->ajustes->fijar($collection, ['schema' => Esquema::validarReglas($reglas)]);
     }
 
     /** Segundos de vida de un documento. Cero: no caduca. */
     public function caducidadDe(string $collection): int
     {
-        return $this->ajustes->caducidad($collection);
+        return $this->ajustes->ttl($collection);
     }
 
-    public function declararCaducidad(string $collection, int $segundos): void
+    public function defineTtl(string $collection, int $segundos): void
     {
         if ($segundos < 0) {
             throw new Exception("Storage: la caducidad no puede ser negativa ({$segundos}).");
         }
-        $this->ajustes->fijar($collection, ['caducidad' => $segundos]);
+        $this->ajustes->fijar($collection, ['ttl' => $segundos]);
         $this->caducados = [];
     }
 

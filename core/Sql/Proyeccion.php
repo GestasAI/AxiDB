@@ -4,7 +4,7 @@
  *
  *   SELECT *
  *   SELECT nombre, precio
- *   SELECT nombre, precio * 1.21 AS conIva, MAYUS(ciudad)
+ *   SELECT nombre, precio * 1.21 AS conIva, UPPER(ciudad)
  *   SELECT ciudad, COUNT(*) AS cuantos
  *
  * Aparte del Parser porque decidir que devuelve una consulta es un asunto
@@ -45,7 +45,7 @@ final class Proyeccion
      *
      *   SELECT *
      *   SELECT nombre, precio
-     *   SELECT nombre, precio * 1.21 AS conIva, MAYUS(ciudad)
+     *   SELECT nombre, precio * 1.21 AS conIva, UPPER(ciudad)
      *   SELECT ciudad, COUNT(*) AS cuantos
      *
      * @return list<string>|list<array{expr?:array, alias?:string, star?:bool}>

@@ -6,7 +6,7 @@
  * Produce un arbol de nodos {type: and|or|not|cmp} que evalua Evaluator y que
  * el planificador sabe recorrer para decidir si puede apoyarse en un indice.
  *
- * Los dos lados de una comparacion pueden ser expresiones —`WHERE MES(fecha) = 3`,
+ * Los dos lados de una comparacion pueden ser expresiones —`WHERE MONTH(fecha) = 3`,
  * `WHERE precio > coste * 2`— pero el caso corriente, campo contra literal, se
  * emite EXACTAMENTE con la forma de antes: `{field, op, value}`.
  *

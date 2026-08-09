@@ -26,12 +26,12 @@ $db  = new Db($dir, ['durable' => false]);
 
 $db->insert('libre', ['loquesea' => ['a', 1, null]], 'x');
 eq('una coleccion sin esquema admite cualquier cosa', ['a', 1, null], $db->get('libre', 'x')['loquesea']);
-eq('y no declara ninguna regla', [], $db->esquema('libre'));
+eq('y no declara ninguna regla', [], $db->schema('libre'));
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('B] Obligatorios, tipos y valores por defecto');
 
-$db->declararEsquema('clientes', [
+$db->defineSchema('clientes', [
     'correo' => ['tipo' => 'texto', 'obligatorio' => true],
     'edad'   => ['tipo' => 'entero'],
     'saldo'  => ['tipo' => 'decimal'],
@@ -87,16 +87,16 @@ throws('reemplazar el documento sin el obligatorio, tambien',
 section('D] El esquema se valida al declararlo, no al usarlo');
 
 throws('un tipo que no existe se rechaza al declarar',
-    static fn () => $db->declararEsquema('x', ['a' => ['tipo' => 'entergo']]));
+    static fn () => $db->defineSchema('x', ['a' => ['tipo' => 'entergo']]));
 throws('un valor por defecto del tipo equivocado, tambien',
-    static fn () => $db->declararEsquema('x', ['a' => ['tipo' => 'entero', 'defecto' => 'hola']]));
-eq('y la coleccion no queda con un esquema a medias', [], $db->esquema('x'));
+    static fn () => $db->defineSchema('x', ['a' => ['tipo' => 'entero', 'defecto' => 'hola']]));
+eq('y la coleccion no queda con un esquema a medias', [], $db->schema('x'));
 
-eq('las reglas se pueden consultar', ['tipo' => 'entero'], $db->esquema('clientes')['edad'] ?? null);
+eq('las reglas se pueden consultar', ['tipo' => 'entero'], $db->schema('clientes')['edad'] ?? null);
 
 $db->storage()->cerrar();
 $otro = new Db($dir, ['durable' => false]);
-eq('y sobreviven a cerrar y reabrir', true, $otro->esquema('clientes')['correo']['obligatorio'] ?? false);
+eq('y sobreviven a cerrar y reabrir', true, $otro->schema('clientes')['correo']['obligatorio'] ?? false);
 throws('la coleccion sigue rechazando lo que no cumple',
     static fn () => $otro->insert('clientes', ['edad' => 1], 'z'));
 $otro->storage()->cerrar();
@@ -108,18 +108,18 @@ section('E] Caducidad: un vencido no se ve por ninguna puerta');
 $dir = tmpdir('caducidad');
 $db  = new Db($dir, ['durable' => false]);
 
-$db->declararCaducidad('sesiones', 60);
+$db->defineTtl('sesiones', 60);
 $db->insert('sesiones', ['usuario' => 'viva'], 'viva');
 
 // Se fabrica una vencida escribiendole una fecha vieja por debajo, en vez de
 // esperar sesenta segundos: el test tiene que durar milisegundos.
-$db->declararCaducidad('sesiones', 0);
+$db->defineTtl('sesiones', 0);
 $db->insert('sesiones', ['usuario' => 'vieja'], 'vieja');
 $archivo = $dir . '/sesiones/vieja.json';
 $doc = \json_decode((string) \file_get_contents($archivo), true);
 $doc['_updatedAt'] = \date('c', \time() - 3600);
 \file_put_contents($archivo, \json_encode($doc));
-$db->declararCaducidad('sesiones', 60);
+$db->defineTtl('sesiones', 60);
 
 ok('get() no la devuelve',        $db->get('sesiones', 'vieja') === null);
 ok('exists() dice que no esta',   !$db->exists('sesiones', 'vieja'));
@@ -147,15 +147,15 @@ section('G] Escribir da cuerda');
 $db->update('sesiones', 'viva', ['usuario' => 'viva otra vez']);
 ok('tras modificarla sigue viva', $db->get('sesiones', 'viva') !== null);
 
-$db->declararCaducidad('sesiones', 0);
+$db->defineTtl('sesiones', 0);
 eq('con caducidad cero no vence nada', 1, $db->count('sesiones'));
 
 $db->insert('sinreglas', ['x' => 1], 'a');
-eq('y una coleccion que no la declara tampoco', 0, $db->caducidad('sinreglas'));
+eq('y una coleccion que no la declara tampoco', 0, $db->ttl('sinreglas'));
 ok('sus documentos no vencen', $db->get('sinreglas', 'a') !== null);
 
 throws('una caducidad negativa se rechaza',
-    static fn () => $db->declararCaducidad('sesiones', -5));
+    static fn () => $db->defineTtl('sesiones', -5));
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('H] Las dos cosas juntas, y con los dos drivers');
@@ -166,8 +166,8 @@ foreach (['fs', 'packed'] as $driver) {
     if ($driver !== 'fs') {
         $x->storage()->declararDriver('t', $driver);
     }
-    $x->declararEsquema('t', ['nombre' => ['tipo' => 'texto', 'obligatorio' => true]]);
-    $x->declararCaducidad('t', 60);
+    $x->defineSchema('t', ['nombre' => ['tipo' => 'texto', 'obligatorio' => true]]);
+    $x->defineTtl('t', 60);
 
     $x->insert('t', ['nombre' => 'uno'], 'a');
     throws("{$driver}: el esquema se cumple", static fn () => $x->insert('t', [], 'b'));

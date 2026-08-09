@@ -16,7 +16,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/_harness.php';
 require_once __DIR__ . '/_vectores.php';
 
-use Axi\Core\Vector\Buscador;
+use Axi\Core\Vector\Searcher;
 
 const DIMS    = 128;
 const CUANTOS = 3000;
@@ -24,7 +24,7 @@ const CUANTOS = 3000;
 $dir     = tmpdir('vector_bajas');
 $almacen = almacenNuevo($dir, DIMS);
 sembrarVectores($almacen, CUANTOS, DIMS, true);
-$buscador = new Buscador($almacen);
+$buscador = new Searcher($almacen);
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('A] Un borrado desaparece de los resultados');
@@ -91,7 +91,7 @@ ok('compactar otra vez no hace nada', $almacen->compactar() === 0);
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('D] Y despues de compactar, todo sigue en su sitio');
 
-$buscador2 = new Buscador($almacen);
+$buscador2 = new Searcher($almacen);
 $despues   = $buscador2->buscar($almacen->vectorDe($almacen->ordinalDe('d1')), 10);
 
 eq('la misma consulta da los mismos resultados',

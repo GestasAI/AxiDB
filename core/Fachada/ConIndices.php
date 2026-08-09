@@ -63,9 +63,9 @@ trait ConIndices
      *
      * @return int valores distintos indexados
      */
-    public function unico(string $collection, string $field): int
+    public function unique(string $collection, string $field): int
     {
-        $this->perfil()->exigir('unicidad', 'unico() y CREATE UNIQUE INDEX');
+        $this->profile()->exigir('uniqueness', 'unique() y CREATE UNIQUE INDEX');
         Unicidad::exigirSinRepetidos($this->storage, $collection, $field);
         $valores = $this->index->build($collection, $field);
         $this->storage->declararUnico($collection, $field);
@@ -73,23 +73,11 @@ trait ConIndices
     }
 
     /** @return list<string> campos declarados unicos */
-    public function unicos(string $collection): array
+    public function uniques(string $collection): array
     {
         return $this->storage->unicosDe($collection);
     }
 
-    /**
-     * Acceso al indice secundario, para lo que no cubre la fachada.
-     *
-     * Simetrico a `storage()` y a `vectorial()`: los tres subsistemas se pueden
-     * alcanzar. Sin este, quien necesitara algo de Index —inspeccionar buckets,
-     * reservar un valor— tenia que hacer `new Index($db->storage())`, que
-     * funciona pero crea una segunda instancia y no esta escrito en ningun sitio.
-     */
-    public function indice(): Index
-    {
-        return $this->index;
-    }
 
     /**
      * Quitar el indice quita tambien la unicidad. Dejarla declarada sin indice

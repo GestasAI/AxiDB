@@ -230,7 +230,7 @@ final class Index
     {
         // Cifrada: SIEMPRE hash. Dejar el valor tal cual escribia
         // _idx/email/juan.perez.json: el dato recien cifrado, como nombre.
-        $nombre = $this->storage->estaCifrada($collection)
+        $nombre = $this->storage->isEncrypted($collection)
             ? 'h_' . \sha1($value) : Names::forValue($value);
 
         return $this->fieldDir($collection, $field) . '/' . $nombre . '.json';

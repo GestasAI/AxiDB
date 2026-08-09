@@ -2,7 +2,7 @@
 /**
  * AxiDB - Core\Ajustes: como se guarda cada coleccion.
  *
- *   <coleccion>/_axidb.json   {"driver":"packed","durabilidad":"safe"}
+ *   <coleccion>/_axidb.json   {"driver":"packed","durability":"safe"}
  *
  * Los ajustes viven DENTRO de la coleccion, no en un archivo de configuracion
  * central, y esa es la diferencia que importa: quien reciba la carpeta sabe
@@ -11,12 +11,12 @@
  *
  * Dos ajustes, y los dos por coleccion porque las colecciones no se parecen:
  *
- *   driver        fs (legible a ojo) o packed (rapido escribiendo)
- *   durabilidad   safe (fsync en cada escritura) o fast (sin el)
- *   cifrado       true guarda el contenido cerrado con AES-256-GCM
- *   unicos        campos que no admiten dos documentos con el mismo valor
- *   esquema       campos obligatorios, tipos y valores por defecto
- *   caducidad     segundos tras los que un documento deja de existir
+ *   driver       fs (legible a ojo) o packed (rapido escribiendo)
+ *   durability   safe (fsync en cada escritura) o fast (sin el)
+ *   encrypted    true guarda el contenido cerrado con AES-256-GCM
+ *   uniques      campos que no admiten dos documentos con el mismo valor
+ *   schema       campos obligatorios, tipos y valores por defecto
+ *   ttl          segundos tras los que un documento deja de existir
  *
  * Un catalogo que se puede regenerar desde su origen admite packed+fast; un
  * registro contable, que no se puede rehacer, pide fs+safe.
@@ -50,7 +50,7 @@ final class Ajustes
 
     public function durabilidad(string $collection): string
     {
-        return $this->de($collection)['durabilidad'];
+        return $this->de($collection)['durability'];
     }
 
     public function esDurable(string $collection): bool
@@ -58,9 +58,9 @@ final class Ajustes
         return $this->durabilidad($collection) === 'safe';
     }
 
-    public function estaCifrada(string $collection): bool
+    public function isEncrypted(string $collection): bool
     {
-        return $this->de($collection)['cifrado'];
+        return $this->de($collection)['encrypted'];
     }
 
     /**
@@ -73,37 +73,55 @@ final class Ajustes
      *
      * @return list<string>
      */
-    public function unicos(string $collection): array
+    public function uniques(string $collection): array
     {
-        return $this->de($collection)['unicos'];
+        return $this->de($collection)['uniques'];
     }
 
     /** Los ajustes de una coleccion que no dice nada, y la lista de los que hay. */
     private static function porDefecto(string $driver, string $durabilidad): array
     {
         return [
-            'driver'      => $driver,
-            'durabilidad' => $durabilidad,
-            'cifrado'     => false,
-            'unicos'      => [],
-            'esquema'     => [],
-            'caducidad'   => 0,
+            'driver'     => $driver,
+            'durability' => $durabilidad,
+            'encrypted'  => false,
+            'uniques'    => [],
+            'schema'     => [],
+            'ttl'        => 0,
         ];
     }
 
     /** Campos con reglas declaradas. Vacio si la coleccion no tiene esquema. */
-    public function esquema(string $collection): array
+    public function schema(string $collection): array
     {
-        return $this->de($collection)['esquema'];
+        return $this->de($collection)['schema'];
     }
 
     /** Segundos de vida de un documento. Cero significa que no caduca. */
-    public function caducidad(string $collection): int
+    public function ttl(string $collection): int
     {
-        return $this->de($collection)['caducidad'];
+        return $this->de($collection)['ttl'];
     }
 
-    /** @return array{driver:string, durabilidad:string, cifrado:bool, unicos:list<string>, esquema:array, caducidad:int} */
+    /**
+     * Los nombres que tenian estas claves cuando el archivo se escribia en
+     * español, y el nombre que tienen ahora.
+     *
+     * Se leen las dos formas. Una base creada antes del cambio sigue abriendo
+     * con sus reglas puestas, y la primera escritura la deja ya en la nueva.
+     * Sin esto, una coleccion con `UNIQUE` declarado se habria abierto sin el
+     * —sin un error, sin un aviso— y habria empezado a admitir duplicados: la
+     * peor forma posible de renombrar una clave.
+     */
+    private const ANTES = [
+        'durability' => 'durabilidad',
+        'encrypted'  => 'cifrado',
+        'uniques'    => 'unicos',
+        'schema'     => 'esquema',
+        'ttl'        => 'caducidad',
+    ];
+
+    /** @return array{driver:string, durability:string, encrypted:bool, uniques:list<string>, schema:array, ttl:int} */
     public function de(string $collection): array
     {
         if (isset($this->cache[$collection])) {
@@ -115,16 +133,19 @@ final class Ajustes
         if (\is_file($path)) {
             $json = \json_decode((string) @\file_get_contents($path), true);
             if (\is_array($json)) {
+                $leer = static fn(string $clave): mixed
+                    => $json[$clave] ?? $json[self::ANTES[$clave] ?? $clave] ?? null;
+
                 if (\in_array($json['driver'] ?? null, self::DRIVERS, true)) {
                     $ajustes['driver'] = $json['driver'];
                 }
-                if (\in_array($json['durabilidad'] ?? null, self::DURABILIDADES, true)) {
-                    $ajustes['durabilidad'] = $json['durabilidad'];
+                if (\in_array($leer('durability'), self::DURABILIDADES, true)) {
+                    $ajustes['durability'] = $leer('durability');
                 }
-                $ajustes['cifrado']   = (bool) ($json['cifrado'] ?? false);
-                $ajustes['unicos']    = self::limpiarUnicos($json['unicos'] ?? []);
-                $ajustes['esquema']   = \is_array($json['esquema'] ?? null) ? $json['esquema'] : [];
-                $ajustes['caducidad'] = \max(0, (int) ($json['caducidad'] ?? 0));
+                $ajustes['encrypted'] = (bool) ($leer('encrypted') ?? false);
+                $ajustes['uniques']   = self::limpiarUnicos($leer('uniques') ?? []);
+                $ajustes['schema']    = \is_array($leer('schema')) ? $leer('schema') : [];
+                $ajustes['ttl']       = \max(0, (int) ($leer('ttl') ?? 0));
             }
         }
         return $this->cache[$collection] = $ajustes;
@@ -133,7 +154,7 @@ final class Ajustes
     /**
      * Cambia los ajustes que se le pasen. Los demas se conservan.
      *
-     *   $ajustes->fijar('clientes', ['driver' => 'packed', 'caducidad' => 3600]);
+     *   $ajustes->fijar('clientes', ['driver' => 'packed', 'ttl' => 3600]);
      *
      * Recibe un array y no seis parametros opcionales porque son seis y
      * creciendo: con posicionales, añadir el septimo obligaba a escribir cinco
@@ -153,9 +174,9 @@ final class Ajustes
                 . \implode(', ', self::DRIVERS) . '.'
             );
         }
-        if (isset($cambios['durabilidad']) && !\in_array($cambios['durabilidad'], self::DURABILIDADES, true)) {
+        if (isset($cambios['durability']) && !\in_array($cambios['durability'], self::DURABILIDADES, true)) {
             throw new Exception(
-                "Ajustes: durabilidad desconocida '{$cambios['durabilidad']}'. Admitidas: "
+                "Ajustes: durabilidad desconocida '{$cambios['durability']}'. Admitidas: "
                 . \implode(', ', self::DURABILIDADES) . '.'
             );
         }
@@ -165,7 +186,7 @@ final class Ajustes
         // Este archivo se lee a ojo y se versiona; el orden tiene que ser
         // siempre el mismo para que un diff enseñe el cambio y no la baraja.
         $nuevo = \array_merge($this->de($collection), $cambios);
-        $nuevo['unicos'] = self::limpiarUnicos($nuevo['unicos']);
+        $nuevo['uniques'] = self::limpiarUnicos($nuevo['uniques']);
 
         $this->colecciones->ensure($collection);
         @\file_put_contents(

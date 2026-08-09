@@ -47,9 +47,9 @@ section('B] Y se parece a lo que tiene que parecerse');
  * para probar la maquinaria de debajo.
  */
 $parecido = static function (string $a, string $b) use ($hash): float {
-    $va = \Axi\Core\Vector\Cuantizador::normalizar($hash->vector($a));
-    $vb = \Axi\Core\Vector\Cuantizador::normalizar($hash->vector($b));
-    return \Axi\Core\Vector\Cuantizador::coseno($va, $vb);
+    $va = \Axi\Core\Vector\Quantizer::normalizar($hash->vector($a));
+    $vb = \Axi\Core\Vector\Quantizer::normalizar($hash->vector($b));
+    return \Axi\Core\Vector\Quantizer::coseno($va, $vb);
 };
 
 $mismo   = $parecido('poda de arboles frutales', 'poda de arboles frutales en invierno');
@@ -124,7 +124,7 @@ section('D] La suite no ha tocado la red');
  * ningun archivo del nucleo usa curl.
  */
 $db = new \Axi\Core\Db(tmpdir('embedder'), ['durable' => false]);
-$m  = $db->vectores('cosas');
+$m  = $db->enableVectors('cosas');
 ok('el generador por defecto es el local', \str_starts_with($m['fuente'], 'hash:'));
 
 $conRed = [];

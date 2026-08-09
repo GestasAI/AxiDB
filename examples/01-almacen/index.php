@@ -28,7 +28,7 @@ echo "=== Almacen ===\n\n";
  */
 $db->index('articulos', 'familia');
 $db->index('movimientos', 'sku');
-$db->unico('articulos', 'sku');
+$db->unique('articulos', 'sku');
 
 /* ─── Articulos ─────────────────────────────────────────────────────────── */
 
@@ -101,14 +101,14 @@ foreach ($db->find('articulos')->where('familia', 'tornilleria')->orderBy('preci
 
 echo "\n-- Valor del inventario por familia (AxiSQL) --\n";
 $filas = $db->sql(
-    'SELECT familia, COUNT(*) AS referencias, REDONDEA(SUM(stock * precio), 2) AS valor
+    'SELECT familia, COUNT(*) AS referencias, ROUND(SUM(stock * precio), 2) AS valor
      FROM articulos GROUP BY familia ORDER BY valor DESC'
 );
 foreach ($filas as $f) {
     \printf("   %-12s %2d referencias %9.2f EUR\n", $f['familia'], $f['referencias'], $f['valor']);
 }
 
-$total = $db->sql('SELECT REDONDEA(SUM(stock * precio), 2) AS t FROM articulos')[0]['t'];
+$total = $db->sql('SELECT ROUND(SUM(stock * precio), 2) AS t FROM articulos')[0]['t'];
 \printf("\nValor total del almacen: %.2f EUR\n", $total);
 
 echo "\nLos datos estan en " . $db->path() . ": un archivo JSON por documento,\n";

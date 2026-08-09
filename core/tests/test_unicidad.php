@@ -77,11 +77,11 @@ eq('el correo de un documento borrado se puede reutilizar',
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('E] La restriccion vive en la coleccion');
 
-eq('se puede consultar que campos son unicos', ['correo'], $db->unicos('usuarios'));
+eq('se puede consultar que campos son unicos', ['correo'], $db->uniques('usuarios'));
 $db->storage()->cerrar();
 
 $otro = new Db($dir, ['durable' => false]);
-eq('sobrevive a cerrar y reabrir', ['correo'], $otro->unicos('usuarios'));
+eq('sobrevive a cerrar y reabrir', ['correo'], $otro->uniques('usuarios'));
 throws('y sigue rechazando duplicados',
     static fn () => $otro->insert('usuarios', ['correo' => 'ana@ejemplo.com'], 'uX'));
 
@@ -89,7 +89,7 @@ ok('esta escrita en el _axidb.json de la coleccion, no en un archivo central',
     \str_contains((string) \file_get_contents($dir . '/usuarios/_axidb.json'), 'correo'));
 
 $otro->dropIndex('usuarios', 'correo');
-eq('quitar el indice quita la unicidad', [], $otro->unicos('usuarios'));
+eq('quitar el indice quita la unicidad', [], $otro->uniques('usuarios'));
 $otro->insert('usuarios', ['correo' => 'ana@ejemplo.com'], 'uY');
 eq('y entonces si se admite el repetido', 'ana@ejemplo.com', $otro->get('usuarios', 'uY')['correo']);
 $otro->storage()->cerrar();
@@ -105,11 +105,11 @@ $db->insert('c', ['e' => 'repetido'], 'b');
 
 throws('declarar unico con repetidos dentro se rechaza',
     static fn () => $db->sql('CREATE UNIQUE INDEX ON c (e)'));
-eq('y la coleccion no queda marcada a medias', [], $db->unicos('c'));
+eq('y la coleccion no queda marcada a medias', [], $db->uniques('c'));
 
 $db->delete('c', 'b');
 $db->sql('CREATE UNIQUE INDEX ON c (e)');
-eq('una vez limpia, se declara sin problema', ['e'], $db->unicos('c'));
+eq('una vez limpia, se declara sin problema', ['e'], $db->uniques('c'));
 $db->storage()->cerrar();
 rmrf($dir);
 
@@ -180,7 +180,7 @@ $db->insert('cuentas', ['correo' => 'real@ejemplo.com'], 'c1');
 
 eq('de partida el indice esta limpio', 0, $db->verifyIndexes('cuentas')['correo']['sobran'] ?? -1);
 
-$db->indice()->reclamar('cuentas', 'correo', 'fantasma@ejemplo.com', 'nunca-escrito');
+$db->indexer()->reclamar('cuentas', 'correo', 'fantasma@ejemplo.com', 'nunca-escrito');
 
 eq('la reserva sin documento se cuenta como sobrante',
     1, $db->verifyIndexes('cuentas')['correo']['sobran'] ?? -1);

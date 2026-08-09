@@ -22,7 +22,7 @@ $db = new Db(tmpdir('vector_consulta'), ['durable' => false]);
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('A] Activar y que el resto siga igual');
 
-$m = $db->vectores('articulos', ['auto' => ['titulo', 'resumen', 'etiquetas']]);
+$m = $db->enableVectors('articulos', ['auto' => ['titulo', 'resumen', 'etiquetas']]);
 
 eq('dice el campo',      'embedding', $m['campo']);
 eq('y las dimensiones',          256, $m['dims']);
@@ -50,7 +50,7 @@ foreach ($articulos as $id => $doc) {
 }
 
 eq('los cuatro documentos estan',  4, $db->count('articulos'));
-eq('y los cuatro tienen vector',   4, $db->vectorial('articulos')->manifiesto()->vivos());
+eq('y los cuatro tienen vector',   4, $db->vectorIndex('articulos')->manifiesto()->vivos());
 
 $r = $db->similar('articulos', 'poda de arboles del huerto', 2);
 eq('devuelve dos',            2, \count($r));
@@ -107,19 +107,19 @@ section('E] Los cambios se reflejan');
 $db->update('articulos', 'a3', ['titulo' => 'Podar un limonero', 'resumen' => 'poda de arboles citricos']);
 $r = $db->similar('articulos', 'podar arboles', 3);
 ok('un documento cambiado se reindexa solo', \in_array('a3', \array_column($r, 'id'), true));
-eq('sin duplicar vectores', 4, $db->vectorial('articulos')->manifiesto()->vivos());
-eq('y contando la baja del anterior', 1, $db->vectorial('articulos')->manifiesto()->bajas);
+eq('sin duplicar vectores', 4, $db->vectorIndex('articulos')->manifiesto()->vivos());
+eq('y contando la baja del anterior', 1, $db->vectorIndex('articulos')->manifiesto()->bajas);
 
 $db->delete('articulos', 'a1');
 $r = $db->similar('articulos', 'podar un olivo', 5);
 ok('un documento borrado desaparece de la busqueda',
     !\in_array('a1', \array_column($r, 'id'), true));
-eq('y del indice', 3, $db->vectorial('articulos')->manifiesto()->vivos());
+eq('y del indice', 3, $db->vectorIndex('articulos')->manifiesto()->vivos());
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('F] Un vector puesto a mano');
 
-$db->vectores('puntos', ['campo' => 'v']);
+$db->enableVectors('puntos', ['campo' => 'v']);
 $db->insert('puntos', ['v' => \array_merge([1.0], \array_fill(0, 255, 0.0)), 'nombre' => 'este'], 'p1');
 $db->insert('puntos', ['v' => \array_merge([0.0, 1.0], \array_fill(0, 254, 0.0)), 'nombre' => 'otro'], 'p2');
 
@@ -175,17 +175,17 @@ $ya->insert('notas', ['texto' => 'pan de masa madre'], 'n1');
 $ya->insert('notas', ['texto' => 'cerveza artesana'], 'n2');
 $ya->insert('notas', ['texto' => 'huerto en marzo'], 'n3');
 
-$ya->vectores('notas', ['auto' => ['texto']]);
+$ya->enableVectors('notas', ['auto' => ['texto']]);
 
-eq('los tres que ya estaban quedan indexados', 3, $ya->vectorial('notas')->manifiesto()->vivos());
+eq('los tres que ya estaban quedan indexados', 3, $ya->vectorIndex('notas')->manifiesto()->vivos());
 eq('y la busqueda los encuentra', 3, \count($ya->similar('notas', 'pan', 3)));
 
 $ya->insert('notas', ['texto' => 'levadura natural'], 'n4');
-eq('los nuevos siguen entrando', 4, $ya->vectorial('notas')->manifiesto()->vivos());
+eq('los nuevos siguen entrando', 4, $ya->vectorIndex('notas')->manifiesto()->vivos());
 
 // Reactivar reindexa: es tambien la forma de reparar un indice incompleto.
-$ya->vectores('notas', ['auto' => ['texto']]);
-eq('volver a activar es idempotente', 4, $ya->vectorial('notas')->manifiesto()->vivos());
+$ya->enableVectors('notas', ['auto' => ['texto']]);
+eq('volver a activar es idempotente', 4, $ya->vectorIndex('notas')->manifiesto()->vivos());
 
 $ya->storage()->cerrar();
 rmrf($dirYa);
@@ -202,7 +202,7 @@ foreach ([
 ] as $i => $t) {
     $u->insert('art', ['titulo' => $t, 'zona' => $i < 3 ? 'norte' : 'sur'], 'a' . $i);
 }
-$u->vectores('art', ['auto' => ['titulo']]);
+$u->enableVectors('art', ['auto' => ['titulo']]);
 
 $todos = $u->sql("SELECT titulo FROM art ORDER BY EMBEDDING <-> 'masa madre' LIMIT 5");
 eq('sin umbral devuelve los cinco, se parezcan o no', 5, \count($todos));
@@ -240,7 +240,7 @@ throws('dentro de un OR se niega en vez de dar algo parecido',
  * significado no entiende, pero que aparece literal en el titulo. Al salir en
  * las dos listas, sube al primer puesto.
  */
-$hibrida = $u->hibrida('art', 'REF-4471', 3);
+$hibrida = $u->hybrid('art', 'REF-4471', 3);
 eq('la hibrida pone primero al que sale en las dos listas', 'a4', $hibrida[0]['id']);
 eq('y lo dice', ['significado', 'palabra'], $hibrida[0]['en']);
 ok('los demas salen solo por significado', $hibrida[1]['en'] === ['significado']);

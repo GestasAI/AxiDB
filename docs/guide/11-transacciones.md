@@ -7,7 +7,7 @@ distintas, y tambien si se va la luz en mitad.
 $db->insert('cuentas', ['saldo' => 500], 'a');
 $db->insert('cuentas', ['saldo' => 500], 'b');
 
-$db->transaccion(function ($tx) {
+$db->transaction(function ($tx) {
     $tx->update('cuentas', 'a', ['saldo' => 470]);
     $tx->update('cuentas', 'b', ['saldo' => 530]);
 });
@@ -21,7 +21,7 @@ una cuenta y no llega a la otra, y despues no hay forma de saber que ocurrio.
 ```php
 $db->insert('cuentas', ['saldo' => 500], 'a');
 
-$db->transaccion(function ($tx) {
+$db->transaction(function ($tx) {
     $antes = $tx->get('cuentas', 'a')['saldo'];
     $tx->update('cuentas', 'a', ['saldo' => $antes - 30]);
 
@@ -39,7 +39,7 @@ Las consultas tambien ven lo pendiente, con todo lo de siempre —filtros, orden
 $db->insert('cuentas', ['saldo' => 500, 'titular' => 'Ana'], 'a');
 $db->insert('cuentas', ['saldo' => 100, 'titular' => 'Eva'], 'b');
 
-$db->transaccion(function ($tx) {
+$db->transaction(function ($tx) {
     $tx->update('cuentas', 'a', ['saldo' => 50]);
 
     $pobres = $tx->find('cuentas')->where('saldo', '<', 200)->orderBy('saldo')->get();

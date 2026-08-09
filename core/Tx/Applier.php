@@ -1,6 +1,6 @@
 <?php
 /**
- * AxiDB - Tx\Aplicador: pasar el plan a documentos de verdad.
+ * AxiDB - Tx\Applier: pasar el plan a documentos de verdad.
  *
  * Se usa en los dos sitios que aplican un plan: al confirmar, y al recuperar
  * una transaccion que se quedo a medias. Tiene que ser el mismo codigo, porque
@@ -22,7 +22,7 @@ namespace Axi\Core\Tx;
 
 use Axi\Core\Db;
 
-final class Aplicador
+final class Applier
 {
     /**
      * @param list<array{coleccion:string, id:string, accion:string, datos?:array}> $operaciones

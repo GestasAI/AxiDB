@@ -54,7 +54,7 @@ final class Vectorial
                 'consulta'  => $ast['vector'],
                 'k'         => $k,
                 'prefiltro' => $filtro !== null ? $filtro->plan() : 'ninguno',
-                'umbral'    => $umbral === null ? 'ninguno' : Umbral::describir($umbral),
+                'umbral'    => $umbral === null ? 'ninguno' : Umbral::describe($umbral),
                 'como'      => 'criba binaria sobre todos, coseno exacto sobre los candidatos',
             ];
         }
@@ -76,7 +76,7 @@ final class Vectorial
      *
      * La proyeccion llega en la forma nueva —expresiones con alias— asi que se
      * reutiliza Resultado, que es quien sabe resolverla. Asi una busqueda
-     * vectorial admite lo mismo que un SELECT normal: `SELECT MAYUS(titulo)
+     * vectorial admite lo mismo que un SELECT normal: `SELECT UPPER(titulo)
      * FROM articulos ORDER BY EMBEDDING <-> 'pan'` funciona igual que sin
      * vectores, en vez de tener su propia media proyeccion.
      *

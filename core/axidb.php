@@ -9,7 +9,7 @@
  * alla de json, sin configuracion obligatoria.
  *
  * Configuracion opcional: si existe un axidb.json en el directorio de trabajo o
- * junto al nucleo, se leen de el 'data', 'durable', 'clave' y 'perfil'.
+ * junto al nucleo, se leen de el 'data', 'durable', 'key' y 'profile'.
  *
  * Por que las funciones van dentro de un if y no tras un `return` de guardia:
  * PHP eleva las declaraciones de funcion de nivel superior en tiempo de
@@ -56,7 +56,7 @@ if (!\function_exists('axidb')) {
          * la clave que ya viene no se pisa, que es justo ese orden.
          */
         $options  += ['durable' => $config['durable'] ?? true];
-        foreach (['clave', 'perfil'] as $ajuste) {
+        foreach (['key', 'profile'] as $ajuste) {
             if (isset($config[$ajuste])) {
                 $options += [$ajuste => $config[$ajuste]];
             }

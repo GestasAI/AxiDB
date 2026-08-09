@@ -74,7 +74,7 @@ eq('y los diez movimientos',                10, $db->count('movimientos'));
 eq('las existencias salen de los movimientos', 250, $db->get('articulos', 'TOR-M6')['stock']);
 eq('un articulo sin salidas conserva su entrada', 1200, $db->get('articulos', 'TOR-M8')['stock']);
 
-$valor = $db->sql('SELECT REDONDEA(SUM(stock * precio), 2) AS t FROM articulos')[0]['t'];
+$valor = $db->sql('SELECT ROUND(SUM(stock * precio), 2) AS t FROM articulos')[0]['t'];
 ok(\sprintf('el valor del inventario cuadra con lo impreso: %.2f', $valor),
     \str_contains($salida, \number_format($valor, 2, '.', '')));
 $db->storage()->cerrar();

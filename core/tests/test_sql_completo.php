@@ -63,21 +63,21 @@ eq('y los parentesis mandan', [['r' => 20]],
     $db->sql("SELECT (2 + 3) * 4 AS r FROM ventas LIMIT 1"));
 
 eq('funciones de texto', [['n' => 'ANA']],
-    $db->sql("SELECT MAYUS(quien) AS n FROM ventas WHERE quien = 'Ana'"));
+    $db->sql("SELECT UPPER(quien) AS n FROM ventas WHERE quien = 'Ana'"));
 eq('de texto, uniendo', [['x' => 'Ana (Murcia)']],
-    $db->sql("SELECT UNIR(quien, ' (', ciudad, ')') AS x FROM ventas WHERE quien = 'Ana'"));
+    $db->sql("SELECT CONCAT(quien, ' (', ciudad, ')') AS x FROM ventas WHERE quien = 'Ana'"));
 eq('de numero', [['x' => 33.33]],
-    $db->sql("SELECT REDONDEA(100 / 3, 2) AS x FROM ventas LIMIT 1"));
+    $db->sql("SELECT ROUND(100 / 3, 2) AS x FROM ventas LIMIT 1"));
 
 eq('de fecha, en el SELECT', [['m' => 3]],
-    $db->sql("SELECT MES(fecha) AS m FROM ventas WHERE quien = 'Ana'"));
+    $db->sql("SELECT MONTH(fecha) AS m FROM ventas WHERE quien = 'Ana'"));
 
 /*
  * Lo que antes obligaba a sacar los documentos a PHP: filtrar por una parte de
  * la fecha. Es la razon principal por la que existen las funciones.
  */
 eq('y de fecha en el WHERE, que es para lo que hacian falta', ['Eva', 'Luis'],
-    \array_column($db->sql("SELECT quien FROM ventas WHERE MES(fecha) = 4 ORDER BY quien"), 'quien'));
+    \array_column($db->sql("SELECT quien FROM ventas WHERE MONTH(fecha) = 4 ORDER BY quien"), 'quien'));
 
 eq('un alias sin AS tambien vale', [['c' => 'Murcia']],
     $db->sql("SELECT ciudad c FROM ventas WHERE quien = 'Ana'"));
@@ -99,8 +99,8 @@ eq('sumar a un campo que no esta da null, no un cero', null,
     $db->sql("SELECT n + 1 AS r FROM nulos WHERE a = 'vacio'")[0]['r']);
 eq('dividir por cero da null', null,
     $db->sql("SELECT 10 / 0 AS r FROM nulos LIMIT 1")[0]['r']);
-eq('SI_NULO pone el sustituto', 0,
-    $db->sql("SELECT SI_NULO(n, 0) AS r FROM nulos WHERE a = 'vacio'")[0]['r']);
+eq('IFNULL pone el sustituto', 0,
+    $db->sql("SELECT IFNULL(n, 0) AS r FROM nulos WHERE a = 'vacio'")[0]['r']);
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('D] Agregados y GROUP BY');
@@ -271,7 +271,7 @@ eq('y se le puede seguir filtrando encima', ['Luis'],
 
 /*
  * Una vista no guarda datos: al usarla se ejecuta su consulta, asi que refleja
- * lo que hay AHORA. Si guardara una copia, este documento nuevo no apareceria.
+ * lo que hay NOW. Si guardara una copia, este documento nuevo no apareceria.
  */
 $db->sql("INSERT INTO facturas (ciudad, cliente, total) VALUES ('Jumilla', 'Nuevo', 999)");
 eq('la vista refleja lo que hay ahora, no una copia de entonces', 3,

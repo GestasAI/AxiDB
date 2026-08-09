@@ -1,6 +1,6 @@
 <?php
 /**
- * AxiDB - Vector\Cuantizador: de una lista de numeros a bytes en disco.
+ * AxiDB - Vector\Quantizer: de una lista de numeros a bytes en disco.
  *
  * Hace dos conversiones y conviene entender la segunda:
  *
@@ -23,7 +23,7 @@ namespace Axi\Core\Vector;
 
 use Axi\Core\Exception;
 
-final class Cuantizador
+final class Quantizer
 {
     /**
      * Normaliza a longitud 1. Con vectores normalizados, el coseno es el

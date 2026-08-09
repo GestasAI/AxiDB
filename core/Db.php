@@ -42,22 +42,22 @@ final class Db
     /**
      * @param string $dataPath Directorio de datos. Se crea si no existe.
      * @param array  $options  durable: bool (fsync en cada escritura, def. true)
-     *                          clave:   string, contraseña de las colecciones cifradas
-     *                          perfil:  core | docs | ai. Sin el, todo disponible
+     *                          key:     string, contraseña de las colecciones cifradas
+     *                          profile: core | docs | ai. Sin el, todo disponible
      */
     public function __construct(string $dataPath, array $options = [])
     {
         $durable       = (bool) ($options['durable'] ?? true);
-        $this->perfil   = new Perfil((string) ($options['perfil'] ?? Perfil::TODO));
-        $this->storage  = new Storage($dataPath, $durable, $options['clave'] ?? null);
+        $this->perfil   = new Perfil((string) ($options['profile'] ?? Perfil::TODO));
+        $this->storage  = new Storage($dataPath, $durable, $options['key'] ?? null);
         $this->index    = new Index($this->storage);
         $this->vectores = new Vectores($this->storage, $options['embedder'] ?? null);
 
         // Antes de que nadie lea: si un corte dejo una transaccion a medias, se
         // termina o se descarta ahora. Leer un estado a medio aplicar seria el
         // peor momento para enterarse.
-        if (($options['recuperar'] ?? true) !== false) {
-            $this->recuperar();
+        if (($options['recover'] ?? true) !== false) {
+            $this->recover();
         }
     }
 
@@ -167,7 +167,7 @@ final class Db
      */
     public function find(string $collection): Query
     {
-        $tx = $this->abierta();
+        $tx = $this->currentTransaction();
 
         return new Query(
             $this->storage,

@@ -6,7 +6,7 @@
  * vectores y agentes- y con los cuatro dentro pasaba de 300 lineas. Cada uno
  * vive ahora en su propio archivo, y Db los junta.
  *
- * No cambia nada de puertas afuera: se sigue escribiendo `$db->agente(...)`.
+ * No cambia nada de puertas afuera: se sigue escribiendo `$db->agent(...)`.
  */
 
 declare(strict_types=1);
@@ -27,20 +27,20 @@ trait ConAgentes
      * @param list<string>      $puede       operaciones permitidas
      * @param list<string>|null $colecciones null para no limitar
      */
-    public function agente(string $nombre, array $puede, ?array $colecciones = null): Agentes\Agente
+    public function agent(string $nombre, array $puede, ?array $colecciones = null): Agentes\Agente
     {
-        $this->perfil()->exigir('agentes', 'los agentes');
+        $this->profile()->exigir('agents', 'los agentes');
         return new Agentes\Agente(
             $nombre,
             $this,
             new Agentes\Sandbox($puede, $colecciones),
-            $this->auditoria(),
+            $this->audit(),
             $this->storage->basePath() . '/_agentes'
         );
     }
 
     /** El registro de quien hizo que. */
-    public function auditoria(): Agentes\Auditoria
+    public function audit(): Agentes\Auditoria
     {
         return $this->auditoria ??= new Agentes\Auditoria(
             $this->storage->basePath() . '/_agentes/auditoria.log'

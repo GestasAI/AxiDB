@@ -6,7 +6,7 @@
  * es como funcionaba AxiDB hasta ahora y como sigue funcionando por defecto: el
  * esquema se pide, no se impone.
  *
- *   $db->declararEsquema('clientes', [
+ *   $db->defineSchema('clientes', [
  *       'correo' => ['tipo' => 'texto',  'obligatorio' => true],
  *       'edad'   => ['tipo' => 'entero'],
  *       'activo' => ['tipo' => 'bool',   'defecto' => true],

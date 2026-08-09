@@ -1,6 +1,6 @@
 <?php
 /**
- * AxiDB - Tx\Recuperacion: terminar lo que un corte dejo a medias.
+ * AxiDB - Tx\Recovery: terminar lo que un corte dejo a medias.
  *
  * Se ejecuta al abrir la base, antes de que nadie lea nada. Mira los diarios
  * que quedaron y decide por la marca de confirmacion, sin preguntar a nadie:
@@ -23,7 +23,7 @@ namespace Axi\Core\Tx;
 
 use Axi\Core\Db;
 
-final class Recuperacion
+final class Recovery
 {
     /**
      * @return array{aplicadas:int, descartadas:int}
@@ -31,16 +31,16 @@ final class Recuperacion
     public static function alAbrir(Db $db): array
     {
         $base = $db->storage()->basePath();
-        if (Diario::pendientes($base) === []) {
+        if (Journal::pendientes($base) === []) {
             return ['aplicadas' => 0, 'descartadas' => 0];   // el caso normal, sin cerrojo
         }
 
-        return Cerrojo::con($base, static function () use ($db, $base): array {
+        return Lock::con($base, static function () use ($db, $base): array {
             $aplicadas = $descartadas = 0;
 
-            foreach (Diario::pendientes($base) as $diario) {
+            foreach (Journal::pendientes($base) as $diario) {
                 if ($diario->estaConfirmado()) {
-                    $aplicadas += Aplicador::aplicar($db, $diario->operaciones());
+                    $aplicadas += Applier::aplicar($db, $diario->operaciones());
                 } else {
                     $descartadas++;
                 }

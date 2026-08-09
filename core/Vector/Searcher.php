@@ -1,6 +1,6 @@
 <?php
 /**
- * AxiDB - Vector\Buscador: encontrar los mas parecidos, en dos pasadas.
+ * AxiDB - Vector\Searcher: encontrar los mas parecidos, en dos pasadas.
  *
  *   1. Criba binaria sobre TODOS los vectores. Barata y aproximada.
  *   2. Coseno exacto sobre los pocos que sobreviven. Cara y precisa.
@@ -24,9 +24,9 @@ declare(strict_types=1);
 
 namespace Axi\Core\Vector;
 
-final class Buscador
+final class Searcher
 {
-    public function __construct(private Almacen $almacen)
+    public function __construct(private Store $almacen)
     {
     }
 
@@ -87,9 +87,9 @@ final class Buscador
         }
 
         if ($cuantos !== null) {
-            return Codigos::masCercanos(
+            return Codes::masCercanos(
                 $this->almacen->codigos(),
-                Cuantizador::aBinario($consulta),
+                Quantizer::aBinario($consulta),
                 $cuantos,
                 $vivos
             );
@@ -117,7 +117,7 @@ final class Buscador
             if ($vector === null) {
                 continue;
             }
-            $puntuados[$ordinal] = Cuantizador::coseno($consulta, $vector);
+            $puntuados[$ordinal] = Quantizer::coseno($consulta, $vector);
         }
         \arsort($puntuados);
 
@@ -149,7 +149,7 @@ final class Buscador
      * @param array<string,true> $soloEstos
      * @return array<int,true>|null
      */
-    private function ordinalesAdmitidos(Manifiesto $m, array $soloEstos): ?array
+    private function ordinalesAdmitidos(Manifest $m, array $soloEstos): ?array
     {
         if ($soloEstos === []) {
             return $m->bajas > 0 ? $this->almacen->vivos() : [];

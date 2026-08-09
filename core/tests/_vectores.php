@@ -13,15 +13,15 @@
 
 declare(strict_types=1);
 
-use Axi\Core\Vector\Almacen;
-use Axi\Core\Vector\Cuantizador;
-use Axi\Core\Vector\Manifiesto;
+use Axi\Core\Vector\Store;
+use Axi\Core\Vector\Quantizer;
+use Axi\Core\Vector\Manifest;
 
 /** Un almacen vacio y listo, en el directorio indicado. */
-function almacenNuevo(string $dir, int $dims, string $fuente = 'test'): Almacen
+function almacenNuevo(string $dir, int $dims, string $fuente = 'test'): Store
 {
-    $almacen = new Almacen($dir);
-    $almacen->activar(Manifiesto::nuevo('embedding', $dims, $fuente, []));
+    $almacen = new Store($dir);
+    $almacen->activar(Manifest::nuevo('embedding', $dims, $fuente, []));
     return $almacen;
 }
 
@@ -35,7 +35,7 @@ function almacenNuevo(string $dir, int $dims, string $fuente = 'test'): Almacen
  * @return list<int> indices de unas cuantas consultas de muestra
  */
 function sembrarVectores(
-    Almacen $almacen,
+    Store $almacen,
     int $cuantos,
     int $dims,
     bool $agrupados,
@@ -83,7 +83,7 @@ function generadorVectores(int $cuantos, int $dims, bool $agrupados, int $semill
                 $v[] = \mt_rand(-1000, 1000) / 1000;
             }
         }
-        yield $i => Cuantizador::normalizar($v);
+        yield $i => Quantizer::normalizar($v);
     }
 }
 
@@ -121,7 +121,7 @@ function generarVectores(int $cuantos, int $dims, bool $agrupados, int $semilla 
                 $v[] = \mt_rand(-1000, 1000) / 1000;
             }
         }
-        $salida[] = Cuantizador::normalizar($v);
+        $salida[] = Quantizer::normalizar($v);
     }
     return $salida;
 }
@@ -136,13 +136,13 @@ function generarVectores(int $cuantos, int $dims, bool $agrupados, int $semilla 
  * @param list<float> $consulta
  * @return array<string,float> id => score, del mejor al peor
  */
-function fuerzaBruta(Almacen $almacen, array $consulta, int $k): array
+function fuerzaBruta(Store $almacen, array $consulta, int $k): array
 {
     $todos = [];
     $almacen->recorrerVectores(function (int $ordinal, array $v) use (&$todos, $consulta, $almacen) {
         $id = $almacen->idDe($ordinal);
         if ($id !== null) {
-            $todos[$id] = Cuantizador::coseno($consulta, $v);
+            $todos[$id] = Quantizer::coseno($consulta, $v);
         }
     });
     \arsort($todos);

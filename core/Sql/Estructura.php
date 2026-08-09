@@ -43,9 +43,9 @@ final class Estructura
         return match ($ast['type']) {
             'show_collections'   => $this->colecciones(),
             'show_indexes'       => $this->indices($ast['collection']),
-            'describe'           => $this->describir($ast['collection']),
+            'describe'           => $this->describe($ast['collection']),
             'create_view'        => $this->crearVista($ast),
-            'alter_rename'       => $this->renombrarColeccion($ast),
+            'alter_rename'       => $this->renameCollection($ast),
             'alter_add_field'    => $this->añadirCampo($ast),
             'alter_drop_field'   => $this->quitarCampo($ast),
             'alter_rename_field' => $this->renombrarCampo($ast),
@@ -69,24 +69,24 @@ final class Estructura
     /** @return list<array{campo:string, unico:bool, valores:int}> */
     private function indices(string $coleccion): array
     {
-        $unicos = $this->db->unicos($coleccion);
+        $unicos = $this->db->uniques($coleccion);
         $fuera  = [];
         foreach ($this->db->indexes($coleccion) as $campo) {
             $fuera[] = [
                 'campo'   => $campo,
                 'unico'   => \in_array($campo, $unicos, true),
-                'valores' => \count($this->db->indice()->buckets($coleccion, $campo)),
+                'valores' => \count($this->db->indexer()->buckets($coleccion, $campo)),
             ];
         }
         return $fuera;
     }
 
     /** @return list<array{campo:string, tipo:string, documentos:int, de:int}> */
-    private function describir(string $coleccion): array
+    private function describe(string $coleccion): array
     {
         $documentos = $this->db->all($coleccion);
         $total      = \count($documentos);
-        $esquema    = $this->db->esquema($coleccion);
+        $esquema    = $this->db->schema($coleccion);
         $campos     = [];
 
         foreach ($documentos as $doc) {
@@ -147,9 +147,9 @@ final class Estructura
         return $doc === null ? null : (string) ($doc['sql'] ?? '');
     }
 
-    private function renombrarColeccion(array $ast): array
+    private function renameCollection(array $ast): array
     {
-        return ['renamed' => $this->db->renombrarColeccion($ast['collection'], (string) $ast['to'])];
+        return ['renamed' => $this->db->renameCollection($ast['collection'], (string) $ast['to'])];
     }
 
     private function añadirCampo(array $ast): array

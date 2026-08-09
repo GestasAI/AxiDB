@@ -2,7 +2,7 @@
 /**
  * AxiDB - Fachada\ConTransacciones: todo o nada, desde Db.
  *
- *   $db->transaccion(function ($tx) {
+ *   $db->transaction(function ($tx) {
  *       $tx->update('cuentas', 'a', ['saldo' => 470]);
  *       $tx->update('cuentas', 'b', ['saldo' => 530]);
  *   });
@@ -16,13 +16,13 @@ declare(strict_types=1);
 
 namespace Axi\Core\Fachada;
 
-use Axi\Core\Tx\Confirmacion;
-use Axi\Core\Tx\Recuperacion;
+use Axi\Core\Tx\Commit;
+use Axi\Core\Tx\Recovery;
 use Axi\Core\Tx\Transaccion;
 
 trait ConTransacciones
 {
-    /** La transaccion abierta con BEGIN, si la hay. Ver abrir(). */
+    /** La transaccion abierta con BEGIN, si la hay. Ver begin(). */
     private ?Transaccion $abierta = null;
 
     /**
@@ -32,9 +32,9 @@ trait ConTransacciones
      * pueda: confirma o descarta sola, y no hay forma de olvidarse. Esta existe
      * porque una sentencia SQL no puede recibir una funcion.
      */
-    public function abrir(): void
+    public function begin(): void
     {
-        $this->perfil()->exigir('transacciones', 'transaccion() y BEGIN');
+        $this->profile()->exigir('transactions', 'transaction() y BEGIN');
         if ($this->abierta !== null) {
             throw new \Axi\Core\Exception('Tx: ya hay una transaccion abierta. AxiDB no las anida.');
         }
@@ -42,17 +42,17 @@ trait ConTransacciones
     }
 
     /** Confirma la abierta con BEGIN. @return int operaciones aplicadas */
-    public function cerrar(): int
+    public function commit(): int
     {
         $tx = $this->exigirAbierta('COMMIT');
         $this->abierta = null;                  // fuera antes de aplicar: al
                                                 // aplicar se escribe de verdad,
                                                 // y no debe volver al buffer
-        return (new Confirmacion($this))->confirmar($tx);
+        return (new Commit($this))->confirmar($tx);
     }
 
     /** Descarta la abierta con BEGIN. Nada de lo acumulado llega al disco. */
-    public function descartar(): int
+    public function rollback(): int
     {
         $tx = $this->exigirAbierta('ROLLBACK');
         $this->abierta = null;
@@ -60,7 +60,7 @@ trait ConTransacciones
     }
 
     /** La transaccion abierta, o null. El ejecutor de AxiSQL escribe en ella. */
-    public function abierta(): ?Transaccion
+    public function currentTransaction(): ?Transaccion
     {
         return $this->abierta;
     }
@@ -89,9 +89,9 @@ trait ConTransacciones
      * @param callable(Transaccion): T $tarea
      * @return T lo que devuelva la funcion
      */
-    public function transaccion(callable $tarea): mixed
+    public function transaction(callable $tarea): mixed
     {
-        $this->abrir();
+        $this->begin();
         $tx = $this->abierta;
 
         try {
@@ -101,7 +101,7 @@ trait ConTransacciones
             throw $e;
         }
 
-        $this->cerrar();
+        $this->commit();
         return $resultado;
     }
 
@@ -113,8 +113,8 @@ trait ConTransacciones
      *
      * @return array{aplicadas:int, descartadas:int}
      */
-    public function recuperar(): array
+    public function recover(): array
     {
-        return Recuperacion::alAbrir($this);
+        return Recovery::alAbrir($this);
     }
 }

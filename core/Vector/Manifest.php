@@ -1,6 +1,6 @@
 <?php
 /**
- * AxiDB - Vector\Manifiesto: lo que hay que saber de los vectores sin leerlos.
+ * AxiDB - Vector\Manifest: lo que hay que saber de los vectores sin leerlos.
  *
  * Un archivo diminuto —una docena de campos— que se lee en cada busqueda. Por
  * eso NO lleva dentro el mapa de ids: con 50.000 vectores ese mapa serian mas de
@@ -16,7 +16,7 @@ namespace Axi\Core\Vector;
 
 use Axi\Core\Exception;
 
-final class Manifiesto
+final class Manifest
 {
     public const ANCHO_ID = 64;
 

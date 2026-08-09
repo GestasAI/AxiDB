@@ -1,6 +1,6 @@
 <?php
 /**
- * AxiDB - Vector\Compactacion: recoger el hueco que dejan las bajas.
+ * AxiDB - Vector\Compaction: recoger el hueco que dejan las bajas.
  *
  * Borrar un vector no borra nada: se pone su id a ceros y su sitio queda muerto.
  * Cuando los muertos pasan de una quinta parte, se reescriben los tres archivos
@@ -19,10 +19,10 @@ declare(strict_types=1);
 
 namespace Axi\Core\Vector;
 
-final class Compactacion
+final class Compaction
 {
     public function __construct(
-        private Archivos $archivos,
+        private Files $archivos,
         private Ids $ids
     ) {
     }
@@ -33,7 +33,7 @@ final class Compactacion
      * Se llama con el cerrojo ya cogido: quien compacta no puede competir con
      * quien escribe.
      */
-    public function ejecutar(Manifiesto $m): int
+    public function ejecutar(Manifest $m): int
     {
         if ($m->bajas === 0) {
             return 0;
@@ -41,7 +41,7 @@ final class Compactacion
         $anchos = [
             'codigos'  => $m->anchoCodigo(),
             'vectores' => $m->anchoFloat(),
-            'ids'      => Manifiesto::ANCHO_ID,
+            'ids'      => Manifest::ANCHO_ID,
         ];
 
         $crudos = [];
@@ -61,7 +61,7 @@ final class Compactacion
         }
 
         $retiradas = $m->bajas;
-        $m->cuenta = \intdiv(\strlen($nuevos['ids']), Manifiesto::ANCHO_ID);
+        $m->cuenta = \intdiv(\strlen($nuevos['ids']), Manifest::ANCHO_ID);
         $m->bajas  = 0;
 
         $this->ids->olvidar();              // los ordinales han cambiado todos

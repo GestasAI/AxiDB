@@ -5,9 +5,9 @@ la carpeta se lleva bloques ilegibles: sin la contraseña no hay forma de abrirl
 
 ```php
 $dir = \sys_get_temp_dir() . '/mi-negocio';
-$db  = new Axi\Core\Db($dir, ['clave' => 'la contraseña del negocio']);
+$db  = new Axi\Core\Db($dir, ['key' => 'la contraseña del negocio']);
 
-$db->cifrar('clientes');
+$db->encrypt('clientes');
 $db->insert('clientes', ['email' => 'ana@ejemplo.com', 'iban' => 'ES91...'], 'c1');
 
 echo $db->get('clientes', 'c1')['iban'];   // ES91... — de puertas adentro, igual
@@ -58,12 +58,12 @@ Si eso ya es demasiado, el cifrado por coleccion no te sirve: cifra el volumen.
 
 ```php
 $dir = \sys_get_temp_dir() . '/mi-negocio';
-$db  = new Axi\Core\Db($dir, ['clave' => 'la contraseña del negocio']);
+$db  = new Axi\Core\Db($dir, ['key' => 'la contraseña del negocio']);
 
-$db->cifrar('notas');
+$db->encrypt('notas');
 
 try {
-    $db->vectores('notas');
+    $db->enableVectors('notas');
 } catch (Axi\Core\Exception $e) {
     echo $e->getMessage();   // se niega, y dice por que
 }

@@ -26,9 +26,9 @@ trait ConEstructura
      * Es un renombrado del directorio, asi que no reescribe ni un documento y
      * cuesta lo mismo con diez que con un millon.
      */
-    public function renombrarColeccion(string $de, string $a): bool
+    public function renameCollection(string $de, string $a): bool
     {
-        return $this->storage->renombrarColeccion($de, $a);
+        return $this->storage->renameCollection($de, $a);
     }
 
     /**

@@ -2,7 +2,7 @@
 /**
  * AxiDB - Core\Perfil: para que es esta base de datos.
  *
- *   $db = new Axi\Core\Db('./datos', ['perfil' => 'core']);
+ *   $db = new Axi\Core\Db('./datos', ['profile' => 'core']);
  *
  * Un perfil no es una version del motor. Es una declaracion de intenciones que
  * el motor hace cumplir: "esto es un blog, aqui no hay vectores". Si el codigo
@@ -39,19 +39,19 @@ final class Perfil
 
     /** Que trae cada perfil, ademas de lo del anterior. */
     private const CAPAS = [
-        self::CORE => ['documentos', 'indices', 'consultas', 'sql', 'copias', 'salud'],
-        self::DOCS => ['esquema', 'caducidad', 'unicidad', 'transacciones', 'relaciones', 'cifrado'],
-        self::IA   => ['vectores', 'agentes'],
+        self::CORE => ['documents', 'indexes', 'queries', 'sql', 'backups', 'health'],
+        self::DOCS => ['schema', 'ttl', 'uniqueness', 'transactions', 'relations', 'encryption'],
+        self::IA   => ['vectors', 'agents'],
     ];
 
     private const ORDEN = [self::CORE, self::DOCS, self::IA];
 
     /** Para el mensaje de error: en que perfil aparece cada cosa. */
     private const DONDE_ESTA = [
-        'esquema'       => self::DOCS, 'caducidad' => self::DOCS,
-        'unicidad'      => self::DOCS, 'cifrado'   => self::DOCS,
-        'transacciones' => self::DOCS, 'relaciones' => self::DOCS,
-        'vectores'      => self::IA,   'agentes'   => self::IA,
+        'schema'       => self::DOCS, 'ttl'        => self::DOCS,
+        'uniqueness'   => self::DOCS, 'encryption' => self::DOCS,
+        'transactions' => self::DOCS, 'relations'  => self::DOCS,
+        'vectors'      => self::IA,   'agents'     => self::IA,
     ];
 
     private array $activas;
@@ -99,7 +99,7 @@ final class Perfil
 
         throw new Exception(
             "{$comoSeLlama} necesita el perfil '{$necesario}' y esta base usa '{$this->nombre}'. "
-            . "Cambialo al abrirla: new Db(\$dir, ['perfil' => '{$necesario}']). "
+            . "Cambialo al abrirla: new Db(\$dir, ['profile' => '{$necesario}']). "
             . 'Los datos no se tocan: un perfil solo dice que partes del motor se usan.'
         );
     }

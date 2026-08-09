@@ -20,8 +20,8 @@ require_once __DIR__ . '/_harness.php';
 require_once __DIR__ . '/_vectores.php';
 
 use Axi\Core\Db;
-use Axi\Core\Vector\Buscador;
-use Axi\Core\Vector\Manifiesto;
+use Axi\Core\Vector\Searcher;
+use Axi\Core\Vector\Manifest;
 use Axi\Core\Vector\Precision;
 
 const DIMS  = 768;
@@ -34,7 +34,7 @@ section('A] Los tres modos, sobre el caso mas dificil');
 
 $almacen  = almacenNuevo($dir . '/duro', DIMS);
 $muestras = sembrarVectores($almacen, CUANTOS, DIMS, false);
-$buscador = new Buscador($almacen);
+$buscador = new Searcher($almacen);
 
 eq('estan todos', CUANTOS, $almacen->manifiesto()->vivos());
 
@@ -98,7 +98,7 @@ section('C] El modo se guarda en la coleccion y sobrevive');
 $dir2 = tmpdir('vector_precision_api');
 $db   = new Db($dir2, ['durable' => false]);
 
-$m = $db->vectores('articulos', ['auto' => ['texto'], 'precision' => Precision::EQUILIBRADA]);
+$m = $db->enableVectors('articulos', ['auto' => ['texto'], 'precision' => Precision::EQUILIBRADA]);
 eq('activar devuelve el modo elegido', 'equilibrada', $m['precision']);
 
 $db->insert('articulos', ['texto' => 'pan de masa madre'], 'a1');
@@ -107,7 +107,7 @@ $db->storage()->cerrar();
 
 $otro = new Db($dir2, ['durable' => false]);
 eq('el modo se recuerda tras cerrar y reabrir',
-    'equilibrada', $otro->vectorial('articulos')->manifiesto()->precision);
+    'equilibrada', $otro->vectorIndex('articulos')->manifiesto()->precision);
 eq('y la busqueda sigue funcionando', 'a1',
     $otro->similar('articulos', 'pan de masa madre', 1)[0]['id'] ?? null);
 
@@ -119,7 +119,7 @@ $otro->storage()->cerrar();
 section('D] Lo que se rechaza y lo que se respeta');
 
 throws('un modo que no existe se rechaza al activar',
-    static fn () => (new Db(tmpdir('vp_malo'), ['durable' => false]))->vectores('x', ['precision' => 'turbo']));
+    static fn () => (new Db(tmpdir('vp_malo'), ['durable' => false]))->enableVectors('x', ['precision' => 'turbo']));
 
 throws('y tambien al pedirlo en una consulta',
     static fn () => $buscador->buscar($almacen->vectorDe(0), 5, [], 'ultra'));
@@ -131,7 +131,7 @@ eq('el modo por defecto es el de siempre', 'rapida', Precision::POR_DEFECTO);
  * manifiesto. Tiene que leerse como 'rapida', que es como se comportaba: nadie
  * debe notar un cambio de velocidad por actualizar AxiDB.
  */
-$viejo = Manifiesto::desdeArray([
+$viejo = Manifest::desdeArray([
     'campo' => 'embedding', 'dims' => 64, 'fuente' => 'hash',
     'auto' => [], 'cuenta' => 3, 'bajas' => 0,
 ]);

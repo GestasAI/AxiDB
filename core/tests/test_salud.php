@@ -27,7 +27,7 @@ $db->sql('CREATE UNIQUE INDEX ON clientes (nombre)');
 section('A] describir(): una foto de lo que hay');
 
 $campos = [];
-foreach ($db->describir('clientes') as $c) {
+foreach ($db->describe('clientes') as $c) {
     $campos[$c['campo']] = $c;
 }
 
@@ -42,9 +42,9 @@ eq('de cuantos',                           3, $campos['ciudad']['de'] ?? null);
  */
 eq('un campo que solo tiene uno se ve como tal', 1, $campos['notas']['documentos'] ?? null);
 
-$db->declararEsquema('clientes', ['nombre' => ['tipo' => 'texto', 'obligatorio' => true]]);
+$db->defineSchema('clientes', ['nombre' => ['tipo' => 'texto', 'obligatorio' => true]]);
 $campos = [];
-foreach ($db->describir('clientes') as $c) {
+foreach ($db->describe('clientes') as $c) {
     $campos[$c['campo']] = $c;
 }
 eq('lo declarado se distingue de lo observado', 'texto', $campos['nombre']['declarado'] ?? null);
@@ -57,7 +57,7 @@ ok('y lo no declarado se ve vacio',
 // Un campo con dos tipos en distintos documentos: el aviso mas util de todos.
 $db->put('clientes', 'mixto', ['nombre' => 'Z', 'ciudad' => 42], true);
 $campos = [];
-foreach ($db->describir('clientes') as $c) {
+foreach ($db->describe('clientes') as $c) {
     $campos[$c['campo']] = $c;
 }
 ok('un campo guardado de dos maneras se ve',
@@ -67,7 +67,7 @@ $db->delete('clientes', 'mixto');
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('B] estadisticas(): tamaño y forma');
 
-$e = $db->estadisticas('clientes');
+$e = $db->stats('clientes');
 
 eq('cuenta los documentos',  3, $e['documentos']);
 eq('dice el driver',      'fs', $e['driver']);
@@ -79,13 +79,13 @@ eq('si tiene vectores',  false, $e['vectores']);
 ok('lo que ocupa en disco', $e['bytes'] > 0);
 eq('y cuanto sobra',      0.0, $e['proporcionMuerta']);
 
-$db->declararCaducidad('sesiones', 3600);
-eq('la caducidad de otra coleccion', 3600, $db->estadisticas('sesiones')['caducidad']);
+$db->defineTtl('sesiones', 3600);
+eq('la caducidad de otra coleccion', 3600, $db->stats('sesiones')['caducidad']);
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('C] revision(): un vistazo a todo');
 
-$r = $db->revision();
+$r = $db->checkup();
 
 ok('cuenta las colecciones', $r['colecciones'] >= 2);
 ok('y los documentos',       $r['documentos'] >= 3);
@@ -100,16 +100,16 @@ section('D] Un problema de verdad aparece, y dice como arreglarlo');
  * entre reservar y escribir. No se pierde nada, pero ese valor queda bloqueado
  * y quien lo intente usar vera "ya existe" sobre algo que no existe.
  */
-$db->indice()->reclamar('clientes', 'nombre', 'fantasma', 'nunca-escrito');
+$db->indexer()->reclamar('clientes', 'nombre', 'fantasma', 'nunca-escrito');
 
-$avisos = $db->revision()['avisos'];
+$avisos = $db->checkup()['avisos'];
 eq('sale un aviso', 1, \count($avisos));
 eq('sobre la coleccion correcta', 'clientes', $avisos[0]['coleccion'] ?? null);
 ok('explica que pasa', \str_contains((string) ($avisos[0]['que'] ?? ''), 'sin documento'));
 ok('y dice que hacer', \str_contains((string) ($avisos[0]['hacer'] ?? ''), 'reindex'));
 
 $db->reindex('clientes');
-eq('y tras hacerlo, se apaga', [], $db->revision()['avisos']);
+eq('y tras hacerlo, se apaga', [], $db->checkup()['avisos']);
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('E] Un indice al que le faltan documentos es GRAVE');
@@ -119,15 +119,15 @@ section('E] Un indice al que le faltan documentos es GRAVE');
  * documentos que existen. Es invisible desde fuera y por eso tiene que salir
  * aqui con la gravedad mas alta.
  */
-$db->indice()->remove('clientes', 'nombre', 'Ana', $db->by('clientes', 'nombre', 'Ana')[0]['id'] ?? 'x');
+$db->indexer()->remove('clientes', 'nombre', 'Ana', $db->by('clientes', 'nombre', 'Ana')[0]['id'] ?? 'x');
 
-$avisos = $db->revision()['avisos'];
+$avisos = $db->checkup()['avisos'];
 eq('sale como grave', 'grave', $avisos[0]['gravedad'] ?? null);
 ok('y dice que by() no los encuentra',
     \str_contains((string) ($avisos[0]['que'] ?? ''), 'by()'));
 
 $db->reindex('clientes');
-eq('reindexar lo arregla', [], $db->revision()['avisos']);
+eq('reindexar lo arregla', [], $db->checkup()['avisos']);
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('F] Espacio muerto en el formato empaquetado');
@@ -142,16 +142,16 @@ for ($i = 0; $i < 30; $i++) {
     $p->delete('log', 'd' . $i);
 }
 
-$e = $p->estadisticas('log');
+$e = $p->stats('log');
 ok('se ve que sobra espacio: ' . \round($e['proporcionMuerta'] * 100) . '%',
     $e['proporcionMuerta'] > 0.25);
 
-$avisos = $p->revision()['avisos'];
+$avisos = $p->checkup()['avisos'];
 ok('y sale el aviso', \count($avisos) >= 1);
 ok('diciendo que compactar', \str_contains((string) ($avisos[0]['hacer'] ?? ''), 'compactar'));
 
 $p->storage()->compactar('log');
-eq('compactar lo baja a cero', 0.0, $p->estadisticas('log')['proporcionMuerta']);
+eq('compactar lo baja a cero', 0.0, $p->stats('log')['proporcionMuerta']);
 eq('sin perder los que quedaban', 10, $p->count('log'));
 
 $p->storage()->cerrar();

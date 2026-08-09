@@ -44,7 +44,7 @@ foreach ([
  * huerfano sin lineas: al abrir la base de datos otra vez, no hay nada de eso.
  */
 $grabarPedido = static function (array $cabecera, array $lineas) use ($db): string {
-    return $db->transaccion(static function ($tx) use ($cabecera, $lineas): string {
+    return $db->transaction(static function ($tx) use ($cabecera, $lineas): string {
         $pedido = $tx->insert('pedidos', $cabecera);
         foreach ($lineas as $l) {
             $l['pedido'] = $pedido['id'];
@@ -82,7 +82,7 @@ $grabarPedido(
 $antesPedidos = $db->count('pedidos');
 $antesLineas  = $db->count('lineas');
 try {
-    $db->transaccion(static function ($tx): void {
+    $db->transaction(static function ($tx): void {
         $tx->insert('pedidos', ['cliente' => 'c3', 'fecha' => '2026-03-12', 'estado' => 'pendiente']);
         throw new \RuntimeException('el almacen dice que no hay genero');
     });

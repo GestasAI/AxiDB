@@ -27,15 +27,15 @@ final class Sesion
     {
         return match ($tipo) {
             'begin'    => $this->begin(),
-            'commit'   => ['aplicadas'   => $this->db->cerrar()],
-            'rollback' => ['descartadas' => $this->db->descartar()],
+            'commit'   => ['aplicadas'   => $this->db->commit()],
+            'rollback' => ['descartadas' => $this->db->rollback()],
             default    => throw new Exception("AxiSQL: '{$tipo}' no es una orden de transaccion."),
         };
     }
 
     private function begin(): array
     {
-        $this->db->abrir();
+        $this->db->begin();
         return ['transaccion' => 'abierta'];
     }
 
@@ -48,7 +48,7 @@ final class Sesion
      */
     public function destino(): Db|Transaccion
     {
-        return $this->db->abierta() ?? $this->db;
+        return $this->db->currentTransaction() ?? $this->db;
     }
 
 }

@@ -23,8 +23,8 @@ function sembrarCopias(Db $db): void
     $db->insert('clientes', ['nombre' => 'Ana', 'saldo' => 100.5, 'tags' => ['a', 'b']], 'c1');
     $db->insert('clientes', ['nombre' => 'Juan', 'saldo' => 0.0], 'c2');
     $db->index('clientes', 'nombre');
-    $db->declararEsquema('clientes', ['nombre' => ['tipo' => 'texto', 'obligatorio' => true]]);
-    $db->declararCaducidad('cache', 3600);
+    $db->defineSchema('clientes', ['nombre' => ['tipo' => 'texto', 'obligatorio' => true]]);
+    $db->defineTtl('cache', 3600);
     $db->insert('cache', ['x' => 1], 'k1');
 }
 
@@ -36,7 +36,7 @@ $carpeta = tmpdir('copias_guardadas');
 $db      = new Db($dir, ['durable' => false]);
 sembrarCopias($db);
 
-$completa = $db->copiar($carpeta);
+$completa = $db->backup($carpeta);
 
 eq('la copia es completa',      'completa', $completa['tipo']);
 ok('guarda todos los archivos', $completa['guardados'] === $completa['archivos']);
@@ -65,7 +65,7 @@ ok('y los indices',
 section('B] Una incremental guarda solo lo que cambio');
 
 $db->insert('clientes', ['nombre' => 'Eva'], 'c3');
-$incremental = $db->copiar($carpeta, incremental: true);
+$incremental = $db->backup($carpeta, incremental: true);
 
 eq('es incremental', 'incremental', $incremental['tipo']);
 eq('cuelga de la completa', $completa['id'], $incremental['base'] ?? null);
@@ -74,7 +74,7 @@ ok('pero guarda muchos menos: ' . $incremental['guardados'],
     $incremental['guardados'] < $completa['guardados']);
 ok('y ocupa menos', $incremental['bytes'] < $completa['bytes']);
 
-$listado = $db->copias($carpeta);
+$listado = $db->backups($carpeta);
 eq('el catalogo ve las dos', 2, \count($listado));
 eq('la mas reciente primero', 'incremental', $listado[0]['tipo']);
 
@@ -85,7 +85,7 @@ $db->delete('clientes', 'c1');                              // borrar uno
 $db->insert('clientes', ['nombre' => 'Intruso'], 'c9');     // meter uno que no estaba
 \file_put_contents($dir . '/clientes/c2.json', 'esto no es json');   // corromper otro
 
-$vuelta = $db->restaurar($incremental['archivo']);
+$vuelta = $db->restore($incremental['archivo']);
 
 eq('se aplica la cadena entera', 2, \count($vuelta['cadena']));
 ok('y se borra lo que sobraba', $vuelta['borrados'] > 0);
@@ -100,8 +100,8 @@ ok('y el intruso desaparece',          !$tras->exists('clientes', 'c9'));
 
 eq('los indices vuelven y funcionan', 'c1',
     $tras->by('clientes', 'nombre', 'Ana')[0]['id'] ?? null);
-eq('el esquema vuelve', true, $tras->esquema('clientes')['nombre']['obligatorio'] ?? false);
-eq('y la caducidad', 3600, $tras->caducidad('cache'));
+eq('el esquema vuelve', true, $tras->schema('clientes')['nombre']['obligatorio'] ?? false);
+eq('y la caducidad', 3600, $tras->ttl('cache'));
 throws('la coleccion sigue rechazando lo que no cumple el esquema',
     static fn () => $tras->insert('clientes', ['saldo' => 1], 'sinNombre'));
 
@@ -115,20 +115,20 @@ $bytes[\strlen($bytes) - 40] = $bytes[\strlen($bytes) - 40] === 'X' ? 'Y' : 'X';
 \file_put_contents($rota, $bytes);
 
 throws('un byte cambiado hace que la restauracion se niegue',
-    static fn () => $tras->restaurar($rota));
+    static fn () => $tras->restore($rota));
 
 $sano = new Db($dir, ['durable' => false]);
 eq('y los datos vivos no se tocaron', 'Ana', $sano->get('clientes', 'c1')['nombre'] ?? null);
 eq('ni el que venia despues',         'Eva', $sano->get('clientes', 'c3')['nombre'] ?? null);
 
 throws('restaurar un archivo que no existe se rechaza',
-    static fn () => $sano->restaurar($carpeta . '/no-existe' . Catalogo::EXTENSION));
+    static fn () => $sano->restore($carpeta . '/no-existe' . Catalogo::EXTENSION));
 
 // Una incremental sin su completa no se puede restaurar, y se dice claro.
 $sueltas = tmpdir('copias_sueltas');
 \copy($incremental['archivo'], $sueltas . '/' . \basename($incremental['archivo']));
 throws('una incremental sin la copia de la que cuelga se rechaza',
-    static fn () => $sano->restaurar($sueltas . '/' . \basename($incremental['archivo'])));
+    static fn () => $sano->restore($sueltas . '/' . \basename($incremental['archivo'])));
 
 /*
  * La copia de arriba tiene una ENTRADA dañada, no la cabecera, asi que el
@@ -138,17 +138,17 @@ throws('una incremental sin la copia de la que cuelga se rechaza',
  * contenidos.
  */
 eq('una copia con una entrada dañada se lista igual: el catalogo solo lee cabeceras',
-    0, \count(\array_filter($sano->copias($carpeta), static fn($c) => $c['tipo'] === 'ilegible')));
+    0, \count(\array_filter($sano->backups($carpeta), static fn($c) => $c['tipo'] === 'ilegible')));
 
 $sinCabecera = $carpeta . '/sincabecera' . Catalogo::EXTENSION;
 \file_put_contents($sinCabecera, "esto no es una copia\n");
 
 ok('el catalogo aguanta un archivo que no es una copia sin romperse',
-    \count($sano->copias($carpeta)) === 4);
+    \count($sano->backups($carpeta)) === 4);
 eq('y lo marca como ilegible', 1,
-    \count(\array_filter($sano->copias($carpeta), static fn($c) => $c['tipo'] === 'ilegible')));
+    \count(\array_filter($sano->backups($carpeta), static fn($c) => $c['tipo'] === 'ilegible')));
 ok('las buenas se siguen viendo, que es cuando mas falta hace',
-    \count(\array_filter($sano->copias($carpeta), static fn($c) => $c['tipo'] !== 'ilegible')) === 3);
+    \count(\array_filter($sano->backups($carpeta), static fn($c) => $c['tipo'] !== 'ilegible')) === 3);
 
 $sano->storage()->cerrar();
 rmrf($sueltas);
@@ -168,9 +168,9 @@ foreach (['fs', 'packed'] as $driver) {
     for ($i = 0; $i < 20; $i++) {
         $x->insert('t', ['n' => $i, 'txt' => 'documento ' . $i], 'd' . $i);
     }
-    $c = $x->copiar($g);
+    $c = $x->backup($g);
     $x->delete('t', 'd5');
-    $x->restaurar($c['archivo']);
+    $x->restore($c['archivo']);
 
     $y = new Db($d, ['durable' => false]);
     eq("{$driver}: vuelven los veinte", 20, $y->count('t'));
@@ -200,16 +200,16 @@ $db->insert('p', [
     'soloAqui' => 'este campo no lo tiene el primero',
 ], 'p2');
 
-eq('exporta a json', 2, $db->exportar('p', $dir . '/p.json'));
-eq('exporta a csv',  2, $db->exportar('p', $dir . '/p.csv'));
+eq('exporta a json', 2, $db->export('p', $dir . '/p.json'));
+eq('exporta a csv',  2, $db->export('p', $dir . '/p.csv'));
 
-eq('importa el json', 2, $db->importar('q', $dir . '/p.json'));
+eq('importa el json', 2, $db->import('q', $dir . '/p.json'));
 eq('el texto con coma vuelve entero', 'Mesa, con coma', $db->get('q', 'p1')['nombre']);
 eq('el decimal sigue siendo decimal', 12.5, $db->get('q', 'p1')['precio']);
 ok('y del tipo correcto', \is_float($db->get('q', 'p1')['precio']));
 eq('la lista sigue siendo lista', ['a', 'b'], $db->get('q', 'p1')['tags']);
 
-eq('importa el csv', 2, $db->importar('r', $dir . '/p.csv'));
+eq('importa el csv', 2, $db->import('r', $dir . '/p.csv'));
 eq('la coma dentro de una celda no parte la fila', 'Mesa, con coma', $db->get('r', 'p1')['nombre']);
 eq('las comillas y el salto de linea tampoco', "Con \"comillas\"\ny un salto",
     $db->get('r', 'p2')['nombre']);
@@ -230,23 +230,23 @@ ok('y en el primero queda vacio, no en blanco', $db->get('r', 'p1')['soloAqui'] 
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('G] Importar no es una puerta trasera');
 
-$db->declararEsquema('estricta', ['nombre' => ['tipo' => 'texto', 'obligatorio' => true]]);
+$db->defineSchema('estricta', ['nombre' => ['tipo' => 'texto', 'obligatorio' => true]]);
 $db->insert('suelta', ['sinNombre' => 1], 'x');
-$db->exportar('suelta', $dir . '/suelta.json');
+$db->export('suelta', $dir . '/suelta.json');
 
 throws('un documento que no cumple el esquema se rechaza al importar',
-    static fn () => $db->importar('estricta', $dir . '/suelta.json'));
+    static fn () => $db->import('estricta', $dir . '/suelta.json'));
 
 $db->sql('CREATE UNIQUE INDEX ON unica (correo)');
 $db->insert('conRepes', ['correo' => 'a@b.c'], 'r1');
 $db->insert('conRepes', ['correo' => 'a@b.c'], 'r2');
-$db->exportar('conRepes', $dir . '/repes.json');
+$db->export('conRepes', $dir . '/repes.json');
 throws('y la unicidad tambien se respeta',
-    static fn () => $db->importar('unica', $dir . '/repes.json'));
+    static fn () => $db->import('unica', $dir . '/repes.json'));
 
 throws('un formato que no se conoce se rechaza',
-    static fn () => $db->exportar('p', $dir . '/p.txt'));
-eq('pero se puede decir a mano', 2, $db->exportar('p', $dir . '/p.txt', 'json'));
+    static fn () => $db->export('p', $dir . '/p.txt'));
+eq('pero se puede decir a mano', 2, $db->export('p', $dir . '/p.txt', 'json'));
 
 $db->storage()->cerrar();
 rmrf($dir);

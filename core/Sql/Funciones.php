@@ -9,7 +9,7 @@
  *
  * Las de fecha son las que mas falta hacian. Una fecha en AxiDB es una cadena
  * ISO 8601 —`2026-08-09T12:13:21+02:00`— asi que hasta ahora "los pedidos del
- * mes pasado" habia que calcularlo fuera. Con `MES()` y `AÑO()` cabe en el WHERE.
+ * mes pasado" habia que calcularlo fuera. Con `MONTH()` y `AÑO()` cabe en el WHERE.
  *
  * Todo lo que recibe algo que no entiende devuelve null en vez de reventar. En
  * una consulta sobre miles de documentos, uno con el campo vacio no puede tirar
@@ -27,18 +27,18 @@ final class Funciones
     /** Cuantos argumentos admite cada una: [minimo, maximo]. */
     private const FIRMAS = [
         // Texto
-        'MAYUS'   => [1, 1],  'MINUS'  => [1, 1],  'LARGO'   => [1, 1],
-        'RECORTA' => [1, 1],  'UNIR'   => [1, 99], 'TROZO'   => [2, 3],
-        'REEMPLAZA' => [3, 3],
+        'UPPER'   => [1, 1],  'LOWER'  => [1, 1],  'LENGTH'   => [1, 1],
+        'TRIM' => [1, 1],  'CONCAT'   => [1, 99], 'SUBSTR'   => [2, 3],
+        'REPLACE' => [3, 3],
         // Numero
-        'REDONDEA' => [1, 2], 'ABS'    => [1, 1],  'TECHO'   => [1, 1],
-        'SUELO'    => [1, 1],
+        'ROUND' => [1, 2], 'ABS'    => [1, 1],  'CEIL'   => [1, 1],
+        'FLOOR'    => [1, 1],
         // Fecha
-        'AHORA'   => [0, 0],  'HOY'    => [0, 0],  'FECHA'   => [1, 1],
-        'ANIO'    => [1, 1],  'MES'    => [1, 1],  'DIA'     => [1, 1],
-        'HORA'    => [1, 1],  'DIAS_ENTRE' => [2, 2],
+        'NOW'   => [0, 0],  'CURDATE'    => [0, 0],  'DATE'   => [1, 1],
+        'YEAR'    => [1, 1],  'MONTH'    => [1, 1],  'DAY'     => [1, 1],
+        'HOUR'    => [1, 1],  'DATEDIFF' => [2, 2],
         // Generales
-        'SI_NULO' => [2, 2],  'LONGITUD' => [1, 1],
+        'IFNULL' => [2, 2],
     ];
 
     /**
@@ -49,8 +49,8 @@ final class Funciones
      * proposito— la unica manera de cubrir las dos es nombrarlas.
      */
     private const ALIAS = [
-        'AÑO' => 'ANIO', 'AñO' => 'ANIO',
-        'YEAR' => 'ANIO', 'MONTH' => 'MES', 'NOW' => 'AHORA',
+        'AÑO' => 'YEAR', 'AñO' => 'YEAR',
+        'YEAR' => 'YEAR', 'MONTH' => 'MONTH', 'NOW' => 'NOW',
     ];
 
     public static function existe(string $nombre): bool
@@ -87,31 +87,31 @@ final class Funciones
     public static function llamar(string $nombre, array $args): mixed
     {
         return match (self::canonico($nombre)) {
-            'MAYUS'     => self::texto($args[0], static fn($s) => \strtoupper($s)),
-            'MINUS'     => self::texto($args[0], static fn($s) => \strtolower($s)),
-            'RECORTA'   => self::texto($args[0], static fn($s) => \trim($s)),
-            'LARGO', 'LONGITUD' => self::largo($args[0]),
-            'UNIR'      => \implode('', \array_map(static fn($v) => self::comoTexto($v), $args)),
-            'TROZO'     => self::trozo($args),
-            'REEMPLAZA' => self::texto($args[0], static fn($s) => \str_replace(
+            'UPPER'     => self::texto($args[0], static fn($s) => \strtoupper($s)),
+            'LOWER'     => self::texto($args[0], static fn($s) => \strtolower($s)),
+            'TRIM'   => self::texto($args[0], static fn($s) => \trim($s)),
+            'LENGTH'    => self::largo($args[0]),
+            'CONCAT'      => \implode('', \array_map(static fn($v) => self::comoTexto($v), $args)),
+            'SUBSTR'     => self::trozo($args),
+            'REPLACE' => self::texto($args[0], static fn($s) => \str_replace(
                 self::comoTexto($args[1]), self::comoTexto($args[2]), $s
             )),
 
-            'REDONDEA'  => self::numero($args[0], static fn($n) => \round($n, (int) ($args[1] ?? 0))),
+            'ROUND'  => self::numero($args[0], static fn($n) => \round($n, (int) ($args[1] ?? 0))),
             'ABS'       => self::numero($args[0], static fn($n) => \abs($n)),
-            'TECHO'     => self::numero($args[0], static fn($n) => (float) \ceil($n)),
-            'SUELO'     => self::numero($args[0], static fn($n) => (float) \floor($n)),
+            'CEIL'     => self::numero($args[0], static fn($n) => (float) \ceil($n)),
+            'FLOOR'     => self::numero($args[0], static fn($n) => (float) \floor($n)),
 
-            'AHORA'     => \date('c'),
-            'HOY'       => \date('Y-m-d'),
-            'FECHA'     => self::parte($args[0], 'Y-m-d'),
-            'ANIO'      => self::parteInt($args[0], 'Y'),
-            'MES'       => self::parteInt($args[0], 'n'),
-            'DIA'       => self::parteInt($args[0], 'j'),
-            'HORA'      => self::parteInt($args[0], 'G'),
-            'DIAS_ENTRE' => self::diasEntre($args[0], $args[1]),
+            'NOW'     => \date('c'),
+            'CURDATE'       => \date('Y-m-d'),
+            'DATE'     => self::parte($args[0], 'Y-m-d'),
+            'YEAR'      => self::parteInt($args[0], 'Y'),
+            'MONTH'       => self::parteInt($args[0], 'n'),
+            'DAY'       => self::parteInt($args[0], 'j'),
+            'HOUR'      => self::parteInt($args[0], 'G'),
+            'DATEDIFF' => self::diasEntre($args[0], $args[1]),
 
-            'SI_NULO'   => $args[0] ?? $args[1],
+            'IFNULL'   => $args[0] ?? $args[1],
             default     => throw new Exception("AxiSQL: la funcion '{$nombre}' no existe."),
         };
     }

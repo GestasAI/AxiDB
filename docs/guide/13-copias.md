@@ -1,7 +1,7 @@
 # Copias de seguridad
 
 ```php
-$hecho = $db->copiar('./copias');
+$hecho = $db->backup('./copias');
 // ['id' => '20260809-121321-004512-c-6acae0', 'tipo' => 'completa',
 //  'archivos' => 8, 'guardados' => 8, 'bytes' => 2272, 'archivo' => '...']
 ```
@@ -13,7 +13,7 @@ falla el dia que hace falta la copia.
 ## Incrementales
 
 ```php
-$db->copiar('./copias', incremental: true);
+$db->backup('./copias', incremental: true);
 ```
 
 Guarda solo los archivos que han cambiado desde la ultima copia de esa carpeta.
@@ -23,9 +23,9 @@ solo serviria para obligarte a escribir un `if`.
 ## Restaurar
 
 ```php
-$hecho = $db->copiar('./copias');
+$hecho = $db->backup('./copias');
 
-$db->restaurar($hecho['archivo']);
+$db->restore($hecho['archivo']);
 ```
 
 **Restaurar SUSTITUYE.** Lo que la copia no tiene se borra. No es mezclar dos
@@ -60,7 +60,7 @@ tener copia, porque destruye lo unico que quedaba.
 ## Ver que hay guardado
 
 ```php
-foreach ($db->copias('./copias') as $c) {
+foreach ($db->backups('./copias') as $c) {
     echo $c['momento'], ' ', $c['tipo'], ' (', $c['archivos'], " archivos)\n";
 }
 ```
@@ -118,10 +118,10 @@ coleccion para llevarlos a otro sitio.
 ```php
 $db->insert('proveedores', ['nombre' => 'Maderas, S.L.', 'saldo' => 120.5]);
 
-$db->exportar('proveedores', './proveedores.csv');
-$db->exportar('proveedores', './proveedores.json');
+$db->export('proveedores', './proveedores.csv');
+$db->export('proveedores', './proveedores.json');
 
-$db->importar('copia_proveedores', './proveedores.csv');
+$db->import('copia_proveedores', './proveedores.csv');
 ```
 
 El formato sale de la extension, o se dice a mano con un tercer argumento.

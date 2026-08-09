@@ -1,6 +1,6 @@
 <?php
 /**
- * AxiDB - Tx\Diario: lo que se va a hacer, escrito antes de hacerlo.
+ * AxiDB - Tx\Journal: lo que se va a hacer, escrito antes de hacerlo.
  *
  * Una transaccion no puede ser atomica sobre varios archivos si se escribe
  * directamente: siempre hay un instante en el que van dos de cinco. Lo que si
@@ -25,7 +25,7 @@ namespace Axi\Core\Tx;
 
 use Axi\Core\Exception;
 
-final class Diario
+final class Journal
 {
     public const CARPETA = '_tx';
 

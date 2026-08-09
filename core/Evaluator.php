@@ -49,7 +49,7 @@ final class Evaluator
     /**
      * Una comparacion cuyo lado izquierdo puede ser un campo o una expresion.
      *
-     * `WHERE precio > 5` compara un campo; `WHERE MES(fecha) = 3` y
+     * `WHERE precio > 5` compara un campo; `WHERE MONTH(fecha) = 3` y
      * `HAVING SUM(total) > 100` comparan el resultado de calcular algo. Se
      * distinguen por si el nodo trae `expr`: el camino del campo se queda
      * exactamente como estaba, que es el de casi todas las consultas y el que

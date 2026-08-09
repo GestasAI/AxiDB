@@ -12,10 +12,10 @@ declare(strict_types=1);
 require_once __DIR__ . '/_harness.php';
 require_once __DIR__ . '/_vectores.php';
 
-use Axi\Core\Vector\Almacen;
-use Axi\Core\Vector\Codigos;
-use Axi\Core\Vector\Cuantizador;
-use Axi\Core\Vector\Manifiesto;
+use Axi\Core\Vector\Store;
+use Axi\Core\Vector\Codes;
+use Axi\Core\Vector\Quantizer;
+use Axi\Core\Vector\Manifest;
 
 $dir = tmpdir('vector_almacen');
 
@@ -24,7 +24,7 @@ section('A] Ida y vuelta sin perder nada');
 
 $almacen = almacenNuevo($dir . '/a', 128);
 
-$original = Cuantizador::normalizar([...\array_map(
+$original = Quantizer::normalizar([...\array_map(
     static fn(int $i) => \sin($i) * ($i % 7 - 3),
     \range(0, 127)
 )]);
@@ -83,7 +83,7 @@ foreach ([0, 1, 499, 999] as $o) {
 }
 unset($almacen2);
 
-$reabierto = new Almacen($dir . '/b');
+$reabierto = new Store($dir . '/b');
 eq('el manifiesto se relee', 1000, $reabierto->manifiesto()->cuenta);
 eq('y dice las dimensiones',  256, $reabierto->manifiesto()->dims);
 
@@ -99,20 +99,20 @@ eq('y los ids tambien', 'd999', $reabierto->idDe(999));
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('D] La cuantizacion binaria hace lo que dice');
 
-$a = Cuantizador::normalizar([1.0, 1.0, 1.0, 1.0, -1.0, -1.0, -1.0, -1.0]);
-$b = Cuantizador::normalizar([1.0, 1.0, 1.0, 1.0, -1.0, -1.0, -1.0, -1.0]);
-$c = Cuantizador::normalizar([-1.0, -1.0, -1.0, -1.0, 1.0, 1.0, 1.0, 1.0]);
+$a = Quantizer::normalizar([1.0, 1.0, 1.0, 1.0, -1.0, -1.0, -1.0, -1.0]);
+$b = Quantizer::normalizar([1.0, 1.0, 1.0, 1.0, -1.0, -1.0, -1.0, -1.0]);
+$c = Quantizer::normalizar([-1.0, -1.0, -1.0, -1.0, 1.0, 1.0, 1.0, 1.0]);
 
-eq('ocho dimensiones caben en un byte', 1, \strlen(Cuantizador::aBinario($a)));
+eq('ocho dimensiones caben en un byte', 1, \strlen(Quantizer::aBinario($a)));
 eq('dos vectores iguales estan a distancia cero',
-    0, Codigos::distancia(Cuantizador::aBinario($a), Cuantizador::aBinario($b)));
+    0, Codes::distancia(Quantizer::aBinario($a), Quantizer::aBinario($b)));
 eq('dos opuestos estan a la distancia maxima',
-    8, Codigos::distancia(Cuantizador::aBinario($a), Cuantizador::aBinario($c)));
+    8, Codes::distancia(Quantizer::aBinario($a), Quantizer::aBinario($c)));
 
 eq('normalizar deja el vector de longitud 1',
     1.0, \round(\sqrt(\array_sum(\array_map(static fn($x) => $x * $x, $a))), 9));
-eq('el coseno de un vector consigo mismo es 1', 1.0, \round(Cuantizador::coseno($a, $b), 9));
-eq('y con su opuesto, -1',                     -1.0, \round(Cuantizador::coseno($a, $c), 9));
+eq('el coseno de un vector consigo mismo es 1', 1.0, \round(Quantizer::coseno($a, $b), 9));
+eq('y con su opuesto, -1',                     -1.0, \round(Quantizer::coseno($a, $c), 9));
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('E] Lo que no se acepta');
@@ -120,15 +120,15 @@ section('E] Lo que no se acepta');
 throws('un vector con dimensiones de menos',
     static fn() => $almacen->poner('malo', \array_fill(0, 64, 0.1)));
 throws('un vector con texto dentro',
-    static fn() => Cuantizador::validar(['a', 'b'], 2));
+    static fn() => Quantizer::validar(['a', 'b'], 2));
 throws('un vector con infinito',
-    static fn() => Cuantizador::validar([\INF, 0.0], 2));
+    static fn() => Quantizer::validar([\INF, 0.0], 2));
 throws('dimensiones que no son multiplo de ocho',
-    static fn() => Manifiesto::nuevo('embedding', 100, 'test', []));
+    static fn() => Manifest::nuevo('embedding', 100, 'test', []));
 throws('un id que no cabe en 64 bytes',
     static fn() => $almacen->poner(\str_repeat('x', 65), $original));
 
-$ceros = Cuantizador::normalizar(\array_fill(0, 128, 0.0));
+$ceros = Quantizer::normalizar(\array_fill(0, 128, 0.0));
 ok('un vector de ceros se acepta y no revienta',
     \is_int($almacen->poner('ceros', $ceros)));
 

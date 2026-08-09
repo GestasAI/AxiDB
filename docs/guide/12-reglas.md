@@ -7,7 +7,7 @@ coleccion que no declara nada se comporta como si esto no existiera.
 ## Esquema
 
 ```php
-$db->declararEsquema('clientes', [
+$db->defineSchema('clientes', [
     'correo' => ['tipo' => 'texto', 'obligatorio' => true],
     'edad'   => ['tipo' => 'entero'],
     'activo' => ['tipo' => 'bool', 'defecto' => true],
@@ -45,7 +45,7 @@ matematicas, no un descuido.
 
 ```php
 try {
-    $db->declararEsquema('x', ['a' => ['tipo' => 'entergo']]);
+    $db->defineSchema('x', ['a' => ['tipo' => 'entergo']]);
 } catch (Axi\Core\Exception $e) {
     echo $e->getMessage();
     // Esquema: el tipo 'entergo' de 'a' no existe. Hay: texto, entero, ...
@@ -82,7 +82,7 @@ viejos se validan cuando se vuelvan a escribir.
 ## Caducidad
 
 ```php
-$db->declararCaducidad('sesiones', 3600);   // una hora
+$db->defineTtl('sesiones', 3600);   // una hora
 ```
 
 Pasada esa hora desde su ultima escritura, el documento **deja de existir**.

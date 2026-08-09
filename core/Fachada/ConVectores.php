@@ -24,9 +24,9 @@ trait ConVectores
      * Activa la busqueda por significado. Con `auto` cada insert genera su
      * vector solo; sin el, se pasa a mano en el campo declarado.
      */
-    public function vectores(string $collection, array $opciones = []): array
+    public function enableVectors(string $collection, array $opciones = []): array
     {
-        $this->perfil()->exigir('vectores', 'la busqueda por significado');
+        $this->profile()->exigir('vectors', 'la busqueda por significado');
         return $this->vectores->activar($collection, $opciones)->aArray();
     }
 
@@ -40,7 +40,7 @@ trait ConVectores
     /**
      * Busca por significado y por palabra a la vez, y funde los dos resultados.
      *
-     *   $db->hibrida('articulos', 'levadura casera', 10);
+     *   $db->hybrid('articulos', 'levadura casera', 10);
      *
      * Las dos busquedas fallan de maneras distintas —una entiende sinonimos y
      * la otra encuentra un codigo de referencia clavado— asi que juntas
@@ -56,13 +56,13 @@ trait ConVectores
      *
      * @return list<array{id:string, doc:array, puntos:float, en:list<string>}>
      */
-    public function hibrida(string $collection, string $texto, int $k = 10): array
+    public function hybrid(string $collection, string $texto, int $k = 10): array
     {
-        $this->perfil()->exigir('vectores', 'la busqueda hibrida');
+        $this->profile()->exigir('vectors', 'la busqueda hibrida');
 
         $porSignificado = $this->similar($collection, $texto, $k * 2);
 
-        $campos = $this->vectorial($collection)->manifiesto()->auto;
+        $campos = $this->vectorIndex($collection)->manifiesto()->auto;
         $porPalabra = [];
         foreach ($this->all($collection) as $doc) {
             foreach ($campos as $campo) {
@@ -90,15 +90,15 @@ trait ConVectores
         ?Query $donde = null,
         ?string $precision = null
     ): array {
-        $this->perfil()->exigir('vectores', 'la busqueda por significado');
+        $this->profile()->exigir('vectors', 'la busqueda por significado');
 
         return $this->vectores->similar($collection, $consulta, $k, $donde, $precision);
     }
 
     /** Acceso al indice vectorial de una coleccion, para lo que no cubre la fachada. */
-    public function vectorial(string $collection): Vector\Indice
+    public function vectorIndex(string $collection): Vector\Indice
     {
-        $this->perfil()->exigir('vectores', 'el acceso al indice vectorial');
+        $this->profile()->exigir('vectors', 'el acceso al indice vectorial');
         return $this->vectores->indice($collection);
     }
 }

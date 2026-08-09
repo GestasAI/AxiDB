@@ -219,19 +219,62 @@ eq('la durabilidad se recuerda tras reabrir', 'safe', $db5->storage()->durabilid
 
 $ajustes = \json_decode((string) \file_get_contents($ruta . '/segura/_axidb.json'), true);
 eq('y esta escrita en la propia coleccion',
-    ['driver' => 'fs', 'durabilidad' => 'safe', 'cifrado' => false,
-     'unicos' => [], 'esquema' => [], 'caducidad' => 0], $ajustes);
+    ['driver' => 'fs', 'durability' => 'safe', 'encrypted' => false,
+     'uniques' => [], 'schema' => [], 'ttl' => 0], $ajustes);
 
 // El orden de las claves es estable pase lo que pase: este archivo se lee a ojo
 // y se versiona, y un diff tiene que enseñar el cambio, no la baraja.
-$db5->storage()->declararCaducidad('segura', 60);
+$db5->storage()->defineTtl('segura', 60);
 $db5->storage()->declararDriver('segura', 'fs');
 eq('y el orden de las claves no baila al tocar un ajuste',
-    ['driver', 'durabilidad', 'cifrado', 'unicos', 'esquema', 'caducidad'],
+    ['driver', 'durability', 'encrypted', 'uniques', 'schema', 'ttl'],
     \array_keys((array) \json_decode(
         (string) \file_get_contents($ruta . '/segura/_axidb.json'), true
     )));
 
+/* ─────────────────────────────────────────────────────────────────────────── */
+section('F] Una base escrita con los nombres antiguos sigue abriendo igual');
+
+/*
+ * Las claves de `_axidb.json` se llamaban `unicos`, `esquema`, `caducidad`,
+ * `cifrado` y `durabilidad`. Ahora se escriben en ingles.
+ *
+ * Esto comprueba lo unico que de verdad importa de ese cambio: que una base
+ * creada antes no pierda sus reglas al abrirse. Si el motor ignorara la clave
+ * vieja, la coleccion se abriria SIN su `UNIQUE` —sin un error, sin un aviso— y
+ * empezaria a admitir duplicados. Un renombrado que se lleva por delante una
+ * restriccion en silencio es exactamente lo que no puede pasar.
+ */
+$viejo = tmpdir('ajustes_antiguos');
+\mkdir($viejo . '/clientes', 0777, true);
+\file_put_contents($viejo . '/clientes/_axidb.json', (string) \json_encode([
+    'driver'      => 'fs',
+    'durabilidad' => 'fast',
+    'cifrado'     => false,
+    'unicos'      => ['correo'],
+    'esquema'     => ['nombre' => ['obligatorio' => true]],
+    'caducidad'   => 120,
+], JSON_PRETTY_PRINT));
+
+$antiguo = new Db($viejo, ['durable' => false]);
+eq('lee la unicidad declarada a la antigua', ['correo'], $antiguo->uniques('clientes'));
+eq('y el esquema',      ['nombre' => ['obligatorio' => true]], $antiguo->schema('clientes'));
+eq('y la caducidad',    120,    $antiguo->ttl('clientes'));
+eq('y la durabilidad', 'fast',  $antiguo->storage()->durabilidadDe('clientes'));
+
+$antiguo->insert('clientes', ['nombre' => 'Ana', 'correo' => 'ana@ejemplo.es'], 'c1');
+throws('y la restriccion se sigue cumpliendo, que es lo que importa',
+    static fn() => $antiguo->insert('clientes', ['nombre' => 'Otra', 'correo' => 'ana@ejemplo.es'], 'c2'));
+
+// La primera escritura deja el archivo ya con los nombres nuevos.
+$antiguo->defineTtl('clientes', 300);
+$tras = (array) \json_decode((string) \file_get_contents($viejo . '/clientes/_axidb.json'), true);
+eq('al escribir, el archivo queda en los nombres nuevos',
+    ['driver', 'durability', 'encrypted', 'uniques', 'schema', 'ttl'], \array_keys($tras));
+eq('sin perder lo que habia', ['correo'], $tras['uniques']);
+eq('y con el cambio aplicado', 300, $tras['ttl']);
+
+rmrf($viejo);
 rmrf($db->path());
 rmrf($db2->path());
 rmrf($db3->path());

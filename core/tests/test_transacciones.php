@@ -19,7 +19,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/_harness.php';
 
 use Axi\Core\Db;
-use Axi\Core\Tx\Diario;
+use Axi\Core\Tx\Journal;
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('A] Todo o nada');
@@ -30,7 +30,7 @@ $db->insert('stock', ['unidades' => 10], 'plato-1');
 
 $saliopor = '';
 try {
-    $db->transaccion(static function ($tx) {
+    $db->transaction(static function ($tx) {
         $tx->update('stock', 'plato-1', ['unidades' => 4]);
         throw new RuntimeException('el pago fallo');
     });
@@ -42,7 +42,7 @@ eq('una excepcion tuya sale tal cual, sin envolver', 'el pago fallo', $saliopor)
 eq('y el documento se queda como estaba', 10, $db->get('stock', 'plato-1')['unidades']);
 eq('sin subir de version siquiera', 1, $db->get('stock', 'plato-1')['_version']);
 
-$fuera = $db->transaccion(static function ($tx) {
+$fuera = $db->transaction(static function ($tx) {
     $tx->update('stock', 'plato-1', ['unidades' => 7]);
     $tx->insert('pedidos', ['plato' => 'plato-1', 'n' => 3], 'p1');
     return 'listo';
@@ -55,7 +55,7 @@ eq('no queda ningun diario suelto', [], \glob($dir . '/_tx/*') ?: []);
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('B] Dentro de la transaccion se lee lo propio');
 
-$db->transaccion(static function ($tx) {
+$db->transaction(static function ($tx) {
     $tx->update('stock', 'plato-1', ['unidades' => 5]);
     eq('un get posterior ve el valor nuevo', 5, $tx->get('stock', 'plato-1')['unidades']);
 
@@ -81,7 +81,7 @@ section('C] La actualizacion perdida');
 $db->insert('c', ['n' => 10], 'x');
 
 throws('si alguien toca por debajo lo que la transaccion leyo, se aborta',
-    static fn () => $db->transaccion(static function ($tx) use ($db) {
+    static fn () => $db->transaction(static function ($tx) use ($db) {
         $v = $tx->get('c', 'x')['n'];
         $db->update('c', 'x', ['n' => 99]);       // otro proceso, por en medio
         $tx->update('c', 'x', ['n' => $v - 3]);
@@ -93,7 +93,7 @@ eq('y el cambio ajeno sigue en pie', 99, $db->get('c', 'x')['n']);
 section('D] Con indices, unicidad y borrados');
 
 $db->sql('CREATE UNIQUE INDEX ON usuarios (correo)');
-$db->transaccion(static function ($tx) {
+$db->transaction(static function ($tx) {
     $tx->insert('usuarios', ['correo' => 'ana@ejemplo.com'], 'u1');
     $tx->insert('usuarios', ['correo' => 'juan@ejemplo.com'], 'u2');
 });
@@ -101,7 +101,7 @@ eq('los indices se mantienen al aplicar', 'u1',
     $db->by('usuarios', 'correo', 'ana@ejemplo.com')[0]['id'] ?? null);
 
 throws('una transaccion que repite un valor unico se rechaza entera',
-    static fn () => $db->transaccion(static function ($tx) {
+    static fn () => $db->transaction(static function ($tx) {
         $tx->insert('usuarios', ['correo' => 'nuevo@ejemplo.com'], 'u3');
         $tx->insert('usuarios', ['correo' => 'ana@ejemplo.com'], 'u4');
     }));
@@ -111,7 +111,7 @@ ok('el que iba antes del choque tampoco', !$db->exists('usuarios', 'u3'));
 $revision = $db->verifyIndexes('usuarios')['correo'] ?? [];
 eq('el indice no queda con reservas de mas', 0, $revision['sobran'] ?? -1);
 
-$db->transaccion(static fn ($tx) => $tx->delete('usuarios', 'u1'));
+$db->transaction(static fn ($tx) => $tx->delete('usuarios', 'u1'));
 eq('borrar dentro de una transaccion libera el valor unico', [],
     $db->by('usuarios', 'correo', 'ana@ejemplo.com'));
 
@@ -199,17 +199,17 @@ $db->storage()->cerrar();
 
 $plan = [['coleccion' => 'c', 'id' => 'd1', 'accion' => 'poner', 'datos' => ['n' => 42]]];
 
-$sinMarca = new Diario($dir, 'tx_sin_marca');
+$sinMarca = new Journal($dir, 'tx_sin_marca');
 $sinMarca->anotar($plan);
 
-$conMarca = new Diario($dir, 'tx_con_marca');
+$conMarca = new Journal($dir, 'tx_con_marca');
 $conMarca->anotar($plan);
 $conMarca->confirmar();
 
-$reabierto = new Db($dir, ['durable' => false, 'recuperar' => false]);
-eq('abrir sin recuperar deja los dos diarios donde estaban', 2, \count(Diario::pendientes($dir)));
+$reabierto = new Db($dir, ['durable' => false, 'recover' => false]);
+eq('abrir sin recuperar deja los dos diarios donde estaban', 2, \count(Journal::pendientes($dir)));
 
-$hecho = $reabierto->recuperar();
+$hecho = $reabierto->recover();
 
 eq('el diario sin marca se descarta', 1, $hecho['descartadas']);
 eq('el que tiene marca se termina de aplicar', 1, $hecho['aplicadas']);
@@ -219,14 +219,14 @@ eq('no queda ningun diario', [], \glob($dir . '/_tx/*') ?: []);
 
 // Aplicar dos veces el mismo plan tiene que dar el mismo resultado: si no, una
 // recuperacion que se repita —dos procesos abriendo a la vez— haria daño.
-$otra = new Diario($dir, 'tx_repetido');
+$otra = new Journal($dir, 'tx_repetido');
 $otra->anotar($plan);
 $otra->confirmar();
-$reabierto->recuperar();
-$otra2 = new Diario($dir, 'tx_repetido_2');
+$reabierto->recover();
+$otra2 = new Journal($dir, 'tx_repetido_2');
 $otra2->anotar($plan);
 $otra2->confirmar();
-$reabierto->recuperar();
+$reabierto->recover();
 eq('aplicar el mismo plan dos veces deja lo mismo', 42, $reabierto->get('c', 'd1')['n']);
 
 $reabierto->storage()->cerrar();
@@ -264,8 +264,8 @@ for ($ronda = 0; $ronda < RONDAS_TX; $ronda++) {
     killNow($h);
     $muertes++;
 
-    $lector = new Db($dir, ['durable' => false, 'recuperar' => false]);
-    $pendientes = \count(Diario::pendientes($dir));
+    $lector = new Db($dir, ['durable' => false, 'recover' => false]);
+    $pendientes = \count(Journal::pendientes($dir));
     $lector->storage()->cerrar();
 
     $tras = new Db($dir, ['durable' => false]);          // recupera al abrir

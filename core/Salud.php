@@ -35,7 +35,7 @@ final class Salud
      *               cifrada:bool, caducidad:int, unicos:list<string>, indices:list<string>,
      *               vectores:bool, bytes:int, proporcionMuerta:float}
      */
-    public function estadisticas(string $coleccion): array
+    public function stats(string $coleccion): array
     {
         $almacen = $this->db->storage();
         $dir     = $almacen->dir($coleccion);
@@ -45,9 +45,9 @@ final class Salud
             'documentos'       => $this->db->count($coleccion),
             'driver'           => $almacen->driverDe($coleccion),
             'durabilidad'      => $almacen->durabilidadDe($coleccion),
-            'cifrada'          => $almacen->estaCifrada($coleccion),
+            'cifrada'          => $almacen->isEncrypted($coleccion),
             'caducidad'        => $almacen->caducidadDe($coleccion),
-            'unicos'           => $this->db->unicos($coleccion),
+            'unicos'           => $this->db->uniques($coleccion),
             'indices'          => $this->db->indexes($coleccion),
             'vectores'         => \is_dir($dir . '/_vec'),
             'bytes'            => self::pesoDe($dir),
@@ -60,7 +60,7 @@ final class Salud
      *
      * @return array{colecciones:int, documentos:int, bytes:int, avisos:list<array>}
      */
-    public function revision(): array
+    public function checkup(): array
     {
         $avisos      = [];
         $documentos  = 0;
@@ -68,7 +68,7 @@ final class Salud
         $colecciones = $this->db->collections();
 
         foreach ($colecciones as $coleccion) {
-            $e = $this->estadisticas($coleccion);
+            $e = $this->stats($coleccion);
             $documentos += $e['documentos'];
             $bytes      += $e['bytes'];
 

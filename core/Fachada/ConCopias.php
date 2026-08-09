@@ -2,10 +2,10 @@
 /**
  * AxiDB - Fachada\ConCopias: respaldar y restaurar desde Db.
  *
- *   $db->copiar('./copias');                    // completa
- *   $db->copiar('./copias', incremental: true); // solo lo que cambio
- *   $db->copias('./copias');                    // que hay guardado
- *   $db->restaurar('./copias/20260809-...axicopia');
+ *   $db->backup('./copias');                    // completa
+ *   $db->backup('./copias', incremental: true); // solo lo que cambio
+ *   $db->backups('./copias');                    // que hay guardado
+ *   $db->restore('./copias/20260809-...axicopia');
  */
 
 declare(strict_types=1);
@@ -33,9 +33,9 @@ trait ConCopias
      *
      * @return array{id:string, tipo:string, archivos:int, guardados:int, bytes:int, archivo:string}
      */
-    public function copiar(string $carpeta, bool $incremental = false): array
+    public function backup(string $carpeta, bool $incremental = false): array
     {
-        $this->recuperar();
+        $this->recover();
         $this->storage->cerrar();           // suelta los descriptores del formato empaquetado
 
         $anterior = $incremental ? Catalogo::ultima($carpeta) : null;
@@ -52,7 +52,7 @@ trait ConCopias
      *
      * @return list<array{archivo:string, id:string, momento:string, tipo:string, base:?string, archivos:int}>
      */
-    public function copias(string $carpeta): array
+    public function backups(string $carpeta): array
     {
         return Catalogo::de($carpeta);
     }
@@ -70,7 +70,7 @@ trait ConCopias
      *
      * @return array{id:string, archivos:int, borrados:int, cadena:list<string>}
      */
-    public function restaurar(string $copia): array
+    public function restore(string $copia): array
     {
         if (!\is_file($copia)) {
             throw new Exception("Copia: no existe el archivo {$copia}.");
@@ -98,7 +98,7 @@ trait ConCopias
      *
      * @return int documentos exportados
      */
-    public function exportar(string $collection, string $destino, ?string $formato = null): int
+    public function export(string $collection, string $destino, ?string $formato = null): int
     {
         $documentos = $this->all($collection);
 
@@ -120,7 +120,7 @@ trait ConCopias
      *
      * @return int documentos importados
      */
-    public function importar(string $collection, string $origen, ?string $formato = null): int
+    public function import(string $collection, string $origen, ?string $formato = null): int
     {
         $documentos = match (self::formatoDe($origen, $formato)) {
             'csv'   => Intercambio::desdeCsv($origen),

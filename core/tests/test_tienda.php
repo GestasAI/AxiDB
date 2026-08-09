@@ -35,7 +35,7 @@ $db      = new Db($dir, ['durable' => false]);
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('A] Montar la tienda');
 
-$db->declararEsquema('productos', [
+$db->defineSchema('productos', [
     'nombre' => ['tipo' => 'texto',   'obligatorio' => true],
     'precio' => ['tipo' => 'decimal', 'obligatorio' => true],
     'stock'  => ['tipo' => 'entero',  'defecto' => 0],
@@ -43,7 +43,7 @@ $db->declararEsquema('productos', [
 ]);
 $db->sql('CREATE UNIQUE INDEX ON clientes (correo)');
 $db->sql('CREATE INDEX ON pedidos (cliente_id)');
-$db->declararCaducidad('carritos', 3600);
+$db->defineTtl('carritos', 3600);
 
 $db->sql("INSERT INTO productos (id, nombre, precio, stock) VALUES
     ('p1', 'Mesa de pino',   120.0, 10),
@@ -68,7 +68,7 @@ section('B] Confirmar un pedido: todo o nada');
 
 /** Descuenta stock y crea el pedido, o no hace ninguna de las dos cosas. */
 $confirmar = static function (Db $db, string $cliente, string $producto, int $unidades): string {
-    return $db->transaccion(static function ($tx) use ($cliente, $producto, $unidades): string {
+    return $db->transaction(static function ($tx) use ($cliente, $producto, $unidades): string {
         $p = $tx->get('productos', $producto);
         if ($p === null || $p['stock'] < $unidades) {
             throw new RuntimeException("No hay stock de {$producto}.");
@@ -150,7 +150,7 @@ eq('con sus pedidos',          [2, 1],  \array_column($resumen, 'pedidos'));
 eq('y lo facturado',   [329.9, 142.0],  \array_column($resumen, 'facturado'));
 
 eq('el total del mes', 471.9,
-    $db->sql("SELECT SUM(total) AS t FROM pedidos WHERE MES(fecha) = 4")[0]['t']);
+    $db->sql("SELECT SUM(total) AS t FROM pedidos WHERE MONTH(fecha) = 4")[0]['t']);
 
 eq('los productos que se han vendido, sin repetir', 3,
     \count($db->sql("SELECT DISTINCT producto FROM pedidos")));
@@ -167,7 +167,7 @@ eq('los clientes que han comprado alguna vez', ['Ana', 'Juan'],
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('F] Una copia, un destrozo, y volver atras');
 
-$copia = $db->copiar($copias);
+$copia = $db->backup($copias);
 ok('la copia guarda toda la tienda', $copia['archivos'] > 8);
 
 // Un destrozo de los de verdad: se borra un cliente, se descuadra el stock y
@@ -176,7 +176,7 @@ $db->delete('clientes', 'c1');
 $db->sql("UPDATE productos SET stock = 0");
 \file_put_contents($dir . '/pedidos/' . $db->ids('pedidos')[0] . '.json', 'basura');
 
-$vuelta = $db->restaurar($copia['archivo']);
+$vuelta = $db->restore($copia['archivo']);
 ok('se restaura', $vuelta['archivos'] > 8);
 
 $tras = new Db($dir, ['durable' => false]);
@@ -184,25 +184,25 @@ eq('el cliente vuelve',        'Ana', $tras->get('clientes', 'c1')['nombre'] ?? 
 eq('el stock vuelve a su sitio',    8, $tras->get('productos', 'p1')['stock'] ?? null);
 eq('los pedidos estan enteros',     3, $tras->count('pedidos'));
 eq('el indice sigue funcionando',   2, \count($tras->by('pedidos', 'cliente_id', 'c1')));
-eq('la unicidad sigue declarada', ['correo'], $tras->unicos('clientes'));
+eq('la unicidad sigue declarada', ['correo'], $tras->uniques('clientes'));
 throws('y sigue rechazando repetidos',
     static fn () => $tras->insert('clientes', ['correo' => 'ana@ejemplo.com'], 'cX'));
 eq('el esquema tambien vuelve', true,
-    $tras->esquema('productos')['nombre']['obligatorio'] ?? false);
+    $tras->schema('productos')['nombre']['obligatorio'] ?? false);
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('G] Y saber que todo esta bien');
 
-$revision = $tras->revision();
+$revision = $tras->checkup();
 ok('la revision cuenta las colecciones', $revision['colecciones'] >= 4);
 ok('y los documentos',                   $revision['documentos'] >= 8);
 eq('sin un solo aviso', [], $revision['avisos']);
 
-$e = $tras->estadisticas('pedidos');
+$e = $tras->stats('pedidos');
 eq('las estadisticas ven el indice', ['cliente_id'], $e['indices']);
 eq('y los tres pedidos',                          3, $e['documentos']);
 
-$campos = \array_column($tras->describir('productos'), 'campo');
+$campos = \array_column($tras->describe('productos'), 'campo');
 ok('describir enseña los campos', \in_array('precio', $campos, true));
 
 /* ─────────────────────────────────────────────────────────────────────────── */
@@ -212,14 +212,14 @@ section('H] Nada de esto necesito decir que no lo hace');
  * El criterio de salida de la ola, comprobado como codigo y no como opinion:
  * las cinco cosas que el README tenia que reconocer como huecos.
  */
-ok('transacciones entre colecciones', \method_exists(Db::class, 'transaccion'));
+ok('transacciones entre colecciones', \method_exists(Db::class, 'transaction'));
 ok('JOIN',        \count($tras->sql("SELECT total FROM pedidos JOIN clientes ON pedidos.cliente_id = clientes.id")) === 3);
 ok('agregados',   $tras->sql("SELECT COUNT(*) AS c FROM pedidos")[0]['c'] === 3);
-ok('UNIQUE que se cumple', $tras->unicos('clientes') === ['correo']);
-ok('copias con restauracion', \method_exists(Db::class, 'restaurar'));
-ok('cifrado',     \method_exists(Db::class, 'cifrar'));
-ok('caducidad',   \method_exists(Db::class, 'declararCaducidad'));
-ok('observabilidad', \method_exists(Db::class, 'revision'));
+ok('UNIQUE que se cumple', $tras->uniques('clientes') === ['correo']);
+ok('copias con restauracion', \method_exists(Db::class, 'restore'));
+ok('cifrado',     \method_exists(Db::class, 'encrypt'));
+ok('caducidad',   \method_exists(Db::class, 'defineTtl'));
+ok('observabilidad', \method_exists(Db::class, 'checkup'));
 
 $tras->storage()->cerrar();
 rmrf($copias);

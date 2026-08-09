@@ -22,7 +22,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/_harness.php';
 require_once __DIR__ . '/_vectores.php';
 
-use Axi\Core\Vector\Buscador;
+use Axi\Core\Vector\Searcher;
 
 const DIMS      = 768;
 const CUANTOS   = 10000;
@@ -42,7 +42,7 @@ $muestras = sembrarVectores($almacen, CUANTOS, DIMS, true);
 
 eq('estan todos', CUANTOS, $almacen->manifiesto()->vivos());
 
-$buscador = new Buscador($almacen);
+$buscador = new Searcher($almacen);
 $recalls  = [];
 $tiempos  = [];
 
@@ -114,7 +114,7 @@ section('C] El peor caso: vectores aleatorios, medido y dicho');
  */
 $almacen2 = almacenNuevo($dir . '/aleatorios', DIMS);
 sembrarVectores($almacen2, 2000, DIMS, false, 'r');
-$buscador2 = new Buscador($almacen2);
+$buscador2 = new Searcher($almacen2);
 
 $recalls = [];
 for ($c = 0; $c < 3; $c++) {

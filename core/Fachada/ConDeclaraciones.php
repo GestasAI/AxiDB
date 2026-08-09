@@ -28,7 +28,7 @@ trait ConDeclaraciones
      * Se consulta desde las fachadas antes de dejar pasar una funcion que no
      * es del perfil basico.
      */
-    public function perfil(): Perfil
+    public function profile(): Perfil
     {
         return $this->perfil;
     }
@@ -36,7 +36,7 @@ trait ConDeclaraciones
     /**
      * Declara que forma tienen los documentos de una coleccion.
      *
-     *   $db->declararEsquema('clientes', [
+     *   $db->defineSchema('clientes', [
      *       'correo' => ['tipo' => 'texto', 'obligatorio' => true],
      *       'activo' => ['tipo' => 'bool',  'defecto' => true],
      *   ]);
@@ -49,14 +49,14 @@ trait ConDeclaraciones
      * imposible de adoptar en algo que ya esta en marcha; los documentos viejos
      * se validan cuando se vuelvan a escribir.
      */
-    public function declararEsquema(string $collection, array $reglas): void
+    public function defineSchema(string $collection, array $reglas): void
     {
-        $this->perfil()->exigir('esquema', 'declararEsquema()');
-        $this->storage->declararEsquema($collection, $reglas);
+        $this->profile()->exigir('schema', 'defineSchema()');
+        $this->storage->defineSchema($collection, $reglas);
     }
 
     /** @return array<string, array> las reglas declaradas. Vacio si no hay */
-    public function esquema(string $collection): array
+    public function schema(string $collection): array
     {
         return $this->storage->esquemaDe($collection);
     }
@@ -69,13 +69,13 @@ trait ConDeclaraciones
      * cuenta en `count`, aunque su archivo siga en el disco hasta el proximo
      * barrido. Ver CaducidadDriver para por que se hizo asi y no al reves.
      */
-    public function declararCaducidad(string $collection, int $segundos): void
+    public function defineTtl(string $collection, int $segundos): void
     {
-        $this->perfil()->exigir('caducidad', 'declararCaducidad()');
-        $this->storage->declararCaducidad($collection, $segundos);
+        $this->profile()->exigir('ttl', 'defineTtl()');
+        $this->storage->defineTtl($collection, $segundos);
     }
 
-    public function caducidad(string $collection): int
+    public function ttl(string $collection): int
     {
         return $this->storage->caducidadDe($collection);
     }
@@ -87,15 +87,15 @@ trait ConDeclaraciones
      *
      * @return int documentos reescritos
      */
-    public function cifrar(string $collection): int
+    public function encrypt(string $collection): int
     {
-        $this->perfil()->exigir('cifrado', 'cifrar()');
-        return $this->storage->cifrar($collection);
+        $this->profile()->exigir('encryption', 'encrypt()');
+        return $this->storage->encrypt($collection);
     }
 
-    public function estaCifrada(string $collection): bool
+    public function isEncrypted(string $collection): bool
     {
-        return $this->storage->estaCifrada($collection);
+        return $this->storage->isEncrypted($collection);
     }
 
     /**

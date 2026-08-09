@@ -1,6 +1,6 @@
 <?php
 /**
- * AxiDB - Cifrado\Llavero: de una contraseña a la clave de 32 bytes.
+ * AxiDB - Crypto\Keyring: de una contraseña a la clave de 32 bytes.
  *
  * La contraseña que escribe una persona no sirve como clave: es corta, tiene
  * poca entropia y se adivina probando. PBKDF2 la estira con 210.000 vueltas de
@@ -19,31 +19,31 @@
 
 declare(strict_types=1);
 
-namespace Axi\Core\Cifrado;
+namespace Axi\Core\Crypto;
 
 use Axi\Core\Exception;
 
-final class Llavero
+final class Keyring
 {
     private const ARCHIVO      = '_cifrado.json';
     private const ITERACIONES  = 210000;
     private const TESTIGO      = 'axidb-comprobante-de-clave';
     private const CONTEXTO     = 'axidb:llavero:v1';
 
-    private ?Caja $caja = null;
+    private ?Box $caja = null;
 
     public function __construct(
         private string $base,
         private string $contraseña
     ) {
         if ($this->contraseña === '') {
-            throw new Exception('Cifrado: la contraseña no puede estar vacia.');
+            throw new Exception('Crypto: la contraseña no puede estar vacia.');
         }
-        Caja::exigirSoporte();
+        Box::exigirSoporte();
     }
 
     /** La caja lista para cerrar y abrir documentos. */
-    public function caja(): Caja
+    public function caja(): Box
     {
         return $this->caja ??= $this->abrirOCrear();
     }
@@ -54,35 +54,35 @@ final class Llavero
         return \is_file($base . '/' . self::ARCHIVO);
     }
 
-    private function abrirOCrear(): Caja
+    private function abrirOCrear(): Box
     {
         $path = $this->base . '/' . self::ARCHIVO;
 
         if (\is_file($path)) {
             $conf = \json_decode((string) @\file_get_contents($path), true);
             if (!\is_array($conf) || !isset($conf['sal'], $conf['comprobante'], $conf['iteraciones'])) {
-                throw new Exception("Cifrado: {$path} esta dañado o no es un llavero de AxiDB.");
+                throw new Exception("Crypto: {$path} esta dañado o no es un llavero de AxiDB.");
             }
             $sal  = (string) \base64_decode((string) $conf['sal'], true);
-            $caja = new Caja($this->derivar($sal, (int) $conf['iteraciones']));
+            $caja = new Box($this->derivar($sal, (int) $conf['iteraciones']));
 
             // Aqui se cae pronto y con el motivo correcto si la clave no es esa.
             try {
                 $visto = $caja->abrir((string) $conf['comprobante'], self::CONTEXTO);
             } catch (Exception) {
                 throw new Exception(
-                    'Cifrado: la contraseña no abre esta base de datos. '
+                    'Crypto: la contraseña no abre esta base de datos. '
                     . 'Los datos estan intactos; la clave es otra.'
                 );
             }
             if (!\hash_equals(self::TESTIGO, $visto)) {
-                throw new Exception('Cifrado: el comprobante del llavero no cuadra.');
+                throw new Exception('Crypto: el comprobante del llavero no cuadra.');
             }
             return $caja;
         }
 
         $sal  = \random_bytes(16);
-        $caja = new Caja($this->derivar($sal, self::ITERACIONES));
+        $caja = new Box($this->derivar($sal, self::ITERACIONES));
 
         $conf = [
             'version'     => 1,
@@ -95,7 +95,7 @@ final class Llavero
         if (@\file_put_contents($tmp, \json_encode($conf, JSON_PRETTY_PRINT) . "\n") === false
             || !@\rename($tmp, $path)) {
             @\unlink($tmp);
-            throw new Exception("Cifrado: no se pudo escribir el llavero en {$path}.");
+            throw new Exception("Crypto: no se pudo escribir el llavero en {$path}.");
         }
         @\chmod($path, 0600);
         return $caja;
@@ -104,7 +104,7 @@ final class Llavero
     private function derivar(string $sal, int $iteraciones): string
     {
         if ($sal === '' || $iteraciones < 1000) {
-            throw new Exception('Cifrado: el llavero tiene parametros invalidos.');
+            throw new Exception('Crypto: el llavero tiene parametros invalidos.');
         }
         return \hash_pbkdf2('sha256', $this->contraseña, $sal, $iteraciones, 32, true);
     }

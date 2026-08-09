@@ -6,14 +6,14 @@
  * documentos, las colecciones y los drivers dentro. El cifrado es un cuarto
  * asunto y se saca aqui en vez de engordar el archivo.
  *
- * No cambia nada de puertas afuera: se sigue escribiendo `$storage->cifrar(...)`.
+ * No cambia nada de puertas afuera: se sigue escribiendo `$storage->encrypt(...)`.
  */
 
 declare(strict_types=1);
 
-namespace Axi\Core\Almacen;
+namespace Axi\Core\Storage;
 
-use Axi\Core\Cifrado\Llavero;
+use Axi\Core\Crypto\Keyring;
 use Axi\Core\Drivers\CaducidadDriver;
 use Axi\Core\Drivers\CifradoDriver;
 use Axi\Core\Drivers\Driver;
@@ -21,7 +21,7 @@ use Axi\Core\Exception;
 
 trait ConCifrado
 {
-    private ?Llavero $llavero = null;
+    private ?Keyring $llavero = null;
 
     /** @var array<string, Driver> decoradores ya montados, uno por coleccion */
     private array $cifrados = [];
@@ -38,12 +38,12 @@ trait ConCifrado
      *
      * @return int documentos reescritos
      */
-    public function cifrar(string $collection): int
+    public function encrypt(string $collection): int
     {
         self::name($collection, 'coleccion');
         $this->exigirLlavero($collection);
 
-        if ($this->ajustes->estaCifrada($collection)) {
+        if ($this->ajustes->isEncrypted($collection)) {
             return 0;
         }
         // El mismo motivo que en Vectores::activar, por el otro lado: cifrar
@@ -57,7 +57,7 @@ trait ConCifrado
             );
         }
         $enClaro = $this->driver($collection)->all($collection);
-        $this->ajustes->fijar($collection, ['cifrado' => true]);
+        $this->ajustes->fijar($collection, ['encrypted' => true]);
         $this->cifrados = [];
 
         $n = 0;
@@ -79,9 +79,9 @@ trait ConCifrado
         return $n;
     }
 
-    public function estaCifrada(string $collection): bool
+    public function isEncrypted(string $collection): bool
     {
-        return $this->ajustes->estaCifrada($collection);
+        return $this->ajustes->isEncrypted($collection);
     }
 
     public function hayLlavero(): bool
@@ -93,7 +93,7 @@ trait ConCifrado
     private function prepararCifrado(string $base, ?string $clave): void
     {
         if ($clave !== null && $clave !== '') {
-            $this->llavero = new Llavero($base, $clave);
+            $this->llavero = new Keyring($base, $clave);
         }
     }
 
@@ -109,7 +109,7 @@ trait ConCifrado
     {
         $driver = $this->envolverSiCifrada($base, $collection);
 
-        $segundos = $this->ajustes->caducidad($collection);
+        $segundos = $this->ajustes->ttl($collection);
         if ($segundos <= 0) {
             return $driver;
         }
@@ -119,7 +119,7 @@ trait ConCifrado
 
     private function envolverSiCifrada(Driver $base, string $collection): Driver
     {
-        if (!$this->ajustes->estaCifrada($collection)) {
+        if (!$this->ajustes->isEncrypted($collection)) {
             return $base;
         }
         $this->exigirLlavero($collection);
@@ -133,7 +133,7 @@ trait ConCifrado
         if ($this->llavero === null) {
             throw new Exception(
                 "La coleccion '{$collection}' esta cifrada y no se ha dado la clave. "
-                . "Abre la base con: new Db(\$dir, ['clave' => '...'])."
+                . "Abre la base con: new Db(\$dir, ['key' => '...'])."
             );
         }
     }

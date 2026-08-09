@@ -20,7 +20,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/_harness.php';
 require_once __DIR__ . '/_vectores.php';
 
-use Axi\Core\Vector\Buscador;
+use Axi\Core\Vector\Searcher;
 
 const DIMS    = 768;
 const CUANTOS = 50000;
@@ -85,7 +85,7 @@ $mbDisco = (\filesize($dir . '/vectores.f32') + \filesize($dir . '/codigos.bin')
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('B] Buscar entre 50.000');
 
-$buscador = new Buscador($almacen);
+$buscador = new Searcher($almacen);
 
 /*
  * Calentamiento, y hace falta mas del que habia.

@@ -15,7 +15,7 @@ declare(strict_types=1);
 
 namespace Axi\Core;
 
-use Axi\Core\Vector\Almacen;
+use Axi\Core\Vector\Store;
 use Axi\Core\Vector\Embedder;
 use Axi\Core\Vector\Embedders\Hash;
 use Axi\Core\Vector\Indice;
@@ -40,11 +40,11 @@ final class Vectores
         $this->embedder = $embedder ?? new Hash();
     }
 
-    public function activar(string $coleccion, array $opciones = []): Vector\Manifiesto
+    public function activar(string $coleccion, array $opciones = []): Vector\Manifest
     {
         $this->exigirSinCifrar($coleccion);
         $this->storage->ensureCollection($coleccion);
-        $indice = new Indice(new Almacen($this->dir($coleccion)), $this->embedder);
+        $indice = new Indice(new Store($this->dir($coleccion)), $this->embedder);
         $m      = $indice->activar($opciones);
         $this->indices[$coleccion] = $indice;
 
@@ -81,7 +81,7 @@ final class Vectores
      */
     private function exigirSinCifrar(string $coleccion): void
     {
-        if ($this->storage->estaCifrada($coleccion)) {
+        if ($this->storage->isEncrypted($coleccion)) {
             throw new Exception(
                 "No se pueden activar vectores en '{$coleccion}': esta cifrada. "
                 . 'De un embedding se puede reconstruir el texto que lo genero, asi que '
@@ -97,7 +97,7 @@ final class Vectores
         if ($indice === null) {
             throw new Exception(
                 "Vector: la coleccion '{$coleccion}' no tiene vectores. "
-                . "Activalos con \$db->vectores('{$coleccion}')."
+                . "Activalos con \$db->enableVectors('{$coleccion}')."
             );
         }
         return $indice;
@@ -162,7 +162,7 @@ final class Vectores
         if (\array_key_exists($coleccion, $this->indices)) {
             return $this->indices[$coleccion];
         }
-        $almacen = new Almacen($this->dir($coleccion));
+        $almacen = new Store($this->dir($coleccion));
         return $this->indices[$coleccion] = $almacen->existe()
             ? new Indice($almacen, $this->embedder)
             : null;

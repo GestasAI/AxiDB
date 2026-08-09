@@ -1,6 +1,6 @@
 <?php
 /**
- * AxiDB - Vector\Archivos: el trato con el disco, y nada mas.
+ * AxiDB - Vector\Files: el trato con el disco, y nada mas.
  *
  * Los cuatro archivos del indice vectorial se manejan igual —posiciones fijas,
  * lecturas por desplazamiento, un cerrojo para escribir— asi que esa mecanica
@@ -17,7 +17,7 @@ namespace Axi\Core\Vector;
 
 use Axi\Core\Exception;
 
-final class Archivos
+final class Files
 {
     private const NOMBRES = [
         'manifiesto' => 'manifiesto.json',

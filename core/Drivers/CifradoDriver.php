@@ -21,7 +21,7 @@ declare(strict_types=1);
 
 namespace Axi\Core\Drivers;
 
-use Axi\Core\Cifrado\Caja;
+use Axi\Core\Crypto\Box;
 use Axi\Core\Exception;
 
 final class CifradoDriver implements Driver
@@ -34,7 +34,7 @@ final class CifradoDriver implements Driver
 
     public function __construct(
         private Driver $dentro,
-        private Caja $caja
+        private Box $caja
     ) {
     }
 
@@ -121,7 +121,7 @@ final class CifradoDriver implements Driver
     {
         $json = \json_encode($carga, JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION);
         if ($json === false) {
-            throw new Exception('Cifrado: no se pudo serializar el documento: ' . \json_last_error_msg());
+            throw new Exception('Crypto: no se pudo serializar el documento: ' . \json_last_error_msg());
         }
         return $this->caja->cerrar($json, self::contexto($collection, $id));
     }
@@ -133,14 +133,14 @@ final class CifradoDriver implements Driver
      */
     private function abrir(string $collection, array $doc): array
     {
-        if (!isset($doc[self::CAMPO]) || !Caja::esBloque($doc[self::CAMPO])) {
+        if (!isset($doc[self::CAMPO]) || !Box::esBloque($doc[self::CAMPO])) {
             return $doc;
         }
         $id    = (string) ($doc['id'] ?? '');
         $json  = $this->caja->abrir((string) $doc[self::CAMPO], self::contexto($collection, $id));
         $carga = \json_decode($json, true);
         if (!\is_array($carga)) {
-            throw new Exception("Cifrado: el contenido de '{$collection}/{$id}' no es un documento valido.");
+            throw new Exception("Crypto: el contenido de '{$collection}/{$id}' no es un documento valido.");
         }
         return self::meta($doc) + $carga;
     }

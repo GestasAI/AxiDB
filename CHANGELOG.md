@@ -95,8 +95,8 @@ Perfiles: declarar para que es esta base de datos.
 ### Corregido
 
 - **Un `is_file` cacheado hacia creer que una coleccion no tenia vectores.**
-  `Archivos::tamaño()` limpiaba la cache de stat de PHP —con un comentario que
-  explicaba por que— y `Archivos::hay()` no. Y `hay()` es justo lo que decide si
+  `Files::tamaño()` limpiaba la cache de stat de PHP —con un comentario que
+  explicaba por que— y `Files::hay()` no. Y `hay()` es justo lo que decide si
   una coleccion tiene vectores activados.
 
   Solo fallaba con la maquina cargada, y siempre igual: "esta coleccion no tiene
@@ -154,7 +154,7 @@ ahi desde antes, encontrados por el camino.
 ### Añadido
 
 - **Cifrado por coleccion con AES-256-GCM.** `new Db($dir, ['clave' => '...'])` y
-  `$db->cifrar('clientes')`. Va por encima de los drivers, asi que funciona igual
+  `$db->encrypt('clientes')`. Va por encima de los drivers, asi que funciona igual
   en `fs` y en `packed`, y las migraciones no necesitan la clave.
   Guia: [10-cifrado](docs/guide/10-cifrado.md).
 - La clave se deriva con PBKDF2-SHA256 y 210.000 vueltas. Una contraseña
@@ -168,7 +168,7 @@ ahi desde antes, encontrados por el camino.
   tiene vectores: de un embedding se reconstruye aproximadamente el texto.
 
 - **Tres modos de precision en la busqueda vectorial.**
-  `$db->vectores('articulos', ['precision' => 'equilibrada'])`, y tambien por
+  `$db->enableVectors('articulos', ['precision' => 'equilibrada'])`, y tambien por
   consulta suelta: `$db->similar($col, $texto, 10, null, 'exacta')`.
 
   Medido con 10.000 vectores de 768 dimensiones, recall@10 sobre el caso feo
@@ -204,8 +204,8 @@ ahi desde antes, encontrados por el camino.
   No hay subconsultas correlacionadas: obligarian a una consulta completa por
   documento. Se rechazan con un mensaje claro en vez de aceptarlas y que alguien
   descubra el coste en produccion.
-- **Observabilidad.** `$db->describir()`, `$db->estadisticas()` y
-  `$db->revision()`. Guia: [16-salud](docs/guide/16-salud.md).
+- **Observabilidad.** `$db->describe()`, `$db->stats()` y
+  `$db->checkup()`. Guia: [16-salud](docs/guide/16-salud.md).
 
   `revision()` esta pensada para un cron o un panel: devuelve avisos con su
   gravedad y con QUE HACER. Vigila indices a los que les faltan entradas —el
@@ -249,7 +249,7 @@ ahi desde antes, encontrados por el camino.
 ### Añadido
 
 - **Copias de seguridad, completas e incrementales.** `$db->copiar('./copias')`,
-  `$db->copias('./copias')` y `$db->restaurar($archivo)`. Guia:
+  `$db->backups('./copias')` y `$db->restore($archivo)`. Guia:
   [13-copias](docs/guide/13-copias.md).
 
   Se copia el directorio entero —documentos, ajustes, indices y vectores— porque
@@ -265,11 +265,11 @@ ahi desde antes, encontrados por el camino.
   que es una extension opcional y que en la maquina de desarrollo NO esta
   instalada: aquel codigo no habria podido hacer una sola copia. El formato nuevo
   esta documentado y se puede abrir a mano.
-- **Exportar e importar en JSON y CSV.** `$db->exportar('clientes', './c.csv')` y
-  `$db->importar('clientes', './c.csv')`. La cabecera del CSV es la union de
+- **Exportar e importar en JSON y CSV.** `$db->export('clientes', './c.csv')` y
+  `$db->import('clientes', './c.csv')`. La cabecera del CSV es la union de
   todos los campos, no los del primer documento. Importar pasa por el esquema,
   la unicidad y los indices: no es una puerta trasera.
-- **Esquema opcional por coleccion.** `$db->declararEsquema('clientes', [...])`
+- **Esquema opcional por coleccion.** `$db->defineSchema('clientes', [...])`
   con campos obligatorios, tipos y valores por defecto. Guia:
   [12-reglas](docs/guide/12-reglas.md).
 
@@ -277,7 +277,7 @@ ahi desde antes, encontrados por el camino.
   falta, no cierra la coleccion. Las actualizaciones parciales se validan
   ENTERAS —vaciar un obligatorio no se veria mirando solo lo que cambia— y el
   esquema se valida al declararlo, no al usarlo.
-- **Caducidad por coleccion.** `$db->declararCaducidad('sesiones', 3600)`.
+- **Caducidad por coleccion.** `$db->defineTtl('sesiones', 3600)`.
 
   Un documento vencido deja de existir por TODAS las puertas: `get`, `exists`,
   `count`, `all`, `find` e `ids`. No se devuelve aunque su archivo siga en el
@@ -288,7 +288,7 @@ ahi desde antes, encontrados por el camino.
   Se cuenta desde la ultima escritura, asi que modificar un documento le da
   cuerda. `count()` deja de ser instantaneo en `packed` solo en las colecciones
   que declaran caducidad.
-- **Transacciones.** `$db->transaccion(function ($tx) { ... })`: varias
+- **Transacciones.** `$db->transaction(function ($tx) { ... })`: varias
   escrituras que ocurren enteras o no ocurren, tambien entre colecciones y
   tambien si se va la luz en mitad. Guia:
   [11-transacciones](docs/guide/11-transacciones.md).
@@ -316,7 +316,7 @@ ahi desde antes, encontrados por el camino.
   `vectorial()`. `verifyIndexes()` avisa ademas de los indices heredados cuyo
   campo no se puede saber, en vez de saltarselos en silencio.
 - **`UNIQUE` que se cumple de verdad.** `CREATE UNIQUE INDEX ON clientes (email)`
-  —o `$db->unico('clientes', 'email')`— rechaza el duplicado en cada alta y cada
+  —o `$db->unique('clientes', 'email')`— rechaza el duplicado en cada alta y cada
   modificacion, no solo al crear el indice.
 
   El valor se reserva bajo el cerrojo de su propio archivo ANTES de escribir el
@@ -380,7 +380,7 @@ Busqueda por significado y agentes con permisos.
 
 ### Añadido
 
-- **Busqueda vectorial.** `$db->vectores('articulos', ['auto' => ['titulo']])` y
+- **Busqueda vectorial.** `$db->enableVectors('articulos', ['auto' => ['titulo']])` y
   a partir de ahi cada `insert` genera su vector solo. `$db->similar()` devuelve
   los mas parecidos por significado, no por palabras.
 - Dos pasadas: criba binaria de 1 bit por dimension sobre todos, coseno exacto
@@ -408,7 +408,7 @@ Busqueda por significado y agentes con permisos.
   No era el tamaño del archivo sino que leerlo mientras el propio proceso lo
   tiene abierto para escribir cuesta carisimo en Windows. Con el mapa en memoria:
   **0,27 ms, 80 veces mas rapido.**
-- `Almacen::poner()` no comprobaba las dimensiones: un vector corto descolocaba
+- `Storage::poner()` no comprobaba las dimensiones: un vector corto descolocaba
   todos los registros posteriores y no se notaba hasta la siguiente busqueda.
 - `Sweeper::rmrf()` no podia borrar archivos de solo lectura, asi que borrar una
   coleccion que tuviera alguno fallaba a medias y en silencio.

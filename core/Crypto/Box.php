@@ -1,6 +1,6 @@
 <?php
 /**
- * AxiDB - Cifrado\Caja: cerrar y abrir un texto con AES-256-GCM.
+ * AxiDB - Crypto\Box: cerrar y abrir un texto con AES-256-GCM.
  *
  * Una sola responsabilidad: dado un texto y una clave de 32 bytes, devolver un
  * bloque cerrado, y al reves. No sabe que es un documento ni donde se guarda.
@@ -17,11 +17,11 @@
 
 declare(strict_types=1);
 
-namespace Axi\Core\Cifrado;
+namespace Axi\Core\Crypto;
 
 use Axi\Core\Exception;
 
-final class Caja
+final class Box
 {
     public const CIFRADO = 'aes-256-gcm';
 
@@ -37,7 +37,7 @@ final class Caja
     public function __construct(private string $clave)
     {
         if (\strlen($this->clave) !== 32) {
-            throw new Exception('Cifrado: la clave debe ser de 32 bytes.');
+            throw new Exception('Crypto: la clave debe ser de 32 bytes.');
         }
         self::exigirSoporte();
     }
@@ -51,7 +51,7 @@ final class Caja
     {
         if (!\extension_loaded('openssl')) {
             throw new Exception(
-                'Cifrado: hace falta la extension openssl de PHP, que no esta cargada. '
+                'Crypto: hace falta la extension openssl de PHP, que no esta cargada. '
                 . 'Es la unica parte de AxiDB que no funciona solo con json. '
                 . 'En Debian/Ubuntu: apt install php-openssl; en Windows, quita el ; '
                 . 'de extension=openssl en php.ini.'
@@ -59,7 +59,7 @@ final class Caja
         }
         if (!\in_array(self::CIFRADO, \openssl_get_cipher_methods(), true)) {
             throw new Exception(
-                'Cifrado: esta openssl pero no ofrece ' . self::CIFRADO . '. '
+                'Crypto: esta openssl pero no ofrece ' . self::CIFRADO . '. '
                 . 'Hace falta una version de OpenSSL con GCM (1.0.1 o posterior).'
             );
         }
@@ -92,7 +92,7 @@ final class Caja
             self::TAG_BYTES
         );
         if ($cifrado === false) {
-            throw new Exception('Cifrado: no se pudo cerrar el bloque.');
+            throw new Exception('Crypto: no se pudo cerrar el bloque.');
         }
         return self::MARCA . \base64_encode($iv . $tag . $cifrado);
     }
@@ -105,11 +105,11 @@ final class Caja
     public function abrir(string $bloque, string $contexto): string
     {
         if (!\str_starts_with($bloque, self::MARCA)) {
-            throw new Exception('Cifrado: el bloque no tiene el formato esperado.');
+            throw new Exception('Crypto: el bloque no tiene el formato esperado.');
         }
         $crudo = \base64_decode(\substr($bloque, \strlen(self::MARCA)), true);
         if ($crudo === false || \strlen($crudo) < self::IV_BYTES + self::TAG_BYTES) {
-            throw new Exception('Cifrado: bloque incompleto o mal codificado.');
+            throw new Exception('Crypto: bloque incompleto o mal codificado.');
         }
 
         $iv       = \substr($crudo, 0, self::IV_BYTES);
@@ -127,7 +127,7 @@ final class Caja
         );
         if ($texto === false) {
             throw new Exception(
-                'Cifrado: no se pudo abrir el bloque. La clave no es la correcta, '
+                'Crypto: no se pudo abrir el bloque. La clave no es la correcta, '
                 . 'o el dato se modifico fuera de AxiDB.'
             );
         }

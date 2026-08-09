@@ -1,6 +1,6 @@
 <?php
 /**
- * AxiDB - Vector\Codigos: la criba rapida.
+ * AxiDB - Vector\Codes: la criba rapida.
  *
  * Recibe todos los codigos binarios pegados en una sola cadena y devuelve los
  * ordinales mas parecidos a la consulta. Es el bucle mas caliente del motor
@@ -30,7 +30,7 @@ declare(strict_types=1);
 
 namespace Axi\Core\Vector;
 
-final class Codigos
+final class Codes
 {
     /** 65.536 bytes: en la posicion w esta cuantos bits a 1 tiene w. */
     private static ?string $tabla = null;

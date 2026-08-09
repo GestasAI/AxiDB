@@ -25,7 +25,7 @@ for ($i = 0; ; $i++) {
     $hasta = $i % 2 === 0 ? 'b' : 'a';
 
     try {
-        $db->transaccion(static function ($tx) use ($desde, $hasta, $ronda, $i) {
+        $db->transaction(static function ($tx) use ($desde, $hasta, $ronda, $i) {
             $origen  = $tx->get('cuentas', $desde);
             $destino = $tx->get('cuentas', $hasta);
 

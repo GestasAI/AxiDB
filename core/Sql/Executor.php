@@ -90,7 +90,7 @@ final class Executor
         return [
             'indexed' => $ast['field'],
             'values'  => $unico
-                ? $this->db->unico($ast['collection'], $ast['field'])
+                ? $this->db->unique($ast['collection'], $ast['field'])
                 : $this->db->index($ast['collection'], $ast['field']),
             'unique'  => $unico,
         ];

@@ -6,7 +6,7 @@
  * pone encima lo unico que importa de puertas afuera: que quien usa AxiDB haga
  * un `insert` normal y la busqueda semantica funcione.
  *
- *   $db->vectores('articulos', ['auto' => ['titulo', 'resumen']]);
+ *   $db->enableVectors('articulos', ['auto' => ['titulo', 'resumen']]);
  *   $db->insert('articulos', ['titulo' => 'Como podar un olivo', ...]);
  *   $db->similar('articulos', 'cuidados de arboles frutales', 5);
  *
@@ -23,10 +23,10 @@ use Axi\Core\Exception;
 
 final class Indice
 {
-    private ?Buscador $buscador = null;
+    private ?Searcher $buscador = null;
 
     public function __construct(
-        private Almacen $almacen,
+        private Store $almacen,
         private Embedder $embedder
     ) {
     }
@@ -36,7 +36,7 @@ final class Indice
         return $this->almacen->existe();
     }
 
-    public function manifiesto(): Manifiesto
+    public function manifiesto(): Manifest
     {
         return $this->almacen->manifiesto();
     }
@@ -46,7 +46,7 @@ final class Indice
      *
      * @param array $opciones campo, dims, auto
      */
-    public function activar(array $opciones = []): Manifiesto
+    public function activar(array $opciones = []): Manifest
     {
         $dims = (int) ($opciones['dims'] ?? $this->embedder->dims());
         if ($dims !== $this->embedder->dims()) {
@@ -55,7 +55,7 @@ final class Indice
                 . 'devuelve ' . $this->embedder->dims() . '. Enterarse ahora es mejor que al buscar.'
             );
         }
-        $m = Manifiesto::nuevo(
+        $m = Manifest::nuevo(
             (string) ($opciones['campo'] ?? 'embedding'),
             $dims,
             $this->embedder->nombre(),
@@ -86,7 +86,7 @@ final class Indice
         $valor = $documento[$m->campo] ?? null;
 
         if (\is_array($valor)) {
-            $this->almacen->poner($id, Cuantizador::normalizar(Cuantizador::validar($valor, $m->dims)));
+            $this->almacen->poner($id, Quantizer::normalizar(Quantizer::validar($valor, $m->dims)));
             return true;
         }
 
@@ -119,9 +119,9 @@ final class Indice
         $m      = $this->almacen->manifiesto();
         $vector = \is_string($consulta)
             ? $this->vectorDeTexto($consulta, $m)
-            : Cuantizador::normalizar(Cuantizador::validar($consulta, $m->dims));
+            : Quantizer::normalizar(Quantizer::validar($consulta, $m->dims));
 
-        $this->buscador ??= new Buscador($this->almacen);
+        $this->buscador ??= new Searcher($this->almacen);
         return $this->buscador->buscar($vector, $k, $soloEstos, $precision);
     }
 
@@ -140,7 +140,7 @@ final class Indice
     /* ─────────────────────────────── Interno ─────────────────────────────── */
 
     /** @return list<float> normalizado */
-    private function vectorDeTexto(string $texto, Manifiesto $m): array
+    private function vectorDeTexto(string $texto, Manifest $m): array
     {
         $vector = $this->embedder->vector($texto);
         if (\count($vector) !== $m->dims) {
@@ -149,11 +149,11 @@ final class Indice
                 . "usa {$m->dims}. Se activo con '{$m->fuente}'."
             );
         }
-        return Cuantizador::normalizar(Cuantizador::validar($vector, $m->dims));
+        return Quantizer::normalizar(Quantizer::validar($vector, $m->dims));
     }
 
     /** Junta los campos de texto declarados en `auto`. */
-    private function textoAuto(Manifiesto $m, array $documento): string
+    private function textoAuto(Manifest $m, array $documento): string
     {
         $partes = [];
         foreach ($m->auto as $campo) {

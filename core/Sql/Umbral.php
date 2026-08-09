@@ -73,7 +73,7 @@ final class Umbral
         };
     }
 
-    public static function describir(array $umbral): string
+    public static function describe(array $umbral): string
     {
         return self::CAMPO . ' ' . $umbral['op'] . ' ' . (string) ($umbral['value'] ?? '');
     }

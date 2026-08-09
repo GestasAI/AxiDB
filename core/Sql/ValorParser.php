@@ -6,9 +6,9 @@
  * se analiza lo que va en un SELECT o a la derecha de un SET:
  *
  *   precio * 1.21
- *   UNIR(nombre, ' ', apellido)
+ *   CONCAT(nombre, ' ', apellido)
  *   SUM(total)
- *   MES(fecha)
+ *   MONTH(fecha)
  *
  * Precedencia, de menos a mas: + y - , luego * / y %, luego lo suelto. Es la de
  * las matematicas de siempre, y saltarsela seria una sorpresa desagradable: si

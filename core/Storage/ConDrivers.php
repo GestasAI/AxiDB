@@ -10,7 +10,7 @@
 
 declare(strict_types=1);
 
-namespace Axi\Core\Almacen;
+namespace Axi\Core\Storage;
 
 use Axi\Core\Drivers\Driver;
 use Axi\Core\Exception;
@@ -70,7 +70,7 @@ trait ConDrivers
      */
     public function declararDurabilidad(string $collection, string $nivel): void
     {
-        $this->ajustes->fijar($collection, ['durabilidad' => $nivel]);
+        $this->ajustes->fijar($collection, ['durability' => $nivel]);
         $this->packed->olvidar($collection);
     }
 

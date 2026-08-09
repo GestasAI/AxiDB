@@ -39,25 +39,25 @@ final class Ids
     /** Tamaño del archivo cuando se construyo el mapa. */
     private int $tamañoVisto = -1;
 
-    public function __construct(private Archivos $archivos)
+    public function __construct(private Files $archivos)
     {
     }
 
     public static function empaquetar(string $id): string
     {
-        if (\strlen($id) > Manifiesto::ANCHO_ID) {
-            throw new Exception('Vector: el id no cabe en ' . Manifiesto::ANCHO_ID . ' bytes.');
+        if (\strlen($id) > Manifest::ANCHO_ID) {
+            throw new Exception('Vector: el id no cabe en ' . Manifest::ANCHO_ID . ' bytes.');
         }
-        return \str_pad($id, Manifiesto::ANCHO_ID, "\0");
+        return \str_pad($id, Manifest::ANCHO_ID, "\0");
     }
 
     public function escribir(int $ordinal, string $id): void
     {
-        $this->archivos->escribirEn('ids', $ordinal, Manifiesto::ANCHO_ID, self::empaquetar($id));
+        $this->archivos->escribirEn('ids', $ordinal, Manifest::ANCHO_ID, self::empaquetar($id));
 
         if ($this->mapa !== null) {
             $this->mapa[$id]   = $ordinal;
-            $this->tamañoVisto = \max($this->tamañoVisto, ($ordinal + 1) * Manifiesto::ANCHO_ID);
+            $this->tamañoVisto = \max($this->tamañoVisto, ($ordinal + 1) * Manifest::ANCHO_ID);
         }
     }
 
@@ -66,8 +66,8 @@ final class Ids
         $this->archivos->escribirEn(
             'ids',
             $ordinal,
-            Manifiesto::ANCHO_ID,
-            \str_repeat("\0", Manifiesto::ANCHO_ID)
+            Manifest::ANCHO_ID,
+            \str_repeat("\0", Manifest::ANCHO_ID)
         );
         if ($this->mapa !== null) {
             $id = \array_search($ordinal, $this->mapa, true);
@@ -80,7 +80,7 @@ final class Ids
     /** El id de un ordinal, o null si esa posicion esta de baja. */
     public function de(int $ordinal): ?string
     {
-        $bruto = $this->archivos->leerTrozo('ids', $ordinal, Manifiesto::ANCHO_ID);
+        $bruto = $this->archivos->leerTrozo('ids', $ordinal, Manifest::ANCHO_ID);
         $id    = \rtrim($bruto, "\0");
         return $id === '' ? null : $id;
     }
@@ -108,10 +108,10 @@ final class Ids
         }
 
         $crudo = $this->archivos->leerTodo('ids');
-        $total = \intdiv(\strlen($crudo), Manifiesto::ANCHO_ID);
+        $total = \intdiv(\strlen($crudo), Manifest::ANCHO_ID);
         $mapa  = [];
         for ($i = 0; $i < $total; $i++) {
-            $id = \rtrim(\substr($crudo, $i * Manifiesto::ANCHO_ID, Manifiesto::ANCHO_ID), "\0");
+            $id = \rtrim(\substr($crudo, $i * Manifest::ANCHO_ID, Manifest::ANCHO_ID), "\0");
             if ($id !== '') {
                 $mapa[$id] = $i;
             }
@@ -130,10 +130,10 @@ final class Ids
     public function vivos(): array
     {
         $crudo = $this->archivos->leerTodo('ids');
-        $total = \intdiv(\strlen($crudo), Manifiesto::ANCHO_ID);
+        $total = \intdiv(\strlen($crudo), Manifest::ANCHO_ID);
         $vivos = [];
         for ($i = 0; $i < $total; $i++) {
-            if ($crudo[$i * Manifiesto::ANCHO_ID] !== "\0") {
+            if ($crudo[$i * Manifest::ANCHO_ID] !== "\0") {
                 $vivos[$i] = true;
             }
         }

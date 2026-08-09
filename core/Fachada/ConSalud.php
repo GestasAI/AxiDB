@@ -2,9 +2,9 @@
 /**
  * AxiDB - Fachada\ConSalud: saber que esta pasando, desde Db.
  *
- *   $db->describir('clientes');    que campos hay y en cuantos documentos
- *   $db->estadisticas('clientes'); tamaño, driver, indices, espacio muerto
- *   $db->revision();               un vistazo a todo, con avisos
+ *   $db->describe('clientes');    que campos hay y en cuantos documentos
+ *   $db->stats('clientes'); tamaño, driver, indices, espacio muerto
+ *   $db->checkup();               un vistazo a todo, con avisos
  */
 
 declare(strict_types=1);
@@ -27,7 +27,7 @@ trait ConSalud
      *
      * @return list<array{campo:string, tipo:string, declarado:?string, documentos:int, de:int}>
      */
-    public function describir(string $collection): array
+    public function describe(string $collection): array
     {
         return (new Estructura($this))->ejecutar(['type' => 'describe', 'collection' => $collection]);
     }
@@ -39,9 +39,9 @@ trait ConSalud
      *               cifrada:bool, caducidad:int, unicos:list<string>, indices:list<string>,
      *               vectores:bool, bytes:int, proporcionMuerta:float}
      */
-    public function estadisticas(string $collection): array
+    public function stats(string $collection): array
     {
-        return (new Salud($this))->estadisticas($collection);
+        return (new Salud($this))->stats($collection);
     }
 
     /**
@@ -52,8 +52,8 @@ trait ConSalud
      *
      * @return array{colecciones:int, documentos:int, bytes:int, avisos:list<array>}
      */
-    public function revision(): array
+    public function checkup(): array
     {
-        return (new Salud($this))->revision();
+        return (new Salud($this))->checkup();
     }
 }

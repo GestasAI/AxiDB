@@ -48,20 +48,20 @@ pedido.
 ## Funciones
 
 ```
-texto    MAYUS  MINUS  LARGO  RECORTA  UNIR  TROZO  REEMPLAZA
-numero   REDONDEA  ABS  TECHO  SUELO
-fecha    AHORA  HOY  FECHA  AÑO  MES  DIA  HORA  DIAS_ENTRE
-otras    SI_NULO  LONGITUD
+texto    UPPER  LOWER  LENGTH  TRIM  CONCAT  SUBSTR  REPLACE
+numero   ROUND  ABS  CEIL  FLOOR
+fecha    NOW  CURDATE  DATE  AÑO  MONTH  DAY  HOUR  DATEDIFF
+otras    IFNULL  LENGTH
 ```
 
 Las de fecha son las que mas falta hacian. Una fecha en AxiDB es una cadena ISO,
 asi que "los pedidos de abril" habia que calcularlo sacando los documentos a PHP:
 
 ```php
-$db->sql("SELECT cliente FROM ventas WHERE MES(fecha) = 4");
+$db->sql("SELECT cliente FROM ventas WHERE MONTH(fecha) = 4");
 ```
 
-`AÑO` con eñe funciona, y `ANIO` tambien.
+`AÑO` con eñe funciona, y `YEAR` tambien.
 
 ## Filtros nuevos
 
@@ -78,7 +78,7 @@ $db->sql("SELECT art FROM margen WHERE precio > coste * 2");
 ```
 
 > Una nota de rendimiento: `WHERE ciudad = 'Murcia'` usa el indice; `WHERE
-> MES(fecha) = 4` no puede, porque ningun indice guarda el mes de una fecha.
+> MONTH(fecha) = 4` no puede, porque ningun indice guarda el mes de una fecha.
 > `EXPLAIN` lo dice.
 
 ## Escribir

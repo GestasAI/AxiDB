@@ -1,6 +1,6 @@
 <?php
 /**
- * AxiDB - Tx\Confirmacion: el orden de los pasos al confirmar.
+ * AxiDB - Tx\Commit: el orden de los pasos al confirmar.
  *
  * Todo lo interesante de una transaccion esta en la secuencia:
  *
@@ -31,7 +31,7 @@ use Axi\Core\Db;
 use Axi\Core\Exception;
 use Axi\Core\Unicidad;
 
-final class Confirmacion
+final class Commit
 {
     public function __construct(private Db $db)
     {
@@ -47,11 +47,11 @@ final class Confirmacion
         }
         $base = $this->db->storage()->basePath();
 
-        return Cerrojo::con($base, function () use ($tx, $base): int {
+        return Lock::con($base, function () use ($tx, $base): int {
             $this->exigirVersionesIntactas($tx->vistos());
 
             $reservas = $this->reservar($tx->operaciones());
-            $diario   = new Diario($base, 'tx' . \bin2hex(\random_bytes(8)));
+            $diario   = new Journal($base, 'tx' . \bin2hex(\random_bytes(8)));
 
             try {
                 $diario->anotar($tx->operaciones());
@@ -63,7 +63,7 @@ final class Confirmacion
 
             $diario->confirmar();                       // ── la frontera ──
 
-            $hechas = Aplicador::aplicar($this->db, $diario->operaciones());
+            $hechas = Applier::aplicar($this->db, $diario->operaciones());
             $diario->borrar();
             return $hechas;
         });
@@ -117,7 +117,7 @@ final class Confirmacion
             if ($unicos === []) {
                 continue;
             }
-            $reserva = new Unicidad($this->db->indice(), $op['coleccion'], $op['id']);
+            $reserva = new Unicidad($this->db->indexer(), $op['coleccion'], $op['id']);
             try {
                 $reserva->reservar($unicos, $op['datos'], $this->db->get($op['coleccion'], $op['id']));
             } catch (\Throwable $e) {

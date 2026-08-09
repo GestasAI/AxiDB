@@ -8,7 +8,7 @@ por un cliente.
 ```php
 $db->insert('socios', ['nombre' => 'Ana', 'ciudad' => 'Murcia']);
 
-foreach ($db->describir('socios') as $campo) {
+foreach ($db->describe('socios') as $campo) {
     echo $campo['campo'], ' ', $campo['tipo'],
          ' (', $campo['documentos'], '/', $campo['de'], ")\n";
 }
@@ -33,7 +33,7 @@ Lo mismo con `DESCRIBE clientes` en AxiSQL.
 ## Cuanto ocupa una coleccion
 
 ```php
-$db->estadisticas('socios');
+$db->stats('socios');
 ```
 
 ```
@@ -58,7 +58,7 @@ con el formato empaquetado, que escribe añadiendo; se limpia con
 ## Una revision de todo
 
 ```php
-$revision = $db->revision();
+$revision = $db->checkup();
 ```
 
 Pensada para un cron o un panel:

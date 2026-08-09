@@ -9,7 +9,7 @@ diferencia entre que "algo ligero sin gluten" no devuelva nada y que devuelva la
 ensalada de quinoa.
 
 ```php
-$db->vectores('articulos', ['auto' => ['titulo', 'resumen']]);
+$db->enableVectors('articulos', ['auto' => ['titulo', 'resumen']]);
 
 $db->insert('articulos', [
     'titulo'  => 'Como podar un olivo',
@@ -95,7 +95,7 @@ Cuantos candidatos pasan a la segunda pasada es la perilla que decide todo lo
 demas. Hay tres posiciones, y se elige por coleccion:
 
 ```php
-$db->vectores('articulos', ['auto' => ['titulo'], 'precision' => 'equilibrada']);
+$db->enableVectors('articulos', ['auto' => ['titulo'], 'precision' => 'equilibrada']);
 ```
 
 Medido con 10.000 vectores de 768 dimensiones, recall@10 contra el coseno exacto:
@@ -160,7 +160,7 @@ y devolver algo parecido-pero-no-igual seria peor que decir que no.
 ## Busqueda hibrida
 
 ```php
-$db->hibrida('articulos', 'REF-4471', 10);
+$db->hybrid('articulos', 'REF-4471', 10);
 ```
 
 Busca por significado y por palabra a la vez, y funde los dos resultados. Las
@@ -229,7 +229,7 @@ borrado con 50.000 vectores—, asi que su sitio se marca como vacio y se ignora
 Cuando los huecos pasan de una quinta parte, conviene recogerlos:
 
 ```php
-$indice = $db->vectorial('articulos');
+$indice = $db->vectorIndex('articulos');
 
 if ($indice->convieneCompactar()) {
     $indice->compactar();
@@ -270,7 +270,7 @@ Asi que no se pregunta quien es, sino **que tiene permitido**:
 ```php
 use Axi\Core\Agentes\NoPermitido;
 
-$agente = $db->agente('recomendador', ['get', 'find', 'similar'], ['articulos']);
+$agente = $db->agent('recomendador', ['get', 'find', 'similar'], ['articulos']);
 
 $agente->similar('articulos', 'algo sobre arboles', 5);   // permitido
 
@@ -300,17 +300,17 @@ asi que un agente de solo lectura no borra una coleccion con un `DELETE`.
 interesantes—:
 
 ```php
-foreach ($db->auditoria()->leer('agent:recomendador', 20) as $linea) {
+foreach ($db->audit()->leer('agent:recomendador', 20) as $linea) {
     echo $linea['ts'], ' ', $linea['op'], ' ', $linea['ok'] ? 'ok' : $linea['error'], "\n";
 }
 
-$db->auditoria()->rechazos('agent:recomendador');   // cuantas veces se paso de la raya
+$db->audit()->rechazos('agent:recomendador');   // cuantas veces se paso de la raya
 ```
 
 ### El interruptor de parada
 
 ```php
-$agente = $db->agente('recomendador', ['get'], ['articulos']);
+$agente = $db->agent('recomendador', ['get'], ['articulos']);
 
 $agente->detener('estaba pidiendo cosas raras');
 $agente->detenido();      // true, tambien desde otro proceso

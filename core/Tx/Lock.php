@@ -1,6 +1,6 @@
 <?php
 /**
- * AxiDB - Tx\Cerrojo: un confirmador cada vez.
+ * AxiDB - Tx\Lock: un confirmador cada vez.
  *
  * Sin esto, dos transacciones podrian comprobar sus versiones a la vez, las dos
  * encontrarlas intactas, y entrelazar sus escrituras despues. La comprobacion
@@ -19,7 +19,7 @@ namespace Axi\Core\Tx;
 
 use Axi\Core\Exception;
 
-final class Cerrojo
+final class Lock
 {
     private const ARCHIVO = '_tx.lock';
 

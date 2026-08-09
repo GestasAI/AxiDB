@@ -26,13 +26,13 @@ echo "=== Personal ===\n\n";
  * sin departamento no es un empleado incompleto, es un error de captura. Que lo
  * pare la base de datos y no cada formulario que escriba alguien.
  */
-$db->declararEsquema('empleados', [
+$db->defineSchema('empleados', [
     'nombre'   => ['tipo' => 'texto',  'obligatorio' => true],
     'email'    => ['tipo' => 'texto',  'obligatorio' => true],
     'depto'    => ['tipo' => 'texto',  'obligatorio' => true],
     'salario'  => ['tipo' => 'numero', 'obligatorio' => true],
 ]);
-$db->unico('empleados', 'email');
+$db->unique('empleados', 'email');
 $db->index('empleados', 'depto');
 
 /* ─── Departamentos ─────────────────────────────────────────────────────── */
@@ -94,7 +94,7 @@ foreach ($filas as $f) {
 
 echo "\n-- Coste y media por departamento --\n";
 $porDepto = $db->sql(
-    'SELECT depto, COUNT(*) AS personas, SUM(salario) AS coste, REDONDEA(AVG(salario), 0) AS media
+    'SELECT depto, COUNT(*) AS personas, SUM(salario) AS coste, ROUND(AVG(salario), 0) AS media
      FROM empleados GROUP BY depto ORDER BY coste DESC'
 );
 foreach ($porDepto as $d) {

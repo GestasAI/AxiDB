@@ -23,7 +23,7 @@ $dir = tmpdir('perfiles');
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('A] El blog: perfil core');
 
-$blog = new Db($dir, ['durable' => false, 'perfil' => Perfil::CORE]);
+$blog = new Db($dir, ['durable' => false, 'profile' => Perfil::CORE]);
 
 $blog->sql("INSERT INTO entradas (titulo, autor, texto) VALUES
     ('Pan de masa madre', 'ana', 'Como hacer pan en casa'),
@@ -38,8 +38,8 @@ eq('AxiSQL funciona', 'Huerto en marzo',
 eq('y los agregados', 3, $blog->sql('SELECT COUNT(*) FROM entradas'));
 
 $copias = tmpdir('perfiles_copias');
-ok('las copias son de core', $blog->copiar($copias)['archivos'] > 3);
-eq('y la salud tambien', [], $blog->revision()['avisos']);
+ok('las copias son de core', $blog->backup($copias)['archivos'] > 3);
+eq('y la salud tambien', [], $blog->checkup()['avisos']);
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('B] Lo que core no tiene, y como lo dice');
@@ -52,7 +52,7 @@ $explica = static function (callable $fn, string $funcionEsperada): array {
         return [
             'dice_perfil_actual'  => \str_contains($e->getMessage(), "usa 'core'"),
             'dice_el_que_falta'   => \str_contains($e->getMessage(), "perfil '{$funcionEsperada}'"),
-            'dice_como_cambiarlo' => \str_contains($e->getMessage(), "'perfil' => '{$funcionEsperada}'"),
+            'dice_como_cambiarlo' => \str_contains($e->getMessage(), "'profile' => '{$funcionEsperada}'"),
             'dice_que_no_pasa'    => \str_contains($e->getMessage(), 'Los datos no se tocan'),
         ];
     }
@@ -63,20 +63,20 @@ $esperado = ['dice_perfil_actual' => true, 'dice_el_que_falta' => true,
              'dice_como_cambiarlo' => true, 'dice_que_no_pasa' => true];
 
 eq('transaccion() se para y se explica', $esperado,
-    $explica(static fn () => $blog->transaccion(static fn ($tx) => null), 'docs'));
+    $explica(static fn () => $blog->transaction(static fn ($tx) => null), 'docs'));
 eq('declararEsquema(), tambien', $esperado,
-    $explica(static fn () => $blog->declararEsquema('entradas', []), 'docs'));
+    $explica(static fn () => $blog->defineSchema('entradas', []), 'docs'));
 eq('declararCaducidad(), tambien', $esperado,
-    $explica(static fn () => $blog->declararCaducidad('entradas', 60), 'docs'));
+    $explica(static fn () => $blog->defineTtl('entradas', 60), 'docs'));
 eq('unico(), tambien', $esperado,
-    $explica(static fn () => $blog->unico('entradas', 'titulo'), 'docs'));
+    $explica(static fn () => $blog->unique('entradas', 'titulo'), 'docs'));
 eq('cifrar(), tambien', $esperado,
-    $explica(static fn () => $blog->cifrar('entradas'), 'docs'));
+    $explica(static fn () => $blog->encrypt('entradas'), 'docs'));
 eq('join(), tambien', $esperado,
     $explica(static fn () => $blog->find('entradas')->join('autores', 'autor', 'id')->get(), 'docs'));
 eq('y los vectores piden ai', ['dice_perfil_actual' => true, 'dice_el_que_falta' => true,
     'dice_como_cambiarlo' => true, 'dice_que_no_pasa' => true],
-    $explica(static fn () => $blog->vectores('entradas'), 'ai'));
+    $explica(static fn () => $blog->enableVectors('entradas'), 'ai'));
 
 $blog->storage()->cerrar();
 
@@ -87,19 +87,19 @@ section('C] El blog se hace tienda: una linea, cero migraciones');
  * Esto es el gate de la ola. El mismo directorio, la misma coleccion, las mismas
  * consultas. Lo unico que cambia es la palabra 'core' por 'docs'.
  */
-$tienda = new Db($dir, ['durable' => false, 'perfil' => Perfil::DOCS]);
+$tienda = new Db($dir, ['durable' => false, 'profile' => Perfil::DOCS]);
 
 eq('los documentos estan donde estaban', 3, $tienda->count('entradas'));
 eq('con su contenido intacto', 2, \count($tienda->by('entradas', 'autor', 'ana')));
 eq('y las consultas de antes siguen valiendo', 3, $tienda->sql('SELECT COUNT(*) FROM entradas'));
 
 // Y ahora lo que antes se negaba.
-$tienda->declararEsquema('pedidos', ['total' => ['tipo' => 'decimal', 'obligatorio' => true]]);
+$tienda->defineSchema('pedidos', ['total' => ['tipo' => 'decimal', 'obligatorio' => true]]);
 $tienda->sql('CREATE UNIQUE INDEX ON clientes (correo)');
-$tienda->declararCaducidad('carritos', 3600);
+$tienda->defineTtl('carritos', 3600);
 $tienda->sql("INSERT INTO clientes (id, correo, nombre) VALUES ('c1', 'ana@ejemplo.com', 'Ana')");
 
-$tienda->transaccion(static function ($tx) {
+$tienda->transaction(static function ($tx) {
     $tx->insert('pedidos', ['cliente' => 'c1', 'total' => 42.5], 'p1');
 });
 eq('las transacciones ya se pueden',   1, $tienda->count('pedidos'));
@@ -117,12 +117,12 @@ eq('los vectores siguen fuera', ['dice_perfil_actual' => false, 'dice_el_que_fal
     'dice_como_cambiarlo' => true, 'dice_que_no_pasa' => true],
     (static function () use ($tienda): array {
         try {
-            $tienda->vectores('entradas');
+            $tienda->enableVectors('entradas');
         } catch (\Axi\Core\Exception $e) {
             return [
                 'dice_perfil_actual'  => \str_contains($e->getMessage(), "usa 'core'"),
                 'dice_el_que_falta'   => \str_contains($e->getMessage(), "perfil 'ai'"),
-                'dice_como_cambiarlo' => \str_contains($e->getMessage(), "'perfil' => 'ai'"),
+                'dice_como_cambiarlo' => \str_contains($e->getMessage(), "'profile' => 'ai'"),
                 'dice_que_no_pasa'    => \str_contains($e->getMessage(), 'Los datos no se tocan'),
             ];
         }
@@ -134,20 +134,20 @@ $tienda->storage()->cerrar();
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('D] Y la tienda busca por significado: otra linea');
 
-$ia = new Db($dir, ['durable' => false, 'perfil' => Perfil::IA]);
+$ia = new Db($dir, ['durable' => false, 'profile' => Perfil::IA]);
 
 eq('los datos siguen ahi despues de los dos saltos', 3, $ia->count('entradas'));
 eq('y los pedidos del paso anterior', 1, $ia->count('pedidos'));
 
-$ia->vectores('entradas', ['auto' => ['titulo', 'texto']]);
+$ia->enableVectors('entradas', ['auto' => ['titulo', 'texto']]);
 $ia->insert('entradas', ['titulo' => 'Levadura natural', 'autor' => 'ana',
                           'texto' => 'Cultivar masa madre en casa'], 'e4');
 
 $parecidas = $ia->similar('entradas', 'hacer pan con masa madre', 2);
 ok('la busqueda por significado funciona', \count($parecidas) === 2);
 
-eq('lo declarado en docs sigue en pie', ['correo'], $ia->unicos('clientes'));
-eq('y el esquema tambien', true, $ia->esquema('pedidos')['total']['obligatorio'] ?? false);
+eq('lo declarado en docs sigue en pie', ['correo'], $ia->uniques('clientes'));
+eq('y el esquema tambien', true, $ia->schema('pedidos')['total']['obligatorio'] ?? false);
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('E] Sin perfil, todo disponible');
@@ -157,18 +157,18 @@ section('E] Sin perfil, todo disponible');
  * ya estaba usando. Sin declarar perfil, no se comprueba nada.
  */
 $sinPerfil = new Db($dir, ['durable' => false]);
-eq('el perfil es "todo"', Perfil::TODO, $sinPerfil->perfil()->nombre);
-$sinPerfil->transaccion(static fn ($tx) => null);
+eq('el perfil es "todo"', Perfil::TODO, $sinPerfil->profile()->nombre);
+$sinPerfil->transaction(static fn ($tx) => null);
 ok('y las transacciones van sin declarar nada', true);
-ok('los vectores tambien', $sinPerfil->vectorial('entradas')->manifiesto()->dims > 0);
+ok('los vectores tambien', $sinPerfil->vectorIndex('entradas')->manifiesto()->dims > 0);
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('F] Que trae cada perfil');
 
-eq('core no incluye transacciones', false, (new Perfil(Perfil::CORE))->tiene('transacciones'));
-eq('docs si',                        true, (new Perfil(Perfil::DOCS))->tiene('transacciones'));
-eq('docs no incluye vectores',      false, (new Perfil(Perfil::DOCS))->tiene('vectores'));
-eq('ai si',                          true, (new Perfil(Perfil::IA))->tiene('vectores'));
+eq('core no incluye transacciones', false, (new Perfil(Perfil::CORE))->tiene('transactions'));
+eq('docs si',                        true, (new Perfil(Perfil::DOCS))->tiene('transactions'));
+eq('docs no incluye vectores',      false, (new Perfil(Perfil::DOCS))->tiene('vectors'));
+eq('ai si',                          true, (new Perfil(Perfil::IA))->tiene('vectors'));
 
 // Acumulativos: ai trae todo lo de docs, y docs todo lo de core.
 foreach ((new Perfil(Perfil::CORE))->funciones() as $f) {
@@ -177,7 +177,7 @@ foreach ((new Perfil(Perfil::CORE))->funciones() as $f) {
 eq('ai trae lo de los tres', 14, \count((new Perfil(Perfil::IA))->funciones()));
 
 throws('un perfil que no existe se rechaza al abrir',
-    static fn () => new Db(tmpdir('perfil_malo'), ['durable' => false, 'perfil' => 'grande']));
+    static fn () => new Db(tmpdir('perfil_malo'), ['durable' => false, 'profile' => 'grande']));
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('G] Bajar de perfil: no se pierde nada');
@@ -193,7 +193,7 @@ section('G] Bajar de perfil: no se pierde nada');
  * significado. Una regla aplicada a medias es una regla que no esta.
  */
 $ia->storage()->cerrar();
-$bajado = new Db($dir, ['durable' => false, 'perfil' => Perfil::CORE]);
+$bajado = new Db($dir, ['durable' => false, 'profile' => Perfil::CORE]);
 
 eq('los documentos siguen',        4, $bajado->count('entradas'));
 eq('se leen igual',                3, \count($bajado->by('entradas', 'autor', 'ana')));
@@ -213,18 +213,18 @@ throws('y la unicidad declarada, tambien',
 throws('buscar por significado se niega con un error, no un fatal',
     static fn () => $bajado->similar('entradas', 'pan', 2));
 throws('y el acceso al indice vectorial, tambien',
-    static fn () => $bajado->vectorial('entradas'));
+    static fn () => $bajado->vectorIndex('entradas'));
 
 ok('pero el indice vectorial NO se borra del disco', \is_dir($dir . '/entradas/_vec'));
 $bajado->storage()->cerrar();
 
-$devuelta = new Db($dir, ['durable' => false, 'perfil' => Perfil::IA]);
+$devuelta = new Db($dir, ['durable' => false, 'profile' => Perfil::IA]);
 eq('al volver a subir, los vectores estan donde estaban', 2,
     \count($devuelta->similar('entradas', 'pan de masa madre', 2)));
 eq('y los documentos', 4, $devuelta->count('entradas'));
 $devuelta->storage()->cerrar();
 
-$ia = new Db($dir, ['durable' => false, 'perfil' => Perfil::IA]);
+$ia = new Db($dir, ['durable' => false, 'profile' => Perfil::IA]);
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('H] Un motor, no tres');
@@ -244,7 +244,7 @@ foreach (\glob(\dirname(__DIR__) . '/{*,*/*,*/*/*}.php', GLOB_BRACE) ?: [] as $a
     if (\str_starts_with($rel, 'tests/') || $rel === 'Perfil.php') {
         continue;
     }
-    if (\preg_match('/\bperfil\(\)|\bPerfil::/i', (string) \file_get_contents($archivo)) === 1) {
+    if (\preg_match('/\bprofile\(\)|\bPerfil::|->perfil->exigir\(/i', (string) \file_get_contents($archivo)) === 1) {
         $conPerfil[] = $rel;
     }
 }

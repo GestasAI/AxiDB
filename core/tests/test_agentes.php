@@ -31,7 +31,7 @@ $db->insert('clientes',  ['nombre' => 'Ana', 'iban' => 'ES9121000418450200051332
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('A] Lo que si puede');
 
-$lector = $db->agente('lector', ['get', 'find', 'count'], ['articulos']);
+$lector = $db->agent('lector', ['get', 'find', 'count'], ['articulos']);
 
 eq('lee lo suyo',        'Uno', $lector->get('articulos', 'a1')['titulo']);
 eq('cuenta lo suyo',         2, $lector->count('articulos'));
@@ -81,7 +81,7 @@ eq('pero leer lo suyo por SQL si', 2, \count($filas));
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('D] Todo queda anotado, tambien lo rechazado');
 
-$rastro = $db->auditoria()->leer('agent:lector', 100);
+$rastro = $db->audit()->leer('agent:lector', 100);
 ok('hay rastro',                    $rastro !== []);
 ok('con el actor delante',          ($rastro[0]['actor'] ?? '') === 'agent:lector');
 ok('y la hora',                     !empty($rastro[0]['ts']));
@@ -90,18 +90,18 @@ $rechazos = \array_filter($rastro, static fn($f) => ($f['ok'] ?? true) === false
 ok('los intentos rechazados tambien se anotan', \count($rechazos) >= 7);
 ok('con el motivo dentro',
     \str_contains((string) (\reset($rechazos)['error'] ?? ''), 'agente'));
-eq('y el contador de rechazos lo cuenta', \count($rechazos), $db->auditoria()->rechazos('agent:lector'));
+eq('y el contador de rechazos lo cuenta', \count($rechazos), $db->audit()->rechazos('agent:lector'));
 
 $correctas = \array_filter($rastro, static fn($f) => ($f['ok'] ?? false) === true);
 ok('y las que salieron bien tambien', \count($correctas) >= 4);
 
-$otros = $db->auditoria()->leer('agent:nadie');
+$otros = $db->audit()->leer('agent:nadie');
 eq('filtrar por un actor que no existe no devuelve nada', [], $otros);
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('E] Un agente que si escribe');
 
-$editor = $db->agente('editor', ['get', 'insert', 'update', 'delete'], ['articulos']);
+$editor = $db->agent('editor', ['get', 'insert', 'update', 'delete'], ['articulos']);
 
 eq('inserta',  'Tres', $editor->insert('articulos', ['titulo' => 'Tres'], 'a3')['titulo']);
 eq('modifica', 'Tres!', $editor->update('articulos', 'a3', ['titulo' => 'Tres!'])['titulo']);
@@ -138,10 +138,10 @@ ok('y dice por que se paro', \str_contains($motivo, 'pasando de listo'));
  * La parada vive en un archivo, no en memoria. Un agente de verdad suele estar
  * corriendo en otro proceso —una cola, un cron— y un booleano no lo alcanzaria.
  */
-$mismoAgente = $db->agente('editor', ['get'], ['articulos']);
+$mismoAgente = $db->agent('editor', ['get'], ['articulos']);
 ok('otra instancia del mismo agente tambien esta detenida', $mismoAgente->detenido());
 
-$otroAgente = $db->agente('lector', ['get'], ['articulos']);
+$otroAgente = $db->agent('lector', ['get'], ['articulos']);
 ok('pero los demas siguen funcionando', !$otroAgente->detenido());
 eq('y leyendo', 'Uno', $otroAgente->get('articulos', 'a1')['titulo']);
 

@@ -45,7 +45,7 @@ final class Planificador
         if (($nodo['type'] ?? '') === 'and') {
             return $this->buscarEnAnd($nodo['left']) ?? $this->buscarEnAnd($nodo['right']);
         }
-        // Un cmp sin `field` compara una expresion —`MES(fecha) = 3`— y no un
+        // Un cmp sin `field` compara una expresion —`MONTH(fecha) = 3`— y no un
         // campo. Ningun indice guarda el mes de una fecha, asi que ahi no hay
         // nada que aprovechar: se escanea, que es la respuesta correcta.
         if (($nodo['type'] ?? '') === 'cmp' && isset($nodo['field'])) {

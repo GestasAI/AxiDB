@@ -1,6 +1,6 @@
 <?php
 /**
- * AxiDB - Vector\Almacen: los vectores en disco, con paso fijo.
+ * AxiDB - Vector\Store: los vectores en disco, con paso fijo.
  *
  *   _vec/manifiesto.json   una docena de campos, se lee en cada busqueda
  *   _vec/codigos.bin       N x (dims/8) bytes   los codigos binarios
@@ -26,15 +26,15 @@ namespace Axi\Core\Vector;
 
 use Axi\Core\Exception;
 
-final class Almacen
+final class Store
 {
-    private Archivos $archivos;
+    private Files $archivos;
     private Ids $ids;
-    private ?Manifiesto $manifiesto = null;
+    private ?Manifest $manifiesto = null;
 
     public function __construct(string $dir)
     {
-        $this->archivos = new Archivos($dir);
+        $this->archivos = new Files($dir);
         $this->ids      = new Ids($this->archivos);
     }
 
@@ -43,7 +43,7 @@ final class Almacen
         return $this->archivos->hay('manifiesto');
     }
 
-    public function activar(Manifiesto $m): void
+    public function activar(Manifest $m): void
     {
         $this->archivos->crearDirectorio();
         $this->guardar($m);
@@ -55,7 +55,7 @@ final class Almacen
         $this->archivos->borrar();
     }
 
-    public function manifiesto(): Manifiesto
+    public function manifiesto(): Manifest
     {
         if ($this->manifiesto !== null) {
             return $this->manifiesto;
@@ -67,7 +67,7 @@ final class Almacen
         if (!\is_array($datos)) {
             throw new Exception('Vector: el manifiesto esta ilegible.');
         }
-        $m = Manifiesto::desdeArray($datos);
+        $m = Manifest::desdeArray($datos);
 
         /*
          * Cuantos hay NO se lee del manifiesto: se deduce del tamaño del archivo
@@ -78,7 +78,7 @@ final class Almacen
          * de un archivo que solo cambiaba en un numero. Indexar bajo de 19,7 ms
          * por vector a menos de 1.
          */
-        $m->cuenta = \intdiv($this->archivos->tamaño('ids'), Manifiesto::ANCHO_ID);
+        $m->cuenta = \intdiv($this->archivos->tamaño('ids'), Manifest::ANCHO_ID);
 
         return $this->manifiesto = $m;
     }
@@ -102,9 +102,9 @@ final class Almacen
          * descolocaria TODOS los de detras, y no se notaria hasta la siguiente
          * busqueda.
          */
-        $vector = Cuantizador::validar($vector, $this->manifiesto()->dims);
-        $codigo = Cuantizador::aBinario($vector);
-        $floats = Cuantizador::aFloat32($vector);
+        $vector = Quantizer::validar($vector, $this->manifiesto()->dims);
+        $codigo = Quantizer::aBinario($vector);
+        $floats = Quantizer::aFloat32($vector);
 
         return (int) $this->archivos->conCerrojo(function () use ($id, $codigo, $floats) {
             $this->olvidar();                       // releer dentro del cerrojo
@@ -156,7 +156,7 @@ final class Almacen
     public function vectorDe(int $ordinal): ?array
     {
         $bytes = $this->archivos->leerTrozo('vectores', $ordinal, $this->manifiesto()->anchoFloat());
-        return $bytes === '' ? null : Cuantizador::desdeFloat32($bytes);
+        return $bytes === '' ? null : Quantizer::desdeFloat32($bytes);
     }
 
     /**
@@ -182,7 +182,7 @@ final class Almacen
                 if (\strlen($bytes) !== $ancho) {
                     return;
                 }
-                $fn($ordinal, Cuantizador::desdeFloat32($bytes));
+                $fn($ordinal, Quantizer::desdeFloat32($bytes));
             }
         } finally {
             \fclose($fp);
@@ -221,7 +221,7 @@ final class Almacen
         return (int) $this->archivos->conCerrojo(function () {
             $this->olvidar();
             $m = $this->manifiesto();
-            $retiradas = (new Compactacion($this->archivos, $this->ids))->ejecutar($m);
+            $retiradas = (new Compaction($this->archivos, $this->ids))->ejecutar($m);
             if ($retiradas > 0) {
                 $this->guardar($m);
             }
@@ -231,13 +231,13 @@ final class Almacen
 
     /* ─────────────────────────────── Interno ─────────────────────────────── */
 
-    private function marcarBaja(int $ordinal, Manifiesto $m): void
+    private function marcarBaja(int $ordinal, Manifest $m): void
     {
         $this->ids->darDeBaja($ordinal);
         $m->bajas++;
     }
 
-    private function guardar(Manifiesto $m): void
+    private function guardar(Manifest $m): void
     {
         $this->archivos->escribirAtomico(
             'manifiesto',

@@ -90,7 +90,7 @@ foreach ($calientes as $f) {
 echo "\n-- Media por sensor --\n";
 $medias = pedir($puente, [
     'accion' => 'sql',
-    'sentencia' => 'SELECT sensor, REDONDEA(AVG(grados), 1) AS media, COUNT(*) AS lecturas
+    'sentencia' => 'SELECT sensor, ROUND(AVG(grados), 1) AS media, COUNT(*) AS lecturas
                  FROM sensores GROUP BY sensor ORDER BY media DESC',
 ])['dato'];
 foreach ($medias as $f) {

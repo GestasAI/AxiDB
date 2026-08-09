@@ -3,7 +3,7 @@
 Para que es esta base de datos.
 
 ```php
-$db = new Axi\Core\Db('./datos', ['perfil' => 'core']);
+$db = new Axi\Core\Db('./datos', ['profile' => 'core']);
 ```
 
 | Perfil | Trae, ademas de lo anterior | Para |
@@ -28,10 +28,10 @@ no ahorraria ni un byte. Seria teatro, y aqui no se hace teatro.
 cuando empiezas, y un error claro cuando el proyecto se sale de lo que dijo ser:
 
 ```php
-$blog = new Axi\Core\Db('./datos', ['perfil' => 'core']);
+$blog = new Axi\Core\Db('./datos', ['profile' => 'core']);
 
 try {
-    $blog->transaccion(function ($tx) { /* ... */ });
+    $blog->transaction(function ($tx) { /* ... */ });
 } catch (Axi\Core\Exception $e) {
     echo $e->getMessage();
 }
@@ -39,7 +39,7 @@ try {
 
 ```
 transaccion() y BEGIN necesita el perfil 'docs' y esta base usa 'core'.
-Cambialo al abrirla: new Db($dir, ['perfil' => 'docs']).
+Cambialo al abrirla: new Db($dir, ['profile' => 'docs']).
 Los datos no se tocan: un perfil solo dice que partes del motor se usan.
 ```
 
@@ -54,10 +54,10 @@ a vender:
 
 ```php
 // Antes
-$db = new Axi\Core\Db('./datos', ['perfil' => 'core']);
+$db = new Axi\Core\Db('./datos', ['profile' => 'core']);
 
 // Despues
-$db = new Axi\Core\Db('./datos', ['perfil' => 'docs']);
+$db = new Axi\Core\Db('./datos', ['profile' => 'docs']);
 ```
 
 Los mismos archivos, los mismos documentos, los mismos indices. Lo unico que
