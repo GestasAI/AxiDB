@@ -33,8 +33,89 @@ final class DdlParser
         if ($this->ts->matchKw('CREATE')) {
             return $this->parseCreate();
         }
+        if ($this->ts->matchKw('ALTER')) {
+            return $this->parseAlter();
+        }
+        if ($this->ts->matchKw('SHOW')) {
+            return $this->parseShow();
+        }
+        if ($this->ts->matchKw('DESCRIBE')) {
+            return ['type' => 'describe', 'collection' => $this->ts->consumeIdent()];
+        }
         $this->ts->consumeKw('DROP');
         return $this->parseDrop();
+    }
+
+    /**
+     * SHOW COLLECTIONS | SHOW INDEXES ON <coleccion>
+     */
+    private function parseShow(): array
+    {
+        if ($this->ts->matchAnyKw('COLLECTIONS') !== null) {
+            return ['type' => 'show_collections'];
+        }
+        if ($this->ts->matchKw('INDEXES')) {
+            $this->ts->consumeKw('ON');
+            return ['type' => 'show_indexes', 'collection' => $this->ts->consumeIdent()];
+        }
+        throw new Exception(
+            "AxiSQL: tras SHOW esperaba COLLECTIONS o INDEXES; encontro {$this->ts->peek()->describe()}."
+        );
+    }
+
+    /**
+     * ALTER COLLECTION <c> RENAME TO <c2>
+     * ALTER COLLECTION <c> ADD FIELD <campo>
+     * ALTER COLLECTION <c> DROP FIELD <campo>
+     * ALTER COLLECTION <c> RENAME FIELD <campo> TO <campo2>
+     */
+    private function parseAlter(): array
+    {
+        if ($this->ts->matchAnyKw('COLLECTION', 'TABLE') === null) {
+            throw new Exception(
+                "AxiSQL: tras ALTER esperaba COLLECTION; encontro {$this->ts->peek()->describe()}."
+            );
+        }
+        $coleccion = $this->ts->consumeIdent();
+
+        if ($this->ts->matchKw('RENAME')) {
+            if ($this->ts->matchKw('FIELD')) {
+                $campo = $this->ts->consumeIdent();
+                $this->ts->consumeKw('TO');
+                return ['type' => 'alter_rename_field', 'collection' => $coleccion,
+                        'field' => $campo, 'to' => $this->ts->consumeIdent()];
+            }
+            $this->ts->consumeKw('TO');
+            return ['type' => 'alter_rename', 'collection' => $coleccion,
+                    'to' => $this->ts->consumeIdent()];
+        }
+
+        if ($this->ts->matchKw('ADD')) {
+            $this->ts->matchKw('FIELD');
+            $campo = $this->ts->consumeIdent();
+
+            // El valor con el que se rellena en los documentos que ya hay.
+            $defecto = $this->ts->peek()->isOp('=') ? $this->tomarDefecto() : null;
+            return ['type' => 'alter_add_field', 'collection' => $coleccion,
+                    'field' => $campo, 'default' => $defecto];
+        }
+
+        if ($this->ts->matchKw('DROP')) {
+            $this->ts->matchKw('FIELD');
+            return ['type' => 'alter_drop_field', 'collection' => $coleccion,
+                    'field' => $this->ts->consumeIdent()];
+        }
+
+        throw new Exception(
+            'AxiSQL: tras ALTER COLLECTION esperaba RENAME, ADD FIELD o DROP FIELD; '
+            . "encontro {$this->ts->peek()->describe()}."
+        );
+    }
+
+    private function tomarDefecto(): mixed
+    {
+        $this->ts->advance();
+        return $this->ts->consumeLiteral();
     }
 
     private function parseCreate(): array
@@ -60,7 +141,8 @@ final class DdlParser
         }
 
         throw new Exception(
-            "AxiSQL: tras CREATE esperaba COLLECTION o INDEX; encontro {$this->ts->peek()->describe()}."
+            'AxiSQL: tras CREATE esperaba COLLECTION, INDEX o VIEW; '
+            . "encontro {$this->ts->peek()->describe()}."
         );
     }
 

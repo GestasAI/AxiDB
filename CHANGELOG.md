@@ -11,6 +11,282 @@ romperlo en la version siguiente.
 
 ---
 
+## [0.5.0] — 2026-08-09
+
+La ola A8: completitud. Transacciones, JOIN, AxiSQL entero, esquema,
+caducidad, copias, cifrado y observabilidad. Y siete fallos que estaban
+ahi desde antes, encontrados por el camino.
+
+### Añadido
+
+- **Cifrado por coleccion con AES-256-GCM.** `new Db($dir, ['clave' => '...'])` y
+  `$db->cifrar('clientes')`. Va por encima de los drivers, asi que funciona igual
+  en `fs` y en `packed`, y las migraciones no necesitan la clave.
+  Guia: [10-cifrado](docs/guide/10-cifrado.md).
+- La clave se deriva con PBKDF2-SHA256 y 210.000 vueltas. Una contraseña
+  equivocada se detecta al abrir y lo dice, en vez de hablar de datos corruptos.
+- Cada bloque va atado a su coleccion y a su id: copiar el archivo de otro
+  documento encima del propio no cuela aunque la clave sea la misma.
+- En una coleccion cifrada los valores indexados se guardan como hash. Antes, un
+  indice por `email` habria escrito `_idx/email/ana@ejemplo.com.json` y publicado
+  como nombre de archivo el dato recien cifrado.
+- Se rechaza activar vectores sobre una coleccion cifrada, y cifrar una que ya
+  tiene vectores: de un embedding se reconstruye aproximadamente el texto.
+
+- **Tres modos de precision en la busqueda vectorial.**
+  `$db->vectores('articulos', ['precision' => 'equilibrada'])`, y tambien por
+  consulta suelta: `$db->similar($col, $texto, 10, null, 'exacta')`.
+
+  Medido con 10.000 vectores de 768 dimensiones, recall@10 sobre el caso feo
+  —vectores uniformemente aleatorios, que ningun modelo genera—:
+
+  | modo | embeddings reales | aleatorios | ms |
+  |---|---|---|---|
+  | `rapida` (200 candidatos, por defecto) | 100% | 84% | 41 |
+  | `equilibrada` (2000) | 100% | 100% | 107 |
+  | `exacta` (sin criba) | 100% | 100% | 373 |
+
+  `rapida` sigue siendo el defecto y una coleccion que ya existia no cambia de
+  comportamiento: un manifiesto sin el campo se lee como `rapida`.
+
+  No hay modo int8. Se penso y se descarto al medir: subir candidatos sobre la
+  criba binaria que ya existe llega al mismo 100% sin un byte de disco nuevo, y
+  en PHP un producto escalar de 768 enteros por vector habria salido mas lento
+  que el Hamming, que se resuelve con tabla de consulta.
+
+- **JOIN y subconsultas.** `INNER JOIN`, `LEFT JOIN` con alias, y
+  `$db->find('pedidos')->join('clientes', 'cli', 'id')` desde la API. Mas
+  `IN (SELECT ...)`, `NOT IN (SELECT ...)` y `EXISTS`. Guia:
+  [15-relaciones](docs/guide/15-relaciones.md).
+
+  Hash join: coste `izquierda + derecha`, no `izquierda x derecha`. Los campos
+  de la derecha llevan siempre su prefijo —`clientes.nombre`— asi que dos
+  colecciones con un campo del mismo nombre no se pisan nunca.
+
+  Dos cosas dichas por adelantado: la coleccion de la derecha entra entera en
+  memoria, y con JOIN el filtro no usa indices —podria descartar documentos que
+  la union habria traido—. `EXPLAIN` lo dice.
+
+  No hay subconsultas correlacionadas: obligarian a una consulta completa por
+  documento. Se rechazan con un mensaje claro en vez de aceptarlas y que alguien
+  descubra el coste en produccion.
+- **Observabilidad.** `$db->describir()`, `$db->estadisticas()` y
+  `$db->revision()`. Guia: [16-salud](docs/guide/16-salud.md).
+
+  `revision()` esta pensada para un cron o un panel: devuelve avisos con su
+  gravedad y con QUE HACER. Vigila indices a los que les faltan entradas —el
+  fallo invisible: `by()` no encuentra documentos que existen—, reservas de
+  unicidad sin dueño, indices heredados que no se pueden mantener y espacio
+  muerto en el formato empaquetado.
+- **AxiSQL completo.** Guia: [14-axisql](docs/guide/14-axisql.md).
+
+  Agregados (`COUNT`, `SUM`, `AVG`, `MIN`, `MAX`) con `GROUP BY` y `HAVING`;
+  `DISTINCT`; alias con y sin `AS`; expresiones aritmeticas con la precedencia
+  de siempre; `BETWEEN`, `NOT BETWEEN` y `NOT LIKE`; comparar dos campos entre
+  si (`WHERE precio > coste * 2`).
+
+  Funciones de texto, numero y fecha. Las de fecha eran las que mas falta
+  hacian: `WHERE MES(fecha) = 4` antes obligaba a sacar los documentos a PHP.
+
+  `INSERT` de varias filas, `ON DUPLICATE UPDATE`, `SET n = n + 1` —calculado
+  sobre CADA documento— y `LIMIT` en `UPDATE` y `DELETE`.
+
+  `SHOW COLLECTIONS`, `SHOW INDEXES`, `DESCRIBE`, `ALTER COLLECTION` (renombrar
+  la coleccion o añadir, quitar y renombrar un campo) y `CREATE VIEW`.
+
+  Con los nulos se hace lo que hace SQL, y no por imitarlo: `COUNT(campo)` no
+  cuenta los vacios, `AVG` divide entre los que tenian valor, y sumar a un campo
+  que no existe da null en vez de un cero disfrazado de dato.
+
+### Corregido
+
+- **Un `INSERT` con columna `id` no usaba ese id.** Se guardaba como un campo
+  mas y el documento se creaba con un id aleatorio. Y la version con
+  `ON DUPLICATE UPDATE` si lo respetaba, asi que el mismo SQL hacia dos cosas
+  distintas segun como acabara la frase.
+- **Filtrar sobre una vista se ignoraba.** `SELECT * FROM vista WHERE total > 260`
+  devolvia tambien los de 250. Una vista no pasa por el motor de consultas, y el
+  WHERE de fuera se estaba perdiendo por el camino.
+- **El test de rendimiento vectorial media la cache del disco, no el motor.**
+  545 ms la primera ejecucion y 143 las siguientes, en la misma maquina: se
+  ponia rojo o verde segun lo que hubiera corrido antes. Ahora calienta antes de
+  medir y enseña el numero en frio aparte, sin convertirlo en un rojo.
+
+### Añadido
+
+- **Copias de seguridad, completas e incrementales.** `$db->copiar('./copias')`,
+  `$db->copias('./copias')` y `$db->restaurar($archivo)`. Guia:
+  [13-copias](docs/guide/13-copias.md).
+
+  Se copia el directorio entero —documentos, ajustes, indices y vectores— porque
+  el criterio de "esto ya se puede reconstruir" es justamente el que falla el dia
+  que hace falta la copia.
+
+  Restaurar SUSTITUYE: lo que la copia no tiene se borra. Y una copia dañada se
+  detecta ANTES de tocar los datos vivos: se leen y comprueban todos los sha1, y
+  solo despues se escribe. Restaurar medio conjunto corrupto encima de los buenos
+  es peor que no tener copia.
+
+  **Formato propio, sin `ext-zip`.** El del motor anterior usaba `ZipArchive`,
+  que es una extension opcional y que en la maquina de desarrollo NO esta
+  instalada: aquel codigo no habria podido hacer una sola copia. El formato nuevo
+  esta documentado y se puede abrir a mano.
+- **Exportar e importar en JSON y CSV.** `$db->exportar('clientes', './c.csv')` y
+  `$db->importar('clientes', './c.csv')`. La cabecera del CSV es la union de
+  todos los campos, no los del primer documento. Importar pasa por el esquema,
+  la unicidad y los indices: no es una puerta trasera.
+- **Esquema opcional por coleccion.** `$db->declararEsquema('clientes', [...])`
+  con campos obligatorios, tipos y valores por defecto. Guia:
+  [12-reglas](docs/guide/12-reglas.md).
+
+  Un campo que no se declara se guarda igual: esto pone reglas donde hacen
+  falta, no cierra la coleccion. Las actualizaciones parciales se validan
+  ENTERAS —vaciar un obligatorio no se veria mirando solo lo que cambia— y el
+  esquema se valida al declararlo, no al usarlo.
+- **Caducidad por coleccion.** `$db->declararCaducidad('sesiones', 3600)`.
+
+  Un documento vencido deja de existir por TODAS las puertas: `get`, `exists`,
+  `count`, `all`, `find` e `ids`. No se devuelve aunque su archivo siga en el
+  disco hasta el proximo `sweep()`. Se hizo asi y no al reves porque borrar en
+  una limpieza periodica convertiria "caduca en una hora" en "caduca en una
+  hora, o cuando pase el barrendero".
+
+  Se cuenta desde la ultima escritura, asi que modificar un documento le da
+  cuerda. `count()` deja de ser instantaneo en `packed` solo en las colecciones
+  que declaran caducidad.
+- **Transacciones.** `$db->transaccion(function ($tx) { ... })`: varias
+  escrituras que ocurren enteras o no ocurren, tambien entre colecciones y
+  tambien si se va la luz en mitad. Guia:
+  [11-transacciones](docs/guide/11-transacciones.md).
+
+  Diario de intenciones con fsync, marca de confirmacion y recuperacion al
+  abrir. La marca decide sin ambiguedad: sin ella la transaccion no ocurrio y se
+  descarta; con ella ocurrio y se termina de aplicar. Hay un test que mata el
+  proceso doce veces en mitad de una transferencia y comprueba que la suma de
+  las dos cuentas nunca cambia.
+
+  Dentro se lee lo propio: `$tx->get()` ve lo que `$tx->update()` acaba de
+  escribir. **Aborta la actualizacion perdida**: si alguien toca por debajo un
+  documento que la transaccion habia leido, se para con un error en vez de
+  escribir encima.
+
+  Lo que NO da: aislamiento. Mientras se aplican los cambios, un lector puede
+  ver la mitad. Se dice en la guia en vez de dejar que se suponga.
+- **`BEGIN` / `COMMIT` / `ROLLBACK` en AxiSQL**, con `BEGIN TRANSACTION` tambien
+  valido. `SELECT`, `UPDATE` y `DELETE` dentro de una transaccion ven lo
+  pendiente, con filtros, orden, `LIMIT` y campos elegidos: se resolvio dandole
+  a `Query` una fuente alternativa de documentos, no reimplementandola. Lo unico
+  que cambia es que ahi dentro no se usan indices —viven en el disco y no saben
+  nada de lo que no se ha confirmado— y `EXPLAIN` lo dice.
+- `$db->indice()` da acceso al indice secundario, como ya lo daban `storage()` y
+  `vectorial()`. `verifyIndexes()` avisa ademas de los indices heredados cuyo
+  campo no se puede saber, en vez de saltarselos en silencio.
+- **`UNIQUE` que se cumple de verdad.** `CREATE UNIQUE INDEX ON clientes (email)`
+  —o `$db->unico('clientes', 'email')`— rechaza el duplicado en cada alta y cada
+  modificacion, no solo al crear el indice.
+
+  El valor se reserva bajo el cerrojo de su propio archivo ANTES de escribir el
+  documento, asi que dos procesos que insertan el mismo correo a la vez no pasan
+  los dos: hay un test con ocho procesos simultaneos y entra exactamente uno.
+
+  Sin valor no es compartir valor: varios documentos sin ese campo conviven,
+  igual que con NULL en SQL. Quitar el indice quita la unicidad.
+- `$db->indice()` da acceso al indice secundario, como ya lo daban `storage()` y
+  `vectorial()` a los otros dos subsistemas.
+- `verifyIndexes()` cuenta ahora las entradas que **sobran**, no solo las que
+  faltan. Hacen falta porque una reserva de un campo unico cuyo documento nunca
+  llego a escribirse deja el valor cogido sin dueño.
+
+### Corregido
+
+- **El indice de un campo con mayusculas dejaba de mantenerse.** El peor fallo
+  encontrado hasta ahora, y llevaba ahi desde el principio.
+
+  El directorio del indice va en minusculas y con una marca —`createdAt` se
+  guarda como `createdat~4f2a1c9b`— para que la carpeta sea portable entre
+  sistemas de archivos que no distinguen mayusculas. Pero `fields()` devolvia el
+  nombre del DIRECTORIO, y `put()` lo usa para mantener el indice al dia:
+  buscaba `$documento['createdat~4f2a1c9b']`, que no existe en ningun documento.
+
+  Resultado: el indice de cualquier campo con una mayuscula se construia una vez
+  y no se actualizaba nunca mas. Los documentos nuevos no entraban y `by()` no
+  los encontraba, sin un solo error por el camino. Y `verifyIndexes()` decia que
+  todo estaba bien, porque contaba cero documentos con ese campo.
+
+  Afecta a nombres corrientes: `createdAt`, `userID`, `localID`. Ahora el indice
+  anota su campo real y `fields()` lo devuelve. Los indices que ya existan de un
+  campo con mayusculas hay que reconstruirlos —`reindex()`— porque su nombre
+  original no se puede recuperar del directorio; se listan aparte en vez de
+  darlos por buenos.
+- **`storage()->ids()` devolvia mal el orden.** Ordenaba con `sort()` a secas, y
+  PHP compara como numeros dos cadenas que lo parezcan: un id de 24 digitos no
+  cabe en un float, asi que ids distintos salian iguales, y uno cuyo sufijo
+  empezara por `e` —`2026...00955e8814`— se leia como notacion cientifica y valia
+  infinito. Ahora `SORT_STRING`. Lo destapo un test que fallaba una de cada seis
+  veces.
+- **Cifrar una coleccion `packed` que ya tenia datos dejaba el texto en claro en
+  el log.** El formato empaquetado solo añade, asi que la version sin cifrar
+  seguia unos bytes por detras de la cifrada. Ahora se compacta al cifrar.
+- El escaner de credenciales de `test_publicacion` saltaba con la palabra
+  "secreto" en un comentario en castellano. Ahora exige la forma de una
+  credencial de verdad: la palabra, un igual y un literal entrecomillado.
+
+### Sabido y dicho
+
+- El cifrado necesita la extension `openssl`, la unica parte de AxiDB que no
+  funciona solo con `json`. Sin ella, el resto sigue igual y `cifrar()` lo dice.
+- `id`, `_version`, `_createdAt` y `_updatedAt` quedan en claro: el motor los
+  necesita para localizar y versionar sin abrir el contenido.
+
+---
+
+## [0.3.0] — 2026-08-09
+
+Busqueda por significado y agentes con permisos.
+
+### Añadido
+
+- **Busqueda vectorial.** `$db->vectores('articulos', ['auto' => ['titulo']])` y
+  a partir de ahi cada `insert` genera su vector solo. `$db->similar()` devuelve
+  los mas parecidos por significado, no por palabras.
+- Dos pasadas: criba binaria de 1 bit por dimension sobre todos, coseno exacto
+  sobre los doscientos candidatos. **45 ms sobre 10.000 vectores con recall@10
+  del 100%**, y 6 MB de memoria.
+- Cinco generadores de embeddings: `Hash` (local, sin red, por defecto), y
+  `ollama`, `openai`, `gemini` y `voyage`. **Anthropic no publica API de
+  embeddings; para su ecosistema, Voyage.**
+- `ORDER BY EMBEDDING <-> 'texto'` en AxiSQL, con `EXPLAIN` y con el `WHERE`
+  aplicado ANTES de buscar, aprovechando los indices de siempre.
+- Bajas sin mover datos y compactacion por umbral, igual que en el formato
+  empaquetado.
+- **Agentes**: una vista de la base de datos con lista de operaciones y
+  colecciones permitidas, rastro de todo lo que intentan —tambien lo rechazado—
+  y un boton de parada que funciona entre procesos.
+- Las sentencias SQL de un agente se analizan antes de ejecutarse: un agente de
+  solo lectura no borra una coleccion con un `DELETE`.
+- Guia [09-vectores](docs/guide/09-vectores.md), con sus ejemplos ejecutandose
+  dentro de la suite.
+
+### Corregido
+
+- **Indexar era cuadratico.** Cada alta releia el archivo de ids entero para ver
+  si el documento ya tenia vector: 19,7 ms por vector, 196 segundos para 10.000.
+  No era el tamaño del archivo sino que leerlo mientras el propio proceso lo
+  tiene abierto para escribir cuesta carisimo en Windows. Con el mapa en memoria:
+  **0,27 ms, 80 veces mas rapido.**
+- `Almacen::poner()` no comprobaba las dimensiones: un vector corto descolocaba
+  todos los registros posteriores y no se notaba hasta la siguiente busqueda.
+- `Sweeper::rmrf()` no podia borrar archivos de solo lectura, asi que borrar una
+  coleccion que tuviera alguno fallaba a medias y en silencio.
+
+### Nota sobre el recall
+
+El 100% se mide con embeddings realistas, que se agrupan por significado. Con
+vectores uniformemente aleatorios —que ningun modelo genera— la criba binaria
+baja al 74%. Se publica el numero malo tambien.
+
+---
+
 ## [0.2.0] — 2026-08-08
 
 Formato empaquetado y puente HTTP. El nucleo pasa de 745 a 1.354 comprobaciones

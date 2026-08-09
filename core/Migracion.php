@@ -47,7 +47,7 @@ final class Migracion
             $destino->copiar($collection, (string) $doc['id'], $doc);
         }
 
-        $this->ajustes->fijar($collection, $destino->nombre(), null);
+        $this->ajustes->fijar($collection, ['driver' => $destino->nombre()]);
         $this->retirarRestosDe($origen->nombre(), $collection);
 
         return \count($documentos);

@@ -23,6 +23,9 @@ use Axi\Core\Drivers\PackedDriver;
 
 final class Storage
 {
+    use \Axi\Core\Almacen\ConCifrado;
+    use \Axi\Core\Almacen\ConDrivers;
+
     public const DRIVERS     = Ajustes::DRIVERS;
     public const POR_DEFECTO = 'fs';
 
@@ -33,7 +36,8 @@ final class Storage
 
     public function __construct(
         private string $base,
-        private bool $durable = true
+        private bool $durable = true,
+        ?string $clave = null
     ) {
         if (!\is_dir($this->base) && !@\mkdir($this->base, 0755, true) && !\is_dir($this->base)) {
             throw new Exception("No se pudo crear el directorio de datos: {$this->base}");
@@ -43,6 +47,8 @@ final class Storage
         $this->ajustes     = new Ajustes($this->colecciones, self::POR_DEFECTO, $durable ? 'safe' : 'fast');
         $this->fs          = new FsDriver($this->colecciones, $this->ajustes);
         $this->packed      = new PackedDriver($this->colecciones, $this->ajustes);
+
+        $this->prepararCifrado($this->base, $clave);
     }
 
     public function basePath(): string
@@ -82,11 +88,25 @@ final class Storage
         return $this->driver($collection)->count($collection);
     }
 
-    /** Ids reales, los que se pueden volver a pasar a get(). */
+    /**
+     * Ids reales, los que se pueden volver a pasar a get().
+     *
+     * SORT_STRING no es una precaucion: sin el, esto devuelve mal el orden.
+     *
+     * Un id es fecha + microsegundos + seis caracteres hexadecimales, y a veces
+     * ese sufijo sale todo digitos. Entonces la cadena entera parece un numero,
+     * y sort() a secas compara numeros: 24 digitos no caben en un float, asi que
+     * ids distintos salen iguales y el orden queda al azar. Peor todavia cuando
+     * el sufijo empieza por 'e' —2026...00955e8814— porque eso se lee como
+     * notacion cientifica y vale infinito, y ese id se va al final de la lista.
+     *
+     * Se descubrio por un test que fallaba una vez de cada seis. Ordenar cadenas
+     * como cadenas.
+     */
     public function ids(string $collection): array
     {
         $ids = \array_column($this->all($collection), 'id');
-        \sort($ids);
+        \sort($ids, SORT_STRING);
         return $ids;
     }
 
@@ -118,132 +138,107 @@ final class Storage
         return $this->colecciones->path($collection);
     }
 
-    /* ─────────────────────────────── Drivers ─────────────────────────────── */
-
-    /** Driver declarado por la coleccion. 'fs' si no dice nada. */
-    public function driverDe(string $collection): string
-    {
-        return $this->ajustes->driver($collection);
-    }
-
-    /** 'safe' (fsync en cada escritura) o 'fast'. */
-    public function durabilidadDe(string $collection): string
-    {
-        return $this->ajustes->durabilidad($collection);
-    }
-
     /**
-     * Deja escrito que driver usa una coleccion vacia. No mueve datos.
+     * Renombra una coleccion moviendo su directorio.
      *
-     * Se niega si ya tiene documentos escritos con otro driver: cambiar la
-     * declaracion sin moverlos los dejaria en disco pero invisibles, y eso no
-     * puede depender de que el que llama haya leido la documentacion. Para
-     * mover, migrarA().
+     * No reescribe ni un documento: los ajustes, los indices y los vectores
+     * viven dentro de la carpeta, asi que van con ella. Cuesta lo mismo con
+     * diez documentos que con un millon.
      */
-    public function declararDriver(string $collection, string $nombre): void
+    public function renombrarColeccion(string $de, string $a): bool
     {
-        $actual = $this->driverDe($collection);
-        if ($actual !== $nombre) {
-            $cuantos = $this->driverPorNombre($actual)->count($collection);
-            if ($cuantos > 0) {
-                throw new Exception(
-                    "Storage: '{$collection}' ya tiene {$cuantos} documentos en '{$actual}'. "
-                    . "Cambiar la declaracion los dejaria invisibles; usa migrarA('{$collection}', '{$nombre}')."
-                );
-            }
+        self::name($de, 'coleccion');
+        self::name($a, 'coleccion');
+
+        $origen  = $this->colecciones->path($de);
+        $destino = $this->colecciones->path($a);
+
+        if (!\is_dir($origen)) {
+            throw new Exception("Storage: la coleccion '{$de}' no existe.");
         }
-        $this->ajustes->fijar($collection, $nombre, null);
-        $this->packed->olvidar($collection);
-    }
-
-    /**
-     * Fija la durabilidad de una coleccion.
-     *
-     *   safe  fsync en cada escritura. El dato esta en el disco antes de que la
-     *         llamada devuelva, y sobrevive a un corte de corriente.
-     *   fast  sin fsync. La escritura llega a la cache del sistema, asi que
-     *         sobrevive a que el proceso muera pero no a que se vaya la luz.
-     *
-     * Es por coleccion porque no todas valen lo mismo: una que se puede
-     * regenerar desde su origen no necesita pagar el fsync.
-     */
-    public function declararDurabilidad(string $collection, string $nivel): void
-    {
-        $this->ajustes->fijar($collection, null, $nivel);
-        $this->packed->olvidar($collection);
-    }
-
-    /**
-     * Cambia el driver de una coleccion migrando sus documentos. Ver Migracion
-     * para por que el orden de los pasos es lo que la hace segura.
-     *
-     * @return int documentos migrados
-     */
-    public function migrarA(string $collection, string $destino): int
-    {
-        self::name($collection, 'coleccion');
-        if (!\in_array($destino, self::DRIVERS, true)) {
-            throw new Exception("Storage: driver desconocido '{$destino}'.");
+        if (\is_dir($destino)) {
+            throw new Exception("Storage: ya hay una coleccion '{$a}'.");
         }
-        $migrados = (new Migracion($this->colecciones, $this->ajustes))->mover(
-            $collection,
-            $this->driverPorNombre($this->driverDe($collection)),
-            $this->driverPorNombre($destino)
-        );
-        $this->packed->olvidar($collection);
-        return $migrados;
+        $this->cerrar();                        // sin descriptores abiertos no hay quien impida mover
+        $this->olvidar();
+
+        if (!@\rename($origen, $destino)) {
+            throw new Exception("Storage: no se pudo renombrar '{$de}' a '{$a}'.");
+        }
+        return true;
     }
 
-    /**
-     * Compacta la coleccion ahora, sin esperar al umbral. Solo tiene efecto en
-     * packed; en fs no hay nada que compactar. Devuelve los bytes recuperados.
-     */
-    public function compactar(string $collection): int
+    /* ─────────────────────────────── Unicidad ─────────────────────────────── */
+
+    /** @return list<string> campos que no admiten valores repetidos */
+    public function unicosDe(string $collection): array
     {
-        self::name($collection, 'coleccion');
-        return $this->driverDe($collection) === 'packed'
-            ? $this->packed->compactar($collection)
-            : 0;
+        return $this->ajustes->unicos($collection);
     }
 
-    /** Cuanto del archivo es espacio muerto (solo packed). Para diagnostico. */
-    public function proporcionMuerta(string $collection): float
+    /** Declara o retira la unicidad de un campo. No comprueba los datos: eso es de Db. */
+    public function declararUnico(string $collection, string $field, bool $unico = true): void
     {
-        return $this->driverDe($collection) === 'packed'
-            ? $this->packed->proporcionMuerta($collection)
-            : 0.0;
+        $campos = $this->unicosDe($collection);
+        $campos = $unico
+            ? [...$campos, $field]
+            : \array_values(\array_filter($campos, static fn($c) => $c !== $field));
+
+        $this->ajustes->fijar($collection, ['unicos' => $campos]);
     }
 
-    /**
-     * Suelta los descriptores que el driver mantenga abiertos.
-     *
-     * Normalmente no hace falta: se cierran solos al acabar el proceso. Si hace
-     * falta cuando algo externo va a reemplazar o borrar los archivos —en
-     * Windows no se renombra sobre un archivo abierto— o al abrir dos instancias
-     * sobre el mismo directorio.
-     */
+    /* ─────────────────────────────── Esquema y caducidad ───────────────────── */
+
+    /** @return array<string, array> reglas por campo. Vacio: la coleccion no tiene esquema */
+    public function esquemaDe(string $collection): array
+    {
+        return $this->ajustes->esquema($collection);
+    }
+
+    public function declararEsquema(string $collection, array $reglas): void
+    {
+        $this->ajustes->fijar($collection, ['esquema' => Esquema::validarReglas($reglas)]);
+    }
+
+    /** Segundos de vida de un documento. Cero: no caduca. */
+    public function caducidadDe(string $collection): int
+    {
+        return $this->ajustes->caducidad($collection);
+    }
+
+    public function declararCaducidad(string $collection, int $segundos): void
+    {
+        if ($segundos < 0) {
+            throw new Exception("Storage: la caducidad no puede ser negativa ({$segundos}).");
+        }
+        $this->ajustes->fijar($collection, ['caducidad' => $segundos]);
+        $this->caducados = [];
+    }
+
     public function cerrar(): void
     {
         $this->packed->olvidar();
+    }
+
+    /**
+     * Tira todo lo que hay en memoria sobre los datos.
+     *
+     * Se llama tras restaurar una copia: los ajustes cacheados, los decoradores
+     * montados y los descriptores abiertos son de los datos ANTERIORES. Seguir
+     * usandolos leeria un archivo que ya no es el que era.
+     */
+    public function olvidar(): void
+    {
+        $this->packed->olvidar();
+        $this->ajustes->olvidar();
+        $this->cifrados = [];
+        $this->caducados = [];
     }
 
     /** Atajo a Names::check para las demas clases del nucleo. */
     public static function name(string $value, string $kind): string
     {
         return Names::check($value, $kind);
-    }
-
-    /* ─────────────────────────────── Interno ─────────────────────────────── */
-
-    private function driver(string $collection): Driver
-    {
-        self::name($collection, 'coleccion');
-        return $this->driverPorNombre($this->driverDe($collection));
-    }
-
-    private function driverPorNombre(string $nombre): Driver
-    {
-        return $nombre === 'packed' ? $this->packed : $this->fs;
     }
 
 }

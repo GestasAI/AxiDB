@@ -38,7 +38,21 @@ final class Sweeper
     public static function rmrf(string $path): void
     {
         if (!\is_dir($path)) {
-            @\unlink($path);
+            if (!@\unlink($path) && \is_file($path)) {
+                /*
+                 * Un archivo de solo lectura no se deja borrar en Windows, y en
+                 * Linux tampoco si el directorio no da permiso. Se intenta
+                 * devolverle la escritura antes de rendirse.
+                 *
+                 * Sin esto, borrar una coleccion que contenga un archivo
+                 * marcado de solo lectura falla a medias y en silencio: quedan
+                 * restos que la siguiente ejecucion se encuentra y no entiende.
+                 * Paso de verdad, y costo un rato averiguar por que un test
+                 * fallaba solo despues de que otro hubiera fallado antes.
+                 */
+                @\chmod($path, 0666);
+                @\unlink($path);
+            }
             return;
         }
         foreach (\scandir($path) ?: [] as $entry) {

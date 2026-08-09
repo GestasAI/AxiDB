@@ -158,6 +158,12 @@ $db->sql('CREATE UNIQUE INDEX ON clientes (email)');
 $db->sql('DROP INDEX ON presupuestos (cliente)');
 ```
 
+> **`UNIQUE` se cumple en cada alta**, no solo al crear el indice. A partir de
+> ahi, un documento que repita ese valor se rechaza, y con varios procesos a la
+> vez tambien: el valor se reserva bajo su propio cerrojo antes de escribir.
+> Un documento SIN ese campo no choca con otro que tampoco lo tenga, igual que
+> con NULL en SQL.
+
 `CREATE INDEX` **construye** el indice, no solo lo apunta. Para comprobar que una
 consulta se apoya en el, antepon `EXPLAIN`:
 

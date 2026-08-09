@@ -21,8 +21,18 @@ require_once __DIR__ . '/_harness.php';
 
 use Axi\Core\Db;
 
-/** Rondas por driver. Cada ronda es lanzar, esperar un rato al azar y matar. */
+/** Rondas minimas por driver. Cada una es lanzar, esperar al azar y matar. */
 const RONDAS = 20;
+
+/**
+ * Escrituras torturadas que hay que juntar entre los dos drivers.
+ *
+ * Se tortura HASTA llegar a esta cifra, no un numero fijo de veces. Cuantas
+ * escrituras caben en cada ronda depende de lo rapida que sea la maquina, asi
+ * que con rondas fijas el total sale unas veces por encima y otras por debajo,
+ * y el test se ponia rojo sin que nada estuviera mal.
+ */
+const META_ESCRITURAS = 1000;
 
 /**
  * Revisa TODOS los documentos y devuelve los que estan mal.
@@ -79,6 +89,7 @@ function temporales(string $dir): array
 /* ─────────────────────────────────────────────────────────────────────────── */
 
 $totalEscrituras = 0;
+$totalMuertes    = 0;
 
 foreach (['fs', 'packed'] as $driver) {
     section("Tortura del driver {$driver}: " . RONDAS . ' muertes en momentos aleatorios');
@@ -95,7 +106,12 @@ foreach (['fs', 'packed'] as $driver) {
     $rotos     = [];
     $tmpVistos = 0;
 
-    for ($ronda = 0; $ronda < RONDAS; $ronda++) {
+    // Al menos RONDAS vueltas, y las que hagan falta hasta juntar la mitad de
+    // la meta con este driver. El tope evita que una maquina lentisima lo deje
+    // corriendo para siempre.
+    $meta = \intdiv(META_ESCRITURAS, 2);
+
+    for ($ronda = 0; $ronda < RONDAS * 3 && ($ronda < RONDAS || $escritos * 2 < $meta); $ronda++) {
         $h = spawn(__DIR__ . '/_worker_tortura.php', [$dir, $driver, 't' . $ronda, $ronda]);
 
         // Entre 0,2 y 0,9 s. El limite inferior no es capricho: el interprete
@@ -122,6 +138,7 @@ foreach (['fs', 'packed'] as $driver) {
     // las escrituras que llegaron a completarse.
     $escrituras       = $escritos * 2;
     $totalEscrituras += $escrituras;
+    $totalMuertes    += $muertes;
 
     \printf("    %d muertes, %d documentos vivos, ~%d escrituras, %d temporales por el camino\n",
         $muertes, $escritos, $escrituras, $tmpVistos);
@@ -168,8 +185,9 @@ section('El volumen tambien cuenta');
  * de la ola hablaba del orden de mil escrituras, y se comprueba en lugar de
  * darse por hecho.
  */
-\printf("    %d escrituras torturadas en total, con %d muertes\n", $totalEscrituras, RONDAS * 2);
-ok('se superaron las mil escrituras torturadas', $totalEscrituras >= 1000);
+\printf("    %d escrituras torturadas en total, con %d muertes\n", $totalEscrituras, $totalMuertes);
+ok('se llego a las mil escrituras torturadas: ' . $totalEscrituras,
+    $totalEscrituras >= META_ESCRITURAS);
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('Lo que este test NO promete');

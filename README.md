@@ -53,6 +53,8 @@ datos/
 | **Dos formatos** | `fs` legible archivo a archivo, o `packed` unas 40 veces mas rapido escribiendo |
 | **Puente HTTP** | la base de datos desde el navegador, con tokens y CORS |
 | **Cliente JavaScript** | `axi.js`, un modulo ES sin dependencias ni empaquetador |
+| **Busqueda por significado** | vectores con criba binaria: 45 ms sobre 10.000 documentos, 6 MB de memoria |
+| **Agentes** | una vista de la base de datos con permisos, rastro de todo y boton de parada |
 
 Escritura atomica siempre, `fsync` opcional, y bloqueo para que varios procesos
 escriban a la vez sin pisarse. Eso no es una caracteristica: es el minimo para
@@ -65,10 +67,14 @@ veces para demostrarlo.
 
 Conviene decirlo antes que las virtudes:
 
-- **Si necesitas transacciones sobre varias colecciones.** No las hay. Cada
-  documento se escribe entero o no se escribe; dos documentos a la vez, no.
-- **Si tus consultas cruzan colecciones.** No hay `JOIN`. Se resuelve leyendo dos
-  veces desde tu codigo, y a partir de cierto tamaño eso duele.
+- **Si necesitas aislamiento entre transacciones.** Hay transacciones y son
+  atomicas —todo o nada, tambien tras un corte de luz— y abortan la
+  actualizacion perdida. Lo que no hay es aislamiento: mientras se aplican los
+  cambios, unos milisegundos, otro proceso que lea puede ver la mitad. Eso
+  necesita MVCC, que es otro motor.
+- **Si necesitas subconsultas correlacionadas.** Hay `JOIN`, `LEFT JOIN` e
+  `IN (SELECT ...)`, pero no una subconsulta que mire el documento de fuera:
+  obligaria a una consulta completa por documento.
 - **Si necesitas el maximo rendimiento bruto.** SQLite escribe unas 17 veces mas
   rapido. Los numeros estan mas abajo, sin maquillar.
 - **Si vas a tener decenas de millones de documentos.** Esto es un motor de
@@ -76,6 +82,25 @@ Conviene decirlo antes que las virtudes:
 
 Para una web, una tienda pequeña, un panel interno, un blog o el estado de un
 agente de IA, encaja bien. Para el sistema de una aerolinea, no.
+
+## Lo que si hace
+
+```
+documentos     CRUD, indices secundarios, consultas encadenables
+AxiSQL         SELECT/INSERT/UPDATE/DELETE, JOIN, agregados, GROUP BY,
+               funciones de fecha y texto, ALTER, SHOW, DESCRIBE, vistas
+integridad     transacciones entre colecciones, UNIQUE que se cumple,
+               esquema opcional, caducidad de documentos
+respaldo       copias completas e incrementales, restauracion comprobada,
+               exportar e importar JSON y CSV
+IA             busqueda vectorial con tres modos de precision, agentes con
+               permisos y rastro
+seguridad      cifrado AES-256-GCM por coleccion, puente HTTP con tokens
+operacion      describir, estadisticas y una revision con avisos accionables
+```
+
+Todo eso con **cero dependencias** y solo la extension `json` de PHP. El cifrado
+es la unica excepcion y necesita `openssl`; se dice al usarlo.
 
 ---
 
@@ -115,6 +140,14 @@ No hay `vendor/`, ni nada que descargar.
 | [docs/guide/00-cinco-minutos.md](docs/guide/00-cinco-minutos.md) | De carpeta vacia a CRUD funcionando |
 | [docs/guide/07-drivers.md](docs/guide/07-drivers.md) | Elegir como se guarda cada coleccion |
 | [docs/guide/08-http.md](docs/guide/08-http.md) | La base de datos desde el navegador |
+| [docs/guide/09-vectores.md](docs/guide/09-vectores.md) | Buscar por significado, y agentes |
+| [docs/guide/10-cifrado.md](docs/guide/10-cifrado.md) | Cifrado en reposo por coleccion |
+| [docs/guide/11-transacciones.md](docs/guide/11-transacciones.md) | Transacciones: todo o nada |
+| [docs/guide/12-reglas.md](docs/guide/12-reglas.md) | Esquema opcional y caducidad |
+| [docs/guide/13-copias.md](docs/guide/13-copias.md) | Copias de seguridad y restauracion |
+| [docs/guide/14-axisql.md](docs/guide/14-axisql.md) | AxiSQL completo: agregados, funciones, ALTER |
+| [docs/guide/15-relaciones.md](docs/guide/15-relaciones.md) | JOIN y subconsultas |
+| [docs/guide/16-salud.md](docs/guide/16-salud.md) | Saber que esta pasando: describir y revision |
 | [examples/](examples/) | Una cristaleria, un blog, y la misma cristaleria en web |
 
 Con Composer, si lo prefieres:

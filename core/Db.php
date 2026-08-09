@@ -18,18 +18,44 @@ namespace Axi\Core;
 
 final class Db
 {
+    /*
+     * Los tres con nombre completo, no relativo. Son rasgos de este mismo
+     * nucleo, pero el test de frontera mira los `use` con una expresion regular
+     * y no puede distinguir un rasgo de una importacion: escribirlos enteros
+     * deja claro de donde salen y de paso el test no tiene que adivinar.
+     */
+    use \Axi\Core\Fachada\ConIndices;
+    use \Axi\Core\Fachada\ConVectores;
+    use \Axi\Core\Fachada\ConAgentes;
+    use \Axi\Core\Fachada\ConTransacciones;
+    use \Axi\Core\Fachada\ConDeclaraciones;
+    use \Axi\Core\Fachada\ConCopias;
+    use \Axi\Core\Fachada\ConEstructura;
+    use \Axi\Core\Fachada\ConSalud;
+
     private Storage $storage;
     private Index $index;
+    private Vectores $vectores;
+    private ?Agentes\Auditoria $auditoria = null;
 
     /**
      * @param string $dataPath Directorio de datos. Se crea si no existe.
      * @param array  $options  durable: bool (fsync en cada escritura, def. true)
+     *                          clave:   string, contraseña de las colecciones cifradas
      */
     public function __construct(string $dataPath, array $options = [])
     {
         $durable       = (bool) ($options['durable'] ?? true);
-        $this->storage = new Storage($dataPath, $durable);
-        $this->index   = new Index($this->storage);
+        $this->storage  = new Storage($dataPath, $durable, $options['clave'] ?? null);
+        $this->index    = new Index($this->storage);
+        $this->vectores = new Vectores($this->storage, $options['embedder'] ?? null);
+
+        // Antes de que nadie lea: si un corte dejo una transaccion a medias, se
+        // termina o se descarta ahora. Leer un estado a medio aplicar seria el
+        // peor momento para enterarse.
+        if (($options['recuperar'] ?? true) !== false) {
+            $this->recuperar();
+        }
     }
 
     /* ─────────────────────────────── Escritura ─────────────────────────────── */
@@ -52,14 +78,36 @@ final class Db
     /** Alta o modificacion. Mantiene los indices declarados del campo afectado. */
     public function put(string $collection, string $id, array $data, bool $replace = false): array
     {
-        $fields = $this->index->fields($collection);
-        $before = $fields === [] ? null : $this->storage->get($collection, $id);
+        $fields  = $this->index->fields($collection);
+        $unicos  = $this->storage->unicosDe($collection);
+        $esquema = $this->storage->esquemaDe($collection);
 
-        $after = $this->storage->put($collection, $id, $data, $replace);
+        $before = $fields === [] && $unicos === [] && $esquema === []
+            ? null
+            : $this->storage->get($collection, $id);
+
+        // El esquema, lo primero: si el documento no vale, mejor enterarse
+        // antes de reservar nada y antes de tocar el disco.
+        [$data, $replace] = $this->aplicarEsquema($collection, $id, $data, $before, $replace);
+
+        // Reservar antes de escribir, y soltar si la escritura no sale. Ver
+        // Unicidad: hacerlo al reves obligaria a deshacer un documento guardado.
+        $reserva = new Unicidad($this->index, $collection, $id);
+        if ($unicos !== []) {
+            $reserva->reservar($unicos, $replace || $before === null ? $data : $data + $before, $before);
+        }
+
+        try {
+            $after = $this->storage->put($collection, $id, $data, $replace);
+        } catch (\Throwable $e) {
+            $reserva->soltar();
+            throw $e;
+        }
 
         if ($fields !== []) {
             $this->index->sync($collection, $fields, $before, $after);
         }
+        $this->vectores->alGuardar($collection, $id, $after);
         return $after;
     }
 
@@ -72,6 +120,9 @@ final class Db
 
         if ($ok && $fields !== [] && $before !== null) {
             $this->index->sync($collection, $fields, $before, null);
+        }
+        if ($ok) {
+            $this->vectores->alBorrar($collection, $id);
         }
         return $ok;
     }
@@ -104,10 +155,23 @@ final class Db
         return $this->storage->count($collection);
     }
 
-    /** Constructor de consultas encadenables. */
+    /**
+     * Constructor de consultas encadenables.
+     *
+     * Con una transaccion abierta, la consulta se resuelve sobre lo que la
+     * transaccion ve: lo del disco con lo pendiente por encima. Asi un SELECT
+     * dentro de un BEGIN devuelve la verdad y no el estado de antes.
+     */
     public function find(string $collection): Query
     {
-        return new Query($this->storage, $this->index, $collection);
+        $tx = $this->abierta();
+
+        return new Query(
+            $this->storage,
+            $this->index,
+            $collection,
+            $tx === null ? null : static fn(): array => $tx->all($collection)
+        );
     }
 
     /**
@@ -137,72 +201,6 @@ final class Db
     public function sql(string $sentencia): mixed
     {
         return (new Sql\Executor($this))->run((new Sql\Parser())->parse($sentencia));
-    }
-
-    /* ─────────────────────────────── Indices ─────────────────────────────── */
-
-    /**
-     * Declara y construye un indice sobre un campo. Idempotente: volver a
-     * llamarlo reconstruye, que es tambien la forma de reparar uno dañado.
-     * @return int numero de valores distintos indexados
-     */
-    public function index(string $collection, string $field): int
-    {
-        return $this->index->build($collection, $field);
-    }
-
-    /**
-     * Declara el indice solo si aun no existe. A diferencia de index(), no
-     * reconstruye: es barato de llamar en cada escritura para que una coleccion
-     * que aparece en tiempo de ejecucion quede indexada desde su primer
-     * documento, sin releer la coleccion entera cada vez.
-     *
-     * @return bool true si lo ha creado ahora, false si ya estaba
-     */
-    public function ensureIndex(string $collection, string $field): bool
-    {
-        if ($this->index->isIndexed($collection, $field)) {
-            return false;
-        }
-        $this->index->build($collection, $field);
-        return true;
-    }
-
-    public function indexes(string $collection): array
-    {
-        return $this->index->fields($collection);
-    }
-
-    public function dropIndex(string $collection, string $field): bool
-    {
-        return $this->index->drop($collection, $field);
-    }
-
-    /** Reconstruye todos los indices declarados de una coleccion. */
-    public function reindex(string $collection): array
-    {
-        $out = [];
-        foreach ($this->index->fields($collection) as $field) {
-            $out[$field] = $this->index->build($collection, $field);
-        }
-        return $out;
-    }
-
-    /**
-     * Comprueba si los indices declarados reflejan la realidad de los
-     * documentos. Los documentos se sincronizan a disco con fsync, pero los
-     * indices no — son estado derivado — asi que un corte de corriente puede
-     * dejarlos cortos. Esta es la forma de detectarlo; reindex() lo repara.
-     *
-     * @return array<string, array{documentos:int, indexados:int, faltan:int}>
-     */
-    public function verifyIndexes(string $collection): array
-    {
-        $out = [];
-        foreach ($this->index->fields($collection) as $field) {
-            $out[$field] = IndexVerifier::check($this->storage, $this->index, $collection, $field);
-        }
-        return $out;
     }
 
     /* ─────────────────────────────── Colecciones ─────────────────────────────── */

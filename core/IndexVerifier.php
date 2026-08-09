@@ -40,13 +40,14 @@ final class IndexVerifier
      * Recorre los documentos y comprueba, uno a uno, si estan en el indice.
      * O(coleccion): es una tarea de mantenimiento, no de ruta caliente.
      *
-     * @return array{documentos:int, indexados:int, faltan:int}
+     * @return array{documentos:int, indexados:int, faltan:int, sobran:int}
      */
     public static function check(Storage $storage, Index $index, string $collection, string $field): array
     {
         $documentos = 0;
         $indexados  = 0;
         $cache      = [];
+        $esperados  = [];
 
         foreach ($storage->all($collection) as $doc) {
             $value = $doc[$field] ?? null;
@@ -55,11 +56,13 @@ final class IndexVerifier
             }
             $documentos++;
             $value = (string) $value;
+            $id    = (string) ($doc['id'] ?? '');
 
             // Un solo bucket se consulta una vez aunque lo compartan mil documentos.
             $cache[$value] ??= $index->ids($collection, $field, $value) ?? [];
+            $esperados[$index->nombreDeBucket($collection, $field, $value)][$id] = true;
 
-            if (\in_array((string) ($doc['id'] ?? ''), $cache[$value], true)) {
+            if (\in_array($id, $cache[$value], true)) {
                 $indexados++;
             }
         }
@@ -68,6 +71,41 @@ final class IndexVerifier
             'documentos' => $documentos,
             'indexados'  => $indexados,
             'faltan'     => $documentos - $indexados,
+            'sobran'     => self::sobrantes($index, $collection, $field, $esperados),
         ];
+    }
+
+    /**
+     * Entradas del indice que no corresponden a ningun documento.
+     *
+     * Se leen los archivos del indice, no los documentos, y ese es el unico modo
+     * de verlas: partiendo de los documentos solo se encuentra lo que deberia
+     * estar, nunca lo que esta de mas.
+     *
+     * Antes esto solo podia pasar tocando los archivos a mano. Ahora hay un
+     * camino propio del motor: un campo unico reserva el valor en el indice
+     * ANTES de escribir el documento, asi que un proceso que muera justo en
+     * medio deja el valor cogido y sin dueño. No corrompe nada y no se pierde
+     * ningun dato, pero ese valor queda bloqueado hasta reconstruir el indice.
+     * Se cuenta para que se pueda ver, en vez de esperar a que alguien se queje
+     * de que "ese correo dice que ya existe y no existe".
+     *
+     * @param array<string, array<string,true>> $esperados ids validos por bucket
+     */
+    private static function sobrantes(
+        Index $index,
+        string $collection,
+        string $field,
+        array $esperados
+    ): int {
+        $sobran = 0;
+        foreach ($index->buckets($collection, $field) as $bucket => $ids) {
+            foreach ($ids as $id) {
+                if (!isset($esperados[$bucket][$id])) {
+                    $sobran++;
+                }
+            }
+        }
+        return $sobran;
     }
 }

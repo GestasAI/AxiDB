@@ -70,7 +70,7 @@ eq('pero el resultado no cambia', 6, \count($db->sql("SELECT * FROM pedidos WHER
 eq('DROP de un indice inexistente', ['dropped' => false], $db->sql('DROP INDEX ON pedidos (nada)'));
 
 /* ─────────────────────────────────────────────────────────────────────────── */
-section('D] UNIQUE se comprueba al crearlo');
+section('D] UNIQUE se comprueba al crearlo Y se cumple despues');
 
 $db->sql('CREATE COLLECTION usuarios');
 $db->sql("INSERT INTO usuarios (email) VALUES ('ana@ejemplo.es')");
@@ -80,13 +80,23 @@ $r = $db->sql('CREATE UNIQUE INDEX ON usuarios (email)');
 eq('con valores unicos se crea', true, $r['unique']);
 eq('e indexa los dos',            2, $r['values']);
 
-$db->sql("INSERT INTO usuarios (email) VALUES ('ana@ejemplo.es')");
+// Lo que antes NO pasaba: la restriccion se declaraba y luego no se cumplia.
+throws('y a partir de ahi un repetido se rechaza',
+    static fn() => $db->sql("INSERT INTO usuarios (email) VALUES ('ana@ejemplo.es')"));
+eq('el repetido no entro', 2, $db->count('usuarios'));
+
+// Con repetidos ya dentro, declararlo unico se rechaza: la coleccion quedaria
+// en un estado que ninguna escritura posterior podria arreglar.
+$db->sql('CREATE COLLECTION sucia');
+$db->sql("INSERT INTO sucia (email) VALUES ('ana@ejemplo.es')");
+$db->sql("INSERT INTO sucia (email) VALUES ('ana@ejemplo.es')");
+
 throws('con valores repetidos se rechaza',
-    static fn() => $db->sql('CREATE UNIQUE INDEX ON usuarios (email)'));
+    static fn() => $db->sql('CREATE UNIQUE INDEX ON sucia (email)'));
 
 $mensaje = '';
 try {
-    $db->sql('CREATE UNIQUE INDEX ON usuarios (email)');
+    $db->sql('CREATE UNIQUE INDEX ON sucia (email)');
 } catch (\Axi\Core\Exception $e) {
     $mensaje = $e->getMessage();
 }

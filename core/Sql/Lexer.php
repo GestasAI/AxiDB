@@ -27,6 +27,12 @@ final class Lexer
         'INDEX', 'INDEXES', 'UNIQUE', 'ON',
         'COUNT', 'EXPLAIN',
         'TRUE', 'FALSE',
+        'EMBEDDING',
+        'BEGIN', 'COMMIT', 'ROLLBACK', 'TRANSACTION',
+        'DISTINCT', 'AS', 'GROUP', 'HAVING', 'BETWEEN', 'DUPLICATE',
+        'SHOW', 'DESCRIBE', 'COLLECTIONS', 'ALTER', 'RENAME', 'TO',
+        'ADD', 'FIELD', 'VIEW',
+        'JOIN', 'INNER', 'LEFT', 'EXISTS',
     ];
 
     /** @return Token[] terminado siempre en un token EOF */
@@ -57,14 +63,33 @@ final class Lexer
                 continue;
             }
 
-            if (\ctype_digit($c) || ($c === '-' && \ctype_digit($input[$i + 1] ?? ''))) {
+            /*
+             * Un '-' arranca un numero negativo solo si NO puede ser una resta.
+             *
+             * Con la regla ingenua —guion seguido de digito— la expresion
+             * `stock -1` se leia como `stock` y `-1`, o sea dos valores pegados
+             * y ningun operador. Se distingue por lo que hay DETRAS: si el token
+             * anterior puede cerrar una expresion (un campo, un numero, un
+             * parentesis que cierra), entonces el guion es una resta.
+             */
+            if (\ctype_digit($c) || ($c === '-' && \ctype_digit($input[$i + 1] ?? '')
+                    && !self::cierraExpresion($tokens[\count($tokens) - 1] ?? null))) {
                 [$tokens[], $i] = $this->leerNumero($input, $i, $len);
                 continue;
             }
 
             if (\ctype_alpha($c) || $c === '_') {
                 $inicio = $i;
-                while ($i < $len && (\ctype_alnum($input[$i]) || $input[$i] === '_')) {
+                /*
+                 * El punto entra en el identificador: `pedidos.cliente_id`. Hace
+                 * falta para los JOIN, donde hay que poder decir de que lado es
+                 * cada campo.
+                 *
+                 * Solo si detras del punto viene una letra: asi `1.5` sigue
+                 * siendo un decimal y `x.` no se traga el punto de nada.
+                 */
+                while ($i < $len && (\ctype_alnum($input[$i]) || $input[$i] === '_'
+                    || ($input[$i] === '.' && \ctype_alpha($input[$i + 1] ?? '')))) {
                     $i++;
                 }
                 $palabra = \substr($input, $inicio, $i - $inicio);
@@ -72,6 +97,18 @@ final class Lexer
                 $tokens[] = \in_array($mayus, self::KEYWORDS, true)
                     ? new Token(Token::KW, $mayus, $inicio)
                     : new Token(Token::IDENT, $palabra, $inicio);
+                continue;
+            }
+
+            /*
+             * El operador de distancia va ANTES que los de dos caracteres: si no,
+             * '<->' se leeria como '<-' —que no existe— o peor, como '<' seguido
+             * de '->'. Se escribe asi por ser el que usa pgvector: reutilizar una
+             * notacion que la gente ya conoce sale gratis.
+             */
+            if (\substr($input, $i, 3) === '<->') {
+                $tokens[] = new Token(Token::OP, '<->', $i);
+                $i += 3;
                 continue;
             }
 
@@ -84,7 +121,7 @@ final class Lexer
                 continue;
             }
 
-            if (\in_array($c, ['=', '>', '<'], true)) {
+            if (\in_array($c, ['=', '>', '<', '+', '-', '/', '%'], true)) {
                 $tokens[] = new Token(Token::OP, $c, $i);
                 $i++;
                 continue;
@@ -101,6 +138,24 @@ final class Lexer
 
         $tokens[] = new Token(Token::EOF, null, $len);
         return $tokens;
+    }
+
+    /**
+     * Si este token puede ser el final de una expresion.
+     *
+     * Sirve para saber si el '-' que viene detras es una resta o el signo de un
+     * numero. Un campo, un numero, un texto o un ')' cierran expresion; un
+     * operador o un '(' no.
+     */
+    private static function cierraExpresion(?Token $anterior): bool
+    {
+        if ($anterior === null) {
+            return false;
+        }
+        if (\in_array($anterior->type, [Token::IDENT, Token::NUM, Token::STR], true)) {
+            return true;
+        }
+        return $anterior->isPunct(')');
     }
 
     /** Cadena entre comillas. La comilla doblada ('') escapa una comilla. */

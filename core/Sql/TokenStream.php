@@ -19,8 +19,18 @@ final class TokenStream
     private int $i = 0;
 
     /** @param Token[] $tokens */
-    public function __construct(private array $tokens)
+    /**
+     * @param string $fuente el SQL original. Hace falta para recortar el texto
+     *                       de una subconsulta o de una vista, que se guardan
+     *                       tal cual se escribieron y no como arbol.
+     */
+    public function __construct(private array $tokens, private string $fuente = '')
     {
+    }
+
+    public function fuente(): string
+    {
+        return $this->fuente;
     }
 
     public function peek(int $adelante = 0): Token

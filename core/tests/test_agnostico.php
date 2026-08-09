@@ -104,7 +104,10 @@ foreach ($fuentes as $archivo => $codigo) {
 section('C] Cero clases de otros espacios de nombres');
 
 foreach ($fuentes as $archivo => $codigo) {
-    \preg_match_all('/^\s*use\s+([A-Za-z0-9_\\\\]+)/mi', $codigo, $m);
+    // La barra inicial de un nombre completo se descarta antes de juzgar:
+    // `use \Axi\Core\X` es exactamente lo mismo que `use Axi\Core\X`. Sin esto
+    // la regla castigaba escribir el nombre entero, que es lo mas explicito.
+    \preg_match_all('/^\s*use\s+\\\\?([A-Za-z0-9_\\\\]+)/mi', $codigo, $m);
     $malos = \array_filter($m[1] ?? [], static fn($ns) => !\str_starts_with($ns, 'Axi\\Core'));
     ok("{$archivo} no importa espacios de nombres ajenos" . ($malos ? ': ' . \implode(', ', $malos) : ''),
         $malos === []);
@@ -114,11 +117,33 @@ foreach ($fuentes as $archivo => $codigo) {
 section('D] Solo extensiones de PHP siempre presentes');
 
 $permitidas = ['json'];
-$sospechosas = ['curl_', 'mysqli_', 'pdo_', 'PDO', 'gd_', 'imagick', 'sodium_', 'gmp_', 'bcadd', 'apcu_', 'redis'];
+/*
+ * `mb_` entro en la lista al escribir el generador de embeddings de prueba:
+ * mbstring parece estar siempre y no lo esta —es opcional en muchas
+ * distribuciones— y la regla lo habria dejado pasar en silencio. Una regla que
+ * no vigila lo que dice vigilar es peor que no tenerla.
+ */
+$sospechosas = ['curl_', 'mysqli_', 'pdo_', 'PDO', 'gd_', 'imagick', 'sodium_',
+                'gmp_', 'bcadd', 'apcu_', 'redis', 'mb_', 'iconv', 'intl'];
+
+/*
+ * Se miran solo las llamadas de verdad, no los comentarios. Un archivo que
+ * explica "esto NO usa iconv" contiene la palabra iconv, y una busqueda por
+ * texto lo daba por culpable. Es el mismo criterio que en la seccion B con los
+ * require: lo que cuenta es el codigo, no lo que se dice sobre el codigo.
+ */
 foreach ($fuentes as $archivo => $codigo) {
+    $soloCodigo = '';
+    foreach (\token_get_all($codigo) as $t) {
+        if (\is_array($t) && \in_array($t[0], [T_COMMENT, T_DOC_COMMENT, T_INLINE_HTML], true)) {
+            continue;
+        }
+        $soloCodigo .= \is_array($t) ? $t[1] : $t;
+    }
+
     $encontradas = [];
     foreach ($sospechosas as $fn) {
-        if (\stripos($codigo, $fn) !== false) {
+        if (\stripos($soloCodigo, $fn) !== false) {
             $encontradas[] = $fn;
         }
     }

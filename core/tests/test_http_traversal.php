@@ -99,8 +99,14 @@ $r = pedir($s, ['accion' => 'insert', 'coleccion' => 'p', 'id' => 'r1',
 respuesta('guardar ese texto en un campo indexado se permite', $r, 200, true);
 eq('se guarda tal cual', '../../etc/passwd', $db->get('p', 'r1')['ruta']);
 
-$entradas = \array_map('basename', \glob($dir . '/p/_idx/ruta/*') ?: []);
-eq('y el indice crea un solo archivo', 1, \count($entradas));
+// Se mira el disco a pelo, que es de lo que va este test. Se descarta la
+// anotacion del nombre del campo: no es un valor indexado, es la etiqueta que
+// permite saber que campo guarda este directorio.
+$entradas = \array_values(\array_filter(
+    \array_map('basename', \glob($dir . '/p/_idx/ruta/*') ?: []),
+    static fn(string $n) => $n !== '_campo.json'
+));
+eq('y el indice crea un solo archivo de valor', 1, \count($entradas));
 ok('con el valor reducido a hash, no a ruta',
     \str_starts_with($entradas[0] ?? '', 'h_') && !\str_contains($entradas[0] ?? '', '..'));
 ok('el archivo de fuera sigue sin tocarse', \is_file($fuera));

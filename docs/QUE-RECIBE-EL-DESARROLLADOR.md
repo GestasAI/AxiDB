@@ -131,6 +131,12 @@ $db->sql("CREATE INDEX ON presupuestos (estado)");
 $db->sql("CREATE UNIQUE INDEX ON clientes (email)");
 ```
 
+> **`UNIQUE` se cumple en cada alta**, no solo al crear el indice. A partir de
+> ahi, un documento que repita ese valor se rechaza, y con varios procesos a la
+> vez tambien: el valor se reserva bajo su propio cerrojo antes de escribir.
+> Un documento SIN ese campo no choca con otro que tampoco lo tenga, igual que
+> con NULL en SQL.
+
 El indice por tenant de MyLocal generalizado: en vez de `local_id` fijo, cualquier
 campo. Para la cristaleria seria `cliente_id`, y `$db->by('presupuestos',
 'cliente_id', $idCliente)` le da los presupuestos de un cliente sin escanear todo.

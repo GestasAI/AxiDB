@@ -112,8 +112,64 @@ for ($i = 0; $i < 9; $i++) {
     $db6->insert('c', ['g' => 'g' . ($i % 3)]);
 }
 $v = $db6->verifyIndexes('c');
-eq('con el indice sano no falta nada',
-    ['g' => ['documentos' => 9, 'indexados' => 9, 'faltan' => 0]], $v);
+eq('con el indice sano no falta nada ni sobra nada',
+    ['g' => ['documentos' => 9, 'indexados' => 9, 'faltan' => 0, 'sobran' => 0]], $v);
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+section('Campos con mayusculas: el indice que dejaba de mantenerse');
+
+/*
+ * El directorio del indice va en minusculas y con una marca —`createdAt` se
+ * guarda como `createdat~4f2a1c9b`— para que la carpeta se pueda copiar entre
+ * sistemas de archivos que no distinguen mayusculas.
+ *
+ * El problema era que `fields()` devolvia el nombre del DIRECTORIO, y put() lo
+ * usa para mantener el indice: buscaba $documento['createdat~4f2a1c9b'], que no
+ * existe en ningun documento. Resultado: el indice de cualquier campo con una
+ * mayuscula se construia una vez y no se actualizaba nunca mas. Los documentos
+ * nuevos no entraban y by() no los encontraba, sin un solo error por el camino.
+ *
+ * Y verifyIndexes() decia que todo estaba bien, porque contaba cero documentos
+ * con ese campo: cero de cero indexados, cero faltan.
+ */
+$dirMay = tmpdir('index_mayusculas');
+$dbMay  = new Db($dirMay, ['durable' => false]);
+
+$dbMay->insert('c', ['localID' => 'A1'], 'd1');
+$dbMay->index('c', 'localID');
+
+eq('fields() devuelve el nombre real, no el del directorio', ['localID'], $dbMay->indexes('c'));
+
+$dbMay->insert('c', ['localID' => 'A2'], 'd2');
+eq('un documento nuevo SI entra en el indice', ['d2'],
+    \array_column($dbMay->by('c', 'localID', 'A2'), 'id'));
+
+$dbMay->update('c', 'd1', ['localID' => 'A3']);
+eq('y al cambiar el valor, el viejo se suelta', [], $dbMay->by('c', 'localID', 'A1'));
+eq('y el nuevo se coge', ['d1'], \array_column($dbMay->by('c', 'localID', 'A3'), 'id'));
+
+$vMay = $dbMay->verifyIndexes('c')['localID'] ?? [];
+eq('y ahora verifyIndexes de verdad los mira', 2, $vMay['documentos'] ?? -1);
+eq('sin que falte ninguno', 0, $vMay['faltan'] ?? -1);
+
+/*
+ * Un indice creado por una version anterior no lleva anotado su campo, y si el
+ * campo tenia mayusculas su nombre no se puede recuperar del directorio. Ese
+ * indice NO se puede mantener. Lo que no se hace es callarlo: se avisa, porque
+ * callarlo seria repetir exactamente el fallo que se acaba de corregir.
+ */
+\unlink($dirMay . '/c/_idx/localid~26cb4baf/_campo.json');
+
+$heredado = $dbMay->verifyIndexes('c');
+ok('un indice heredado sin nombre de campo no se cuela como bueno',
+    !isset($heredado['localID']));
+ok('se avisa de que hay que rehacerlo',
+    ($heredado['localid~26cb4baf']['ilegible'] ?? false) === true);
+ok('y el aviso dice como', \str_contains(
+    (string) ($heredado['localid~26cb4baf']['aviso'] ?? ''), 'dropIndex'));
+
+$dbMay->storage()->cerrar();
+rmrf($dirMay);
 
 // Simular la perdida: vaciar el bucket de un valor.
 \file_put_contents($db6->path() . '/c/_idx/g/g0.json', \json_encode([]));

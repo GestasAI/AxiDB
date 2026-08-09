@@ -66,12 +66,43 @@ function summary(): never
 }
 
 /** Directorio temporal limpio para un test. Se borra al empezar. */
+/**
+ * Un directorio temporal vacio para el test que lo pide.
+ *
+ * Lleva el PID dentro por una razon que costo un rato entender: sin el, dos
+ * ejecuciones de la suite a la vez —una del proyecto y otra de una copia, por
+ * ejemplo— usan LA MISMA carpeta, y como cada una la vacia al empezar, se
+ * borran los datos la una a la otra. El sintoma es un test que falla en mitad
+ * de la siembra diciendo que la coleccion no existe, y que despues pasa solo.
+ *
+ * Los restos de ejecuciones muertas se recogen al principio: sin eso, cada
+ * proceso dejaria su propio directorio para siempre.
+ */
 function tmpdir(string $name): string
 {
-    $base = \sys_get_temp_dir() . '/axidb_test_' . $name;
+    limpiarTemporalesViejos();
+
+    $base = \sys_get_temp_dir() . '/axidb_test_' . $name . '_' . \getmypid();
     rmrf($base);
     @\mkdir($base, 0777, true);
     return $base;
+}
+
+/** Borra directorios de pruebas de procesos que ya no existen. */
+function limpiarTemporalesViejos(): void
+{
+    static $hecho = false;
+    if ($hecho) {
+        return;
+    }
+    $hecho = true;
+
+    foreach (\glob(\sys_get_temp_dir() . '/axidb_test_*') ?: [] as $dir) {
+        // Mas de dos horas sin tocar: de una ejecucion que ya no esta viva.
+        if (\is_dir($dir) && \time() - (int) @\filemtime($dir) > 7200) {
+            rmrf($dir);
+        }
+    }
 }
 
 function rmrf(string $path): void

@@ -124,7 +124,19 @@ $sospechosos = [];
 $mirar = new RecursiveIteratorIterator(
     new RecursiveDirectoryIterator($raiz . '/core', FilesystemIterator::SKIP_DOTS)
 );
-$patrones = '/(password|passwd|secret|api[_-]?key|token\s*=\s*[\'"][a-z0-9]{16,})/i';
+/*
+ * Una credencial es una ASIGNACION CON VALOR, no una palabra suelta.
+ *
+ * El patron buscaba antes 'secret' en cualquier posicion, y salto con la frase
+ * "deja el secreto accesible por la puerta de atras": prosa en castellano,
+ * donde secreto contiene secret. Un guardian que da falsos positivos por
+ * escribir en el idioma del proyecto acaba desactivado o rodeado, y entonces
+ * ya no guarda nada.
+ *
+ * Se exige la forma que tiene una credencial de verdad: la palabra, un igual o
+ * una flecha, y un literal entrecomillado detras.
+ */
+$patrones = '/(password|passwd|secret|api[_-]?key|token)[\'"]?\s*(=>|=|:)\s*[\'"][^\'"\s]{8,}[\'"]/i';
 
 foreach ($mirar as $archivo) {
     if ($archivo->getExtension() !== 'php' && $archivo->getExtension() !== 'js') {
@@ -144,13 +156,31 @@ ok('no viaja ningun axidb.json con configuracion dentro',
     !\is_file($raiz . '/axidb.json'));
 ok('ni un directorio vendor',        !\is_dir($raiz . '/vendor'));
 
-// Registros sueltos: aparecen solos —un php que falla deja su php_errors.log en
-// el directorio de trabajo— y se cuelan en el paquete sin que nadie los añada.
-$registros = \array_map('basename', \glob($raiz . '/*.log') ?: []);
-ok('ningun registro suelto en la raiz'
-    . ($registros === [] ? '' : ' -> borra ' . \implode(', ', $registros)
-       . ' (git los ignora, pero copiar la carpeta no)'),
-    $registros === []);
+/*
+ * Archivos sueltos en la raiz: aparecen solos y se cuelan en el paquete sin que
+ * nadie los añada. Un php que falla deja su `php_errors.log`; un ejemplo de la
+ * documentacion que escribe con ruta relativa deja su `clientes.csv`.
+ *
+ * La primera version solo miraba los `.log`, y por eso un `clientes.csv` y un
+ * `clientes.json` estuvieron ahi hasta que se vieron a ojo al comparar con el
+ * repositorio. Ahora se mira al reves: en la raiz solo puede haber lo que se
+ * espera, y cualquier otra cosa se señala.
+ */
+$permitidos = [
+    'README.md', 'CHANGELOG.md', 'LICENSE', 'LICENSE.md', 'NOTICE',
+    'axi.php', 'axi.js', 'composer.json', '.gitignore', '.editorconfig',
+];
+$sueltos = [];
+foreach (\glob($raiz . '/*') ?: [] as $entrada) {
+    $nombre = \basename($entrada);
+    if (!\is_dir($entrada) && !\in_array($nombre, $permitidos, true)) {
+        $sueltos[] = $nombre;
+    }
+}
+ok('ningun archivo suelto en la raiz'
+    . ($sueltos === [] ? '' : ' -> sobra ' . \implode(', ', $sueltos)
+       . ' (git puede ignorarlos, pero copiar la carpeta no)'),
+    $sueltos === []);
 
 /*
  * `.claude/` son ajustes locales de quien desarrolla y es normal que existan

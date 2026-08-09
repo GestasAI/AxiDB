@@ -41,8 +41,32 @@ for ($i = 0; $i < 5; $i++) {
     \usleep(1500);
 }
 $ordenados = $ids;
-\sort($ordenados);
+\sort($ordenados, SORT_STRING);
 eq('los ids generados son ordenables por tiempo', $ids, $ordenados);
+
+/*
+ * Esta comprobacion fallaba una vez de cada seis, y el motivo no era el reloj.
+ *
+ * Los tres ids de abajo son reales, copiados de una ejecucion que fallo. Con
+ * sort() a secas PHP los trata como numeros —el ultimo, con su 'e', como
+ * notacion cientifica, o sea infinito— y devuelve 0166, 0237, 0095. Se dejan
+ * escritos aqui para que la regresion se detecte siempre y no una de cada seis.
+ */
+$reales = [
+    '202608090537450237111111',   // todo digitos: se compara como numero
+    '202608090537450166941916',   // todo digitos tambien
+    '2026080905374500955e8814',   // el 'e' lo convierte en 2.02e8814 = infinito
+];
+$comoCadenas = $reales;
+\sort($comoCadenas, SORT_STRING);
+eq('ordenar ids como cadenas da el orden temporal',
+    ['2026080905374500955e8814', '202608090537450166941916', '202608090537450237111111'],
+    $comoCadenas);
+
+$db->insert('orden', [], '202608090537450237111111');
+$db->insert('orden', [], '202608090537450166941916');
+$db->insert('orden', [], '2026080905374500955e8814');
+eq('y storage()->ids() los devuelve en ese mismo orden', $comoCadenas, $db->storage()->ids('orden'));
 eq('todos los ids son distintos', 5, \count(\array_unique($ids)));
 
 /* ─────────────────────────────────────────────────────────────────────────── */

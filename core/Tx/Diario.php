@@ -1,0 +1,147 @@
+<?php
+/**
+ * AxiDB - Tx\Diario: lo que se va a hacer, escrito antes de hacerlo.
+ *
+ * Una transaccion no puede ser atomica sobre varios archivos si se escribe
+ * directamente: siempre hay un instante en el que van dos de cinco. Lo que si
+ * se puede hacer atomico es UNA cosa —crear un archivo— y apoyarlo todo en ella.
+ *
+ * Por eso hay una marca de confirmacion. El diario se escribe entero primero, y
+ * solo cuando esta completo y en el disco aparece `_hecho`. Ese archivo es la
+ * frontera:
+ *
+ *   no esta   la transaccion no ocurrio. Se tira el diario.
+ *   esta      la transaccion ocurrio. Se termina de aplicar, aunque el proceso
+ *             haya muerto con la mitad escrita.
+ *
+ * Aplicar dos veces la misma operacion deja el mismo resultado —se escribe el
+ * documento entero, no un incremento—, asi que repetir la aplicacion tras un
+ * corte es seguro. Ahi esta la gracia: no hace falta saber por donde se quedo.
+ */
+
+declare(strict_types=1);
+
+namespace Axi\Core\Tx;
+
+use Axi\Core\Exception;
+
+final class Diario
+{
+    public const CARPETA = '_tx';
+
+    private const PLAN  = 'plan.json';
+    private const HECHO = '_hecho';
+
+    private string $dir;
+
+    public function __construct(private string $base, private string $id)
+    {
+        $this->dir = $base . '/' . self::CARPETA . '/' . $id;
+    }
+
+    public function id(): string
+    {
+        return $this->id;
+    }
+
+    /**
+     * Deja el plan escrito y en el disco. Todavia no confirma nada.
+     *
+     * El fsync no es opcional aqui, cueste lo que cueste: si el plan se queda en
+     * la cache del sistema y la marca de confirmacion llega antes al disco, un
+     * corte dejaria una transaccion confirmada cuyo contenido no existe. Ese es
+     * el unico estado del que no se puede salir.
+     *
+     * @param list<array{coleccion:string, id:string, accion:string, datos?:array}> $operaciones
+     */
+    public function anotar(array $operaciones): void
+    {
+        if (!\is_dir($this->dir) && !@\mkdir($this->dir, 0755, true) && !\is_dir($this->dir)) {
+            throw new Exception("Tx: no se pudo crear el diario en {$this->dir}.");
+        }
+        $json = \json_encode(
+            ['version' => 1, 'operaciones' => $operaciones],
+            JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION
+        );
+        if ($json === false) {
+            throw new Exception('Tx: no se pudo serializar el plan: ' . \json_last_error_msg());
+        }
+
+        $path = $this->dir . '/' . self::PLAN;
+        $fp   = @\fopen($path, 'wb');
+        if (!$fp || \fwrite($fp, $json) !== \strlen($json)) {
+            if ($fp) {
+                \fclose($fp);
+            }
+            throw new Exception("Tx: no se pudo escribir el plan en {$path}.");
+        }
+        \fflush($fp);
+        @\fsync($fp);
+        \fclose($fp);
+    }
+
+    /**
+     * La frontera. A partir de aqui la transaccion ocurrio, aunque todavia no
+     * se haya escrito ni un documento.
+     */
+    public function confirmar(): void
+    {
+        $path = $this->dir . '/' . self::HECHO;
+        $fp   = @\fopen($path, 'wb');
+        if (!$fp) {
+            throw new Exception("Tx: no se pudo confirmar en {$path}.");
+        }
+        \fflush($fp);
+        @\fsync($fp);
+        \fclose($fp);
+    }
+
+    public function estaConfirmado(): bool
+    {
+        return \is_file($this->dir . '/' . self::HECHO);
+    }
+
+    /**
+     * Las operaciones anotadas. Lista vacia si el plan no se lee: un diario
+     * ilegible se trata como no confirmado, que es el lado seguro.
+     *
+     * @return list<array{coleccion:string, id:string, accion:string, datos?:array}>
+     */
+    public function operaciones(): array
+    {
+        $json = \json_decode((string) @\file_get_contents($this->dir . '/' . self::PLAN), true);
+        $ops  = \is_array($json) ? ($json['operaciones'] ?? []) : [];
+        return \is_array($ops) ? \array_values(\array_filter($ops, 'is_array')) : [];
+    }
+
+    /** Se llama cuando ya no hace falta: aplicado del todo, o descartado. */
+    public function borrar(): void
+    {
+        foreach (\glob($this->dir . '/*') ?: [] as $f) {
+            @\unlink($f);
+        }
+        @\unlink($this->dir . '/' . self::HECHO);
+        @\rmdir($this->dir);
+    }
+
+    /**
+     * Los diarios que hay sin terminar. Cada uno es una transaccion que se
+     * quedo a medias porque el proceso murio.
+     *
+     * @return list<self>
+     */
+    public static function pendientes(string $base): array
+    {
+        $raiz = $base . '/' . self::CARPETA;
+        if (!\is_dir($raiz)) {
+            return [];
+        }
+        $fuera = [];
+        foreach (\scandir($raiz) ?: [] as $entrada) {
+            if ($entrada !== '.' && $entrada !== '..' && \is_dir($raiz . '/' . $entrada)) {
+                $fuera[] = new self($base, $entrada);
+            }
+        }
+        return $fuera;
+    }
+}

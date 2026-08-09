@@ -32,6 +32,9 @@ namespace Axi\Core;
 
 final class Index
 {
+    use \Axi\Core\Indices\ConUnicos;
+    use \Axi\Core\Indices\ConInspeccion;
+
     public function __construct(private Storage $storage)
     {
     }
@@ -104,6 +107,8 @@ final class Index
         }
         // El directorio se crea aunque no haya nada que indexar: es lo que declara
         // el indice como existente para que put() lo mantenga desde la primera alta.
+        $this->anotarCampo($dir, $field);
+
         $buckets = [];
         foreach ($this->storage->all($collection) as $doc) {
             $value = $doc[$field] ?? null;
@@ -141,22 +146,6 @@ final class Index
                 $this->add($collection, $field, (string) $new, $id);
             }
         }
-    }
-
-    /** Campos con indice en una coleccion. */
-    public function fields(string $collection): array
-    {
-        $root = $this->storage->dir($collection) . '/_idx';
-        if (!\is_dir($root)) {
-            return [];
-        }
-        $out = [];
-        foreach (\scandir($root) ?: [] as $entry) {
-            if ($entry !== '.' && $entry !== '..' && \is_dir($root . '/' . $entry)) {
-                $out[] = $entry;
-            }
-        }
-        return $out;
     }
 
     public function drop(string $collection, string $field): bool
@@ -239,6 +228,11 @@ final class Index
      */
     private function path(string $collection, string $field, string $value): string
     {
-        return $this->fieldDir($collection, $field) . '/' . Names::forValue($value) . '.json';
+        // Cifrada: SIEMPRE hash. Dejar el valor tal cual escribia
+        // _idx/email/juan.perez.json: el dato recien cifrado, como nombre.
+        $nombre = $this->storage->estaCifrada($collection)
+            ? 'h_' . \sha1($value) : Names::forValue($value);
+
+        return $this->fieldDir($collection, $field) . '/' . $nombre . '.json';
     }
 }

@@ -219,7 +219,18 @@ eq('la durabilidad se recuerda tras reabrir', 'safe', $db5->storage()->durabilid
 
 $ajustes = \json_decode((string) \file_get_contents($ruta . '/segura/_axidb.json'), true);
 eq('y esta escrita en la propia coleccion',
-    ['driver' => 'fs', 'durabilidad' => 'safe'], $ajustes);
+    ['driver' => 'fs', 'durabilidad' => 'safe', 'cifrado' => false,
+     'unicos' => [], 'esquema' => [], 'caducidad' => 0], $ajustes);
+
+// El orden de las claves es estable pase lo que pase: este archivo se lee a ojo
+// y se versiona, y un diff tiene que enseñar el cambio, no la baraja.
+$db5->storage()->declararCaducidad('segura', 60);
+$db5->storage()->declararDriver('segura', 'fs');
+eq('y el orden de las claves no baila al tocar un ajuste',
+    ['driver', 'durabilidad', 'cifrado', 'unicos', 'esquema', 'caducidad'],
+    \array_keys((array) \json_decode(
+        (string) \file_get_contents($ruta . '/segura/_axidb.json'), true
+    )));
 
 rmrf($db->path());
 rmrf($db2->path());

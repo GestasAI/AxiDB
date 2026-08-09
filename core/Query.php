@@ -26,15 +26,23 @@ final class Query
     private ?int   $limit   = null;
     private int    $offset  = 0;
     private array  $fields  = [];
+
+    /** @var list<array{coleccion:string, alias:string, tipo:string, izq:string, der:string}> */
+    private array  $uniones = [];
     private array  $plan    = ['strategy' => 'scan', 'field' => null, 'value' => null, 'candidates' => 0];
 
     /** Operadores unarios: where('stock','IS NULL') no lleva valor. */
     private const UNARIOS = ['IS NULL', 'IS NOT NULL'];
 
+    /**
+     * @param \Closure|null $fuente documentos de partida. Null: del disco, con
+     *                              indices. Dentro de una transaccion, su vista.
+     */
     public function __construct(
         private Storage $storage,
         private Index $index,
-        private string $collection
+        private string $collection,
+        private ?\Closure $fuente = null
     ) {
     }
 
@@ -83,9 +91,54 @@ final class Query
         return $this;
     }
 
+    /**
+     * Cruza con otra coleccion. El equivalente del JOIN de AxiSQL.
+     *
+     *   $db->find('pedidos')->join('clientes', 'cli', 'id')->get();
+     *
+     * Los campos de la coleccion unida llegan con su nombre delante:
+     * `clientes.nombre`. Los de esta se quedan como estan. Asi no hay
+     * ambiguedad si las dos tienen un campo que se llama igual.
+     *
+     * Con `izquierdo: true` es un LEFT JOIN: los documentos que no casan se
+     * conservan con la otra parte a nulos, en vez de desaparecer.
+     */
+    public function join(string $coleccion, string $campoAqui, string $campoAlla, bool $izquierdo = false): self
+    {
+        $this->uniones[] = [
+            'coleccion' => $coleccion,
+            'alias'     => $coleccion,
+            'tipo'      => $izquierdo ? Sql\Cruce::IZQUIERDO : Sql\Cruce::INTERNO,
+            'izq'       => $campoAqui,
+            'der'       => $campoAlla,
+        ];
+        return $this;
+    }
+
     public function get(): array
     {
-        $docs = $this->candidates();
+        [$docs, $this->plan] = Partida::de(
+            $this->storage, $this->index, $this->collection,
+            $this->where, $this->expr, $this->fuente
+        );
+
+        /*
+         * El cruce va ANTES de filtrar. Tiene que ser asi: la condicion puede
+         * hablar de un campo de la coleccion unida, y filtrar primero
+         * descartaria documentos que la union habria traido.
+         *
+         * Por eso una consulta con join() no usa indices para el filtro. Es el
+         * mismo compromiso que en AxiSQL, y por el mismo motivo.
+         */
+        if ($this->uniones !== []) {
+            $docs = Sql\Cruce::aplicar(
+                fn(string $c): array => $this->storage->all($c),
+                $docs,
+                $this->collection,
+                $this->uniones
+            );
+            $this->plan['strategy'] = 'cruce';
+        }
 
         foreach ($this->where as $clausula) {
             $docs = \array_filter(
@@ -154,81 +207,4 @@ final class Query
         return $docs;
     }
 
-    /**
-     * Conjunto de partida. Si hay una igualdad indexable, se resuelve por
-     * indice: O(coincidencias) en vez de O(coleccion).
-     */
-    private function candidates(): array
-    {
-        $igualdad = $this->igualdadIndexable();
-
-        if ($igualdad === null) {
-            $docs = $this->storage->all($this->collection);
-            $this->plan = [
-                'strategy'   => 'scan',
-                'field'      => null,
-                'value'      => null,
-                'candidates' => \count($docs),
-            ];
-            return $docs;
-        }
-
-        [$campo, $valor] = $igualdad;
-        $ids  = $this->index->ids($this->collection, $campo, $valor) ?? [];
-        $docs = [];
-        foreach ($ids as $id) {
-            $d = $this->storage->get($this->collection, (string) $id);
-            if ($d !== null) {
-                $docs[] = $d;
-            }
-        }
-        $this->plan = [
-            'strategy'   => 'index',
-            'field'      => $campo,
-            'value'      => $valor,
-            'candidates' => \count($docs),
-        ];
-        return $docs;
-    }
-
-    /**
-     * Busca una igualdad sobre campo indexado que se cumpla siempre. En un
-     * arbol solo vale bajando por ramas AND: dentro de un OR la condicion puede
-     * no cumplirse, y dentro de un NOT se cumple justo al reves, asi que en esos
-     * casos el indice no puede descartar nada y toca escanear.
-     *
-     * @return array{0:string,1:string}|null [campo, valor]
-     */
-    private function igualdadIndexable(): ?array
-    {
-        foreach ($this->where as $c) {
-            $encontrada = $this->indexable($c['field'], $c['op'], $c['value']);
-            if ($encontrada !== null) {
-                return $encontrada;
-            }
-        }
-        return $this->expr === null ? null : $this->buscarEnAnd($this->expr);
-    }
-
-    private function buscarEnAnd(array $nodo): ?array
-    {
-        if (($nodo['type'] ?? '') === 'and') {
-            return $this->buscarEnAnd($nodo['left']) ?? $this->buscarEnAnd($nodo['right']);
-        }
-        if (($nodo['type'] ?? '') === 'cmp') {
-            return $this->indexable($nodo['field'], $nodo['op'], $nodo['value'] ?? null);
-        }
-        return null;
-    }
-
-    private function indexable(string $field, string $op, mixed $value): ?array
-    {
-        if (\strtoupper($op) !== '=' || $value === null || \is_array($value) || \is_bool($value)) {
-            return null;
-        }
-        if (!$this->index->isIndexed($this->collection, $field)) {
-            return null;
-        }
-        return [$field, (string) $value];
-    }
 }

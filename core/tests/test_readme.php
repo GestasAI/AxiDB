@@ -21,6 +21,14 @@ $docs = [
     'docs/guide/00-cinco-minutos.md',
     'docs/guide/07-drivers.md',
     'docs/guide/08-http.md',
+    'docs/guide/09-vectores.md',
+    'docs/guide/10-cifrado.md',
+    'docs/guide/11-transacciones.md',
+    'docs/guide/12-reglas.md',
+    'docs/guide/13-copias.md',
+    'docs/guide/14-axisql.md',
+    'docs/guide/15-relaciones.md',
+    'docs/guide/16-salud.md',
     'examples/README.md',
 ];
 
@@ -57,7 +65,20 @@ section('B] Cada bloque se ejecuta de verdad');
  * Se les antepone el preambulo que la propia guia enseña, se ejecutan en un
  * proceso aparte y se exige que no haya error fatal ni aviso.
  */
+/*
+ * Cada bloque se ejecuta con el directorio de trabajo en un rincon temporal.
+ *
+ * Hace falta porque las guias usan rutas relativas —`./copias`, `./datos.csv`—
+ * que es lo natural para quien lee. Sin el chdir, ejecutar la documentacion
+ * dejaba una carpeta `copias/` y un `proveedores.csv` en la raiz del proyecto,
+ * que ademas hace saltar al test de publicacion. El ejemplo esta bien; lo que
+ * habia que cambiar era donde corre.
+ */
+\mkdir($tmp . '/cwd', 0777, true);
+$aRincon = 'chdir(' . \var_export($tmp . '/cwd', true) . ');' . "\n";
+
 $preambulo = '<?php' . "\n"
+    . $aRincon
     . 'require ' . \var_export($raiz . '/core/axidb.php', true) . ';' . "\n"
     . '$db = axidb(' . \var_export($tmp . '/datos', true) . ', ["durable" => false]);' . "\n"
     . '$id = $db->insert("presupuestos", ["cliente" => "Ana", "total" => 1.0])["id"];' . "\n";
@@ -89,8 +110,11 @@ foreach ($todos as [$rel, $i, $codigo]) {
     }
 
     // Un fragmento da por supuesto un $db abierto; uno autonomo lo abre el mismo.
+    // Al autonomo se le cuela el chdir justo detras de su etiqueta de apertura.
     $completo = \str_contains($codigo, '<?php');
-    \file_put_contents($script, $completo ? $codigo : $preambulo . $codigo);
+    \file_put_contents($script, $completo
+        ? \preg_replace('/<\?php\s*\n/', "<?php\n" . $aRincon, $codigo, 1)
+        : $preambulo . $codigo);
 
     $salida = (string) \shell_exec(\escapeshellarg(PHP_BINARY) . ' ' . \escapeshellarg($script) . ' 2>&1');
     $malo   = '';
