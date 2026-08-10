@@ -103,11 +103,26 @@ final class FsDriver implements Driver
         $out = [];
         foreach ($this->filesIn($collection) as $file) {
             $doc = $this->readAt($file);
-            if ($doc !== null) {
+            // El archivo tiene que estar donde su id manda. Copiar el archivo de
+            // otro documento encima de este —para colar sus datos bajo este id—
+            // deja un archivo cuyo id de dentro no cuadra con su nombre: se
+            // descarta. La escritura del motor siempre casa; solo una copia a
+            // mano miente. Sin esto, un listado mostraria dos veces el mismo id.
+            if ($doc !== null && $this->belongsHere($file, (string) ($doc['id'] ?? ''))) {
                 $out[] = $doc;
             }
         }
         return $out;
+    }
+
+    /** True si el archivo es el que le toca al id: su nombre es toPath(id).json. */
+    private function belongsHere(string $file, string $id): bool
+    {
+        if ($id === '') {
+            return false;
+        }
+        $stem = \substr(\basename($file), 0, -5);           // quita '.json'
+        return $stem === Names::toPath($id);
     }
 
     public function count(string $collection): int

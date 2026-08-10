@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace Axi\Core\Storage;
 
+use Axi\Core\Crypto\Box;
 use Axi\Core\Crypto\Keyring;
 use Axi\Core\Drivers\CaducidadDriver;
 use Axi\Core\Drivers\CifradoDriver;
@@ -43,7 +44,7 @@ trait WithEncryption
         self::name($collection, 'coleccion');
         $this->requireKeyring($collection);
 
-        if ($this->ajustes->isEncrypted($collection)) {
+        if ($this->encriptada($collection)) {
             return 0;
         }
         // El mismo motivo que en VectorStore::activar, por el otro lado: cifrar
@@ -57,8 +58,20 @@ trait WithEncryption
             );
         }
         $enClaro = $this->driver($collection)->all($collection);
+        // El llavero se anota ANTES de marcar la bandera en el _axidb.json. Al
+        // reves, la primera vez que se cifra en una base el llavero aun no existe
+        // y crearlo veria la coleccion ya marcada como cifrada, confundiendolo con
+        // un llavero perdido. La verdad autenticada va primero; la bandera despues.
+        $this->llavero->addEncrypted($collection);
         $this->ajustes->set($collection, ['encrypted' => true]);
         $this->cifrados = [];
+
+        // Un esquema definido ANTES de cifrar tiene sus valores por defecto en
+        // claro en el _axidb.json. Ahora que la coleccion esta cifrada, se cierran.
+        $esquema = $this->ajustes->schema($collection);
+        if ($esquema !== []) {
+            $this->ajustes->set($collection, ['schema' => $this->hideSchemaDefaults($collection, $esquema)]);
+        }
 
         $n = 0;
         foreach ($enClaro as $doc) {
@@ -66,14 +79,9 @@ trait WithEncryption
             $n++;
         }
 
-        // Y ahora lo que se descubrio probandolo, no pensandolo: en el driver
-        // empaquetado reescribir NO borra. El log solo añade, asi que la version
-        // en claro del documento se queda fisicamente en el archivo detras de la
-        // cifrada. La coleccion diria estar cifrada con el texto original
-        // todavia legible unos bytes mas arriba.
-        //
-        // Compactar reescribe el log dejando solo lo vivo. Sin esta linea, el
-        // cifrado sobre packed es teatro.
+        // En packed, reescribir NO borra: el log solo añade, asi que la version
+        // en claro se quedaria fisicamente detras de la cifrada, todavia legible.
+        // Compactar deja solo lo vivo. Sin esto, el cifrado sobre packed es teatro.
         $this->compact($collection);
 
         return $n;
@@ -81,7 +89,82 @@ trait WithEncryption
 
     public function isEncrypted(string $collection): bool
     {
-        return $this->ajustes->isEncrypted($collection);
+        return $this->encriptada($collection);
+    }
+
+    /**
+     * Nombre del archivo de cubo para un valor indexado. En una coleccion
+     * cifrada es una huella CON CLAVE (HMAC): sin la clave nadie puede calcular
+     * el nombre, asi que el arbol de directorios deja de revelar que documentos
+     * valen 'moroso'. Sin cifrar devuelve null y el indice usa el nombre legible.
+     */
+    public function indexBucket(string $collection, string $value): ?string
+    {
+        if ($this->llavero === null || !$this->encriptada($collection)) {
+            return null;
+        }
+        return 'h_' . $this->llavero->box()->tag($value);
+    }
+
+    /**
+     * Sella los valores por defecto del esquema antes de guardarlos: viven en
+     * _axidb.json, al lado de la coleccion cifrada, y un defecto puede ser un
+     * secreto (un token, un pin) que quedaria en claro. reveal() lo abre al leer.
+     */
+    private function hideSchemaDefaults(string $collection, array $reglas): array
+    {
+        if ($this->llavero === null || !$this->encriptada($collection)) {
+            return $reglas;
+        }
+        $caja = $this->llavero->box();
+        foreach ($reglas as $campo => $regla) {
+            if (\is_array($regla) && \array_key_exists('defecto', $regla)
+                && $regla['defecto'] !== null && !Box::esBloque($regla['defecto'])) {
+                $reglas[$campo]['defecto'] = $caja->seal(
+                    (string) \json_encode($regla['defecto']),
+                    self::schemaCtx($collection, (string) $campo)
+                );
+            }
+        }
+        return $reglas;
+    }
+
+    /** Abre los valores por defecto sellados para poder aplicarlos. */
+    private function revealSchemaDefaults(string $collection, array $reglas): array
+    {
+        if ($this->llavero === null || !$this->encriptada($collection)) {
+            return $reglas;
+        }
+        $caja = $this->llavero->box();
+        foreach ($reglas as $campo => $regla) {
+            if (\is_array($regla) && isset($regla['defecto']) && Box::esBloque($regla['defecto'])) {
+                $reglas[$campo]['defecto'] = \json_decode(
+                    $caja->open((string) $regla['defecto'], self::schemaCtx($collection, (string) $campo)),
+                    true
+                );
+            }
+        }
+        return $reglas;
+    }
+
+    private static function schemaCtx(string $collection, string $field): string
+    {
+        return 'axidb:schema:v1:' . $collection . "\0" . $field;
+    }
+
+    /**
+     * Cifrada de verdad: lo dice el ajuste O el llavero autenticado. El ajuste
+     * vive en un archivo de texto que el atacante puede editar; el llavero, no,
+     * porque su lista va sellada con la clave. Apagar el cifrado desde fuera
+     * tendria que enganyar a los dos, y al segundo no se puede sin la clave.
+     */
+    private function encriptada(string $collection): bool
+    {
+        if ($this->ajustes->isEncrypted($collection)) {
+            return true;
+        }
+        return $this->llavero !== null
+            && \in_array($collection, $this->llavero->encryptedSet(), true);
     }
 
     public function hasKeyring(): bool
@@ -143,7 +226,7 @@ trait WithEncryption
 
     private function wrapIfEncrypted(Driver $base, string $collection): Driver
     {
-        if (!$this->ajustes->isEncrypted($collection)) {
+        if (!$this->encriptada($collection)) {
             return $base;
         }
         $this->requireKeyring($collection);

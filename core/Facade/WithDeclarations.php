@@ -90,7 +90,16 @@ trait WithDeclarations
     public function encrypt(string $collection): int
     {
         $this->profile()->requireCapability('encryption', 'encrypt()');
-        return $this->storage->encrypt($collection);
+        $n = $this->storage->encrypt($collection);
+        // Reconstruir los indices YA existentes: un indice creado antes de cifrar
+        // guardo el valor en claro como nombre de archivo del cubo (_idx/estado/
+        // moroso.json). Cifrar los documentos no lo reescribe; ese texto seguiria
+        // en el arbol de directorios para siempre. build() borra los cubos viejos
+        // y los rehace con el nombre CON CLAVE. Cubre indices y reservas de unique.
+        foreach ($this->index->fields($collection) as $field) {
+            $this->index->build($collection, $field);
+        }
+        return $n;
     }
 
     public function isEncrypted(string $collection): bool

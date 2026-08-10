@@ -32,6 +32,12 @@ final class CifradoDriver implements Driver
     /** Donde viaja el bloque cerrado dentro del documento guardado. */
     private const CAMPO = '_cif';
 
+    /** Campo de version en claro que pone el motor. */
+    private const VERSION = '_version';
+
+    /** Version atada DENTRO del bloque, para detectar el injerto de uno viejo. */
+    private const VCAMPO = '_v';
+
     public function __construct(
         private Driver $dentro,
         private Box $caja
@@ -58,12 +64,20 @@ final class CifradoDriver implements Driver
     {
         $carga = self::payload($data);
 
-        if (!$replace) {
-            $anterior = $this->get($collection, $id);
-            if ($anterior !== null) {
-                $carga = \array_merge(self::payload($anterior), $carga);
-            }
+        $anterior = !$replace ? $this->get($collection, $id) : null;
+        if ($anterior !== null) {
+            $carga = \array_merge(self::payload($anterior), $carga);
         }
+
+        // La version que le va a tocar a este documento se sella DENTRO del
+        // bloque. El motor sube la version de uno en uno; el driver de abajo la
+        // pondra en claro. Sin esto, injertar el bloque de la version 1 bajo un
+        // _version=2 en claro colaria el saldo viejo con pinta de actual: el
+        // bloque abre —misma clave, mismo id— y nada delata que es de antes.
+        $prevV = $anterior !== null
+            ? (int) ($anterior[self::VERSION] ?? 0)
+            : (int) (($this->dentro->get($collection, $id)[self::VERSION] ?? 0));
+        $carga[self::VCAMPO] = $prevV + 1;
 
         $guardado = $this->dentro->put(
             $collection,
@@ -71,29 +85,48 @@ final class CifradoDriver implements Driver
             [self::CAMPO => $this->seal($collection, $id, $carga)],
             true
         );
+        unset($carga[self::VCAMPO]);
         return self::meta($guardado) + $carga;
     }
 
     public function copyDocument(string $collection, string $id, array $doc): void
     {
+        $carga = self::payload($doc);
+        $carga[self::VCAMPO] = (int) ($doc[self::VERSION] ?? 1);
         $this->dentro->copyDocument(
             $collection,
             $id,
-            self::meta($doc) + [self::CAMPO => $this->seal($collection, $id, self::payload($doc))]
+            self::meta($doc) + [self::CAMPO => $this->seal($collection, $id, $carga)]
         );
     }
 
     public function get(string $collection, string $id): ?array
     {
         $doc = $this->dentro->get($collection, $id);
-        return $doc === null ? null : $this->open($collection, $doc);
+        // El id que ata el bloque es el que se PIDE, no el que viene dentro del
+        // archivo. Si fueran el de dentro, copiar el archivo del jefe encima del
+        // del intruso abriria: el archivo trae consigo el id 'jefe' y con el
+        // cuadraria el AAD. Pidiendo 'intruso' y atando a 'intruso', el bloque
+        // sellado para 'jefe' no abre y la copia se rechaza.
+        return $doc === null ? null : $this->open($collection, $id, $doc);
     }
 
     public function all(string $collection): array
     {
         $fuera = [];
         foreach ($this->dentro->all($collection) as $clave => $doc) {
-            $fuera[$clave] = $this->open($collection, $doc);
+            // El driver base ya descarta los documentos cuyo archivo no cuadra
+            // con su id, asi que aqui el id de dentro es de fiar como sitio. Un
+            // bloque manipulado o ausente hace saltar ESE documento, no cae el
+            // listado entero: un archivo tocado no ciega a los demas.
+            try {
+                $abierto = $this->open($collection, (string) ($doc['id'] ?? ''), $doc);
+                if ($abierto !== null) {
+                    $fuera[$clave] = $abierto;
+                }
+            } catch (Exception) {
+                continue;
+            }
         }
         return $fuera;
     }
@@ -127,22 +160,38 @@ final class CifradoDriver implements Driver
     }
 
     /**
-     * Un documento sin bloque cerrado se devuelve tal cual. Pasa cuando se
-     * activa el cifrado sobre una coleccion que ya tenia datos: los viejos
-     * siguen leyendose en claro hasta que se reescriben, en vez de reventar.
+     * Abre el bloque atado al id que se pide. Un documento SIN bloque cerrado en
+     * una coleccion cifrada se RECHAZA, no se devuelve en claro: si se devolviera,
+     * el ataque mas barato contra el cifrado seria quitarlo —escribir el documento
+     * en claro sin la clave y dejar que el motor lo sirva como bueno—. Cuando este
+     * driver esta puesto, la coleccion esta cifrada; no hay documento legitimo sin
+     * bloque, porque encrypt() reescribe todo lo que hubiera antes de terminar.
      */
-    private function open(string $collection, array $doc): array
+    private function open(string $collection, string $id, array $doc): ?array
     {
         if (!isset($doc[self::CAMPO]) || !Box::esBloque($doc[self::CAMPO])) {
-            return $doc;
+            throw new Exception(
+                "Crypto: '{$collection}/{$id}' no trae bloque cerrado en una coleccion cifrada. "
+                . 'Se rechaza en vez de servir contenido en claro (posible degradacion).'
+            );
         }
-        $id    = (string) ($doc['id'] ?? '');
         $json  = $this->caja->open((string) $doc[self::CAMPO], self::contextOf($collection, $id));
         $carga = \json_decode($json, true);
         if (!\is_array($carga)) {
             throw new Exception("Crypto: the contents of '{$collection}/{$id}' no es un documento valido.");
         }
-        return self::meta($doc) + $carga;
+        // La version sellada tiene que cuadrar con la que el motor puso en claro.
+        // Si no, el bloque es de otra version —injertado bajo un _version mas
+        // alto— y el documento no se sirve. Se devuelve null (no se lanza): el
+        // listado sigue, y una lectura directa lo ve como ausente, no como bueno.
+        $vSellada = $carga[self::VCAMPO] ?? null;
+        unset($carga[self::VCAMPO]);
+        if ($vSellada !== null && (int) $vSellada !== (int) ($doc[self::VERSION] ?? 0)) {
+            return null;
+        }
+        // El id que vale es el pedido, no el de dentro del archivo: asi el
+        // documento nunca se sirve bajo un id distinto del que ocupa en disco.
+        return ['id' => $id] + self::meta($doc) + $carga;
     }
 
     /** Ata el bloque a su sitio: no abre en otra coleccion ni con otro id. */

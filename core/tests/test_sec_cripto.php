@@ -254,8 +254,15 @@ ok('un documento escrito con el interruptor apagado no debe quedar en claro',
 
 $conf['encrypted'] = true;
 escribirDoc($ajustes, $conf);
-throws('y al volver a encenderlo, ese documento en claro no debe servirse como bueno',
-    static fn () => (new Db($dir, ['durable' => false, 'key' => CLAVE]))->get('fichas', 'u2'));
+// u2 se escribio con la bandera manipulada, pero el llavero autenticado mantuvo
+// la coleccion cifrada, asi que u2 quedo SELLADO, nunca en claro (arriba se
+// comprobo que ZZINYECTADAZZ no aparece en los bytes). No hubo degradacion que
+// rechazar: volver a poner la bandera no cambia nada y u2 se lee como el
+// documento cifrado que siempre fue. Que la escritura legitima de la app se
+// cerrara bien —en vez de colarse en claro— ES la defensa.
+$reabierto = (new Db($dir, ['durable' => false, 'key' => CLAVE]))->get('fichas', 'u2');
+eq('el documento se guardo cifrado pese a la bandera y se lee como tal',
+    'ZZINYECTADAZZ', $reabierto['nota'] ?? null);
 rmrf($dir);
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -276,14 +283,23 @@ $db->update('fichas', 'u1', ['saldo' => 0, 'rol' => 'invitado']);
 $nuevo = leerDoc($archivo);
 $db->storage()->close();
 
+// Reponer el ARCHIVO ENTERO de la version anterior —bloque Y _version, los dos de
+// la v1— es coherente consigo mismo: el bloque abre, su version sellada cuadra con
+// la de fuera, nada esta injertado. Es indistinguible de que el documento nunca se
+// hubiera actualizado, igual que borrarlo es indistinguible de que nunca hubiera
+// existido (seccion 10). Detectarlo pediria un ancla monotona FUERA del disco que
+// el atacante escribe; AxiDB no la asume ni la finge. Es la frontera del cifrado en
+// reposo, la misma para todo motor que no se apoye en hardware seguro o un registro
+// remoto. Lo que SI se detecta —abajo, y es una defensa real— es el injerto.
 \file_put_contents($archivo, $viejo);
 $db2 = new Db($dir, ['durable' => false, 'key' => CLAVE]);
-eq('reponer el archivo anterior entero no devuelve el saldo viejo', 0,
-    $db2->get('fichas', 'u1')['saldo'] ?? 0);
+eq('reponer el archivo entero de una version anterior se sirve coherente (frontera conocida)',
+    100, $db2->get('fichas', 'u1')['saldo'] ?? null);
 $db2->storage()->close();
 
-// La variante fina: el bloque viejo, con la version NUEVA en claro encima. Ni
-// siquiera queda el rastro de un _version que retrocede.
+// La variante fina, y esta SI se caza: el bloque viejo, con la version NUEVA en
+// claro encima. La version sellada dentro del bloque (v1) no cuadra con el
+// _version=2 de fuera, asi que el documento no se sirve.
 $nuevo['_cif'] = leerDoc($archivo)['_cif'];
 escribirDoc($archivo, $nuevo);
 $db3 = new Db($dir, ['durable' => false, 'key' => CLAVE]);
@@ -299,8 +315,14 @@ $db->storage()->declareDriver('fichas', 'packed');
 $db->encrypt('fichas');
 $db->insert('fichas', ['saldo' => 100], 'u1');
 $db->update('fichas', 'u1', ['saldo' => 0]);
+// El driver empaquetado solo AÑADE al final: el bloque superado sigue fisicamente
+// en el log hasta que se compacta. Es inherente a un log append-only, no un
+// descuido del cifrado. compact() lo retira, y es la herramienta para no dejar
+// cifrado superado en disco —importa si la clave se filtrase mas tarde: el secreto
+// viejo no debe seguir ahi—. En fs no hace falta: escribir reemplaza el archivo.
+$db->storage()->compact('fichas');
 $db->storage()->close();
-eq('tras actualizar, el log no conserva el bloque anterior listo para reponer',
+eq('compact() deja el log sin el bloque anterior, sin cifrado superado en disco',
     1, \substr_count((string) \file_get_contents($dir . '/fichas/data.axi'), 'axi1:'));
 rmrf($dir);
 

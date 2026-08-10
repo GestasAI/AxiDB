@@ -38,12 +38,15 @@ trait WithUniques
             $collection,
             $field,
             $value,
-            static function (array $ids) use ($field, $value, $id): array {
+            static function (array $ids) use ($field, $id): array {
                 foreach ($ids as $dueño) {
                     if ((string) $dueño !== $id) {
-                        throw new Exception(
-                            "'{$field}' es unico y el valor '{$value}' ya es de '{$dueño}'."
-                        );
+                        // El mensaje NO lleva el valor ni el dueño: en una
+                        // coleccion cifrada, el valor es un dato que el cifrado
+                        // protege, y este error acaba copiado tal cual en el log
+                        // de auditoria de los agentes. Decir que campo choca basta
+                        // para actuar; el valor lo conoce ya quien intento escribir.
+                        throw new Exception("'{$field}' es unico: ese valor ya esta en uso.");
                     }
                 }
                 $ids[] = $id;

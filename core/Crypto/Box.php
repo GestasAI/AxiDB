@@ -139,4 +139,20 @@ final class Box
     {
         return \is_string($valor) && \str_starts_with($valor, self::MARCA);
     }
+
+    /**
+     * Huella con clave de un valor, en hexadecimal. Sirve para nombrar el archivo
+     * del cubo de un indice en una coleccion cifrada: un sha1 desnudo del valor
+     * deja que quien tenga el disco pruebe un diccionario —sha1('moroso')— y
+     * sepa que documentos valen 'moroso' sin descifrar ni un byte. Con HMAC hace
+     * falta la clave para calcular el nombre, asi que el nombre ya no lo revela.
+     *
+     * La subclave se deriva aparte de la de cifrado: nunca la misma clave para
+     * dos usos distintos.
+     */
+    public function tag(string $valor): string
+    {
+        $subclave = \hash_hmac('sha256', 'axidb:index:v1', $this->clave, true);
+        return \hash_hmac('sha256', $valor, $subclave);
+    }
 }

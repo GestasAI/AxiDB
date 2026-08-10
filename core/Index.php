@@ -228,10 +228,11 @@ final class Index
      */
     private function path(string $collection, string $field, string $value): string
     {
-        // Cifrada: SIEMPRE hash. Dejar el valor tal cual escribia
-        // _idx/email/juan.perez.json: el dato recien cifrado, como nombre.
-        $nombre = $this->storage->isEncrypted($collection)
-            ? 'h_' . \sha1($value) : Names::forValue($value);
+        // Cifrada: nombre de cubo CON CLAVE (HMAC). Un sha1 desnudo del valor
+        // dejaba que quien tuviera el disco probara sha1('moroso') y localizara
+        // el archivo sin descifrar nada; el dato recien cifrado quedaba escrito
+        // como nombre. Sin cifrar, el nombre legible de forValue.
+        $nombre = $this->storage->indexBucket($collection, $value) ?? Names::forValue($value);
 
         return $this->fieldDir($collection, $field) . '/' . $nombre . '.json';
     }

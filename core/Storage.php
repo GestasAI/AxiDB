@@ -196,12 +196,13 @@ final class Storage
     /** @return array<string, array> reglas por campo. Vacio: la coleccion no tiene esquema */
     public function schemaOf(string $collection): array
     {
-        return $this->ajustes->schema($collection);
+        return $this->revealSchemaDefaults($collection, $this->ajustes->schema($collection));
     }
 
     public function defineSchema(string $collection, array $reglas): void
     {
-        $this->ajustes->set($collection, ['schema' => SchemaRules::validarReglas($reglas)]);
+        $reglas = SchemaRules::validarReglas($reglas);
+        $this->ajustes->set($collection, ['schema' => $this->hideSchemaDefaults($collection, $reglas)]);
     }
 
     /** Segundos de vida de un documento. Cero: no caduca. */
