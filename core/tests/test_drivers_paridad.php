@@ -21,7 +21,7 @@ function conDriver(string $driver, string $sufijo): Db
 {
     $db = new Db(tmpdir('paridad_' . $driver . '_' . $sufijo), ['durable' => false]);
     foreach (['p', 'q', 'r'] as $c) {
-        $db->storage()->declararDriver($c, $driver);
+        $db->storage()->declareDriver($c, $driver);
     }
     return $db;
 }
@@ -37,7 +37,7 @@ function enAmbos(string $sufijo, callable $caso): array
     return $r;
 }
 
-function iguales(string $etiqueta, string $sufijo, callable $caso): bool
+function areEqual(string $etiqueta, string $sufijo, callable $caso): bool
 {
     [$a, $b] = enAmbos($sufijo, $caso);
     $ok = \json_encode($a) === \json_encode($b);
@@ -61,16 +61,16 @@ function sinFechas(mixed $x): mixed
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('A] El documento que se guarda es identico');
 
-iguales('alta: mismo documento devuelto', 'a1', static function (Db $db) {
+areEqual('alta: mismo documento devuelto', 'a1', static function (Db $db) {
     return sinFechas($db->insert('p', ['nombre' => 'cafe', 'precio' => 2.5], 'd1'));
 });
 
-iguales('alta: mismo documento releido', 'a2', static function (Db $db) {
+areEqual('alta: mismo documento releido', 'a2', static function (Db $db) {
     $db->insert('p', ['nombre' => 'cafe', 'precio' => 2.5], 'd1');
     return sinFechas($db->get('p', 'd1'));
 });
 
-iguales('tipos: entero, decimal, nulo, booleano, lista y objeto', 'a3', static function (Db $db) {
+areEqual('tipos: entero, decimal, nulo, booleano, lista y objeto', 'a3', static function (Db $db) {
     $db->insert('p', [
         'entero' => 42, 'decimal' => 18.0, 'negativo' => -3.75, 'cero' => 0,
         'texto' => 'Cañón con "comillas"', 'vacio' => '', 'si' => true, 'no' => false,
@@ -80,7 +80,7 @@ iguales('tipos: entero, decimal, nulo, booleano, lista y objeto', 'a3', static f
     return [sinFechas($d), \array_map('gettype', $d)];
 });
 
-iguales('un documento de 200 KB viaja igual', 'a4', static function (Db $db) {
+areEqual('un documento de 200 KB viaja igual', 'a4', static function (Db $db) {
     $db->insert('p', ['grande' => \str_repeat('x', 200000)], 'g');
     return \strlen($db->get('p', 'g')['grande']);
 });
@@ -88,21 +88,21 @@ iguales('un documento de 200 KB viaja igual', 'a4', static function (Db $db) {
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('B] Metadatos');
 
-iguales('_version sube igual en cinco escrituras', 'b1', static function (Db $db) {
+areEqual('_version sube igual en cinco escrituras', 'b1', static function (Db $db) {
     for ($i = 0; $i < 5; $i++) {
         $db->put('p', 'v', ['n' => $i]);
     }
     return $db->get('p', 'v')['_version'];
 });
 
-iguales('_createdAt se conserva y _updatedAt cambia', 'b2', static function (Db $db) {
+areEqual('_createdAt se conserva y _updatedAt cambia', 'b2', static function (Db $db) {
     $a = $db->insert('p', ['n' => 1], 'm');
     \usleep(1100000);
     $b = $db->put('p', 'm', ['n' => 2]);
     return [$a['_createdAt'] === $b['_createdAt'], $a['_updatedAt'] !== $b['_updatedAt']];
 });
 
-iguales('fusion y reemplazo se comportan igual', 'b3', static function (Db $db) {
+areEqual('fusion y reemplazo se comportan igual', 'b3', static function (Db $db) {
     $db->insert('p', ['a' => 1, 'b' => 2], 'f');
     $fusion = sinFechas($db->put('p', 'f', ['b' => 20, 'c' => 3]));
     $reemp  = sinFechas($db->put('p', 'f', ['solo' => 'esto'], true));
@@ -112,7 +112,7 @@ iguales('fusion y reemplazo se comportan igual', 'b3', static function (Db $db) 
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('C] Lectura, listado y borrado');
 
-iguales('all devuelve lo mismo, ordenado por id', 'c1', static function (Db $db) {
+areEqual('all devuelve lo mismo, ordenado por id', 'c1', static function (Db $db) {
     for ($i = 0; $i < 10; $i++) {
         $db->insert('p', ['n' => $i], 'd' . $i);
     }
@@ -121,14 +121,14 @@ iguales('all devuelve lo mismo, ordenado por id', 'c1', static function (Db $db)
     return \array_map('sinFechas', $docs);
 });
 
-iguales('ids coinciden',   'c2', static function (Db $db) {
+areEqual('ids coinciden',   'c2', static function (Db $db) {
     for ($i = 0; $i < 6; $i++) {
         $db->insert('p', ['n' => $i], 'd' . $i);
     }
     return $db->ids('p');
 });
 
-iguales('count coincide',  'c3', static function (Db $db) {
+areEqual('count coincide',  'c3', static function (Db $db) {
     for ($i = 0; $i < 7; $i++) {
         $db->insert('p', ['n' => $i], 'd' . $i);
     }
@@ -136,19 +136,19 @@ iguales('count coincide',  'c3', static function (Db $db) {
     return $db->count('p');
 });
 
-iguales('borrar devuelve lo mismo y deja lo mismo', 'c4', static function (Db $db) {
+areEqual('borrar devuelve lo mismo y deja lo mismo', 'c4', static function (Db $db) {
     $db->insert('p', ['n' => 1], 'x');
     return [$db->delete('p', 'x'), $db->delete('p', 'x'), $db->get('p', 'x'), $db->count('p')];
 });
 
-iguales('coleccion inexistente', 'c5', static function (Db $db) {
+areEqual('coleccion inexistente', 'c5', static function (Db $db) {
     return [$db->get('nada', 'x'), $db->all('nada'), $db->count('nada'), $db->delete('nada', 'x')];
 });
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('D] Indices y consultas');
 
-iguales('el indice encuentra lo mismo', 'd1', static function (Db $db) {
+areEqual('el indice encuentra lo mismo', 'd1', static function (Db $db) {
     $db->index('p', 'grupo');
     for ($i = 0; $i < 12; $i++) {
         $db->insert('p', ['grupo' => 'g' . ($i % 3), 'n' => $i], 'd' . $i);
@@ -156,7 +156,7 @@ iguales('el indice encuentra lo mismo', 'd1', static function (Db $db) {
     return [\count($db->by('p', 'grupo', 'g0')), \count($db->by('p', 'grupo', 'g1'))];
 });
 
-iguales('verifyIndexes no encuentra huecos', 'd2', static function (Db $db) {
+areEqual('verifyIndexes no encuentra huecos', 'd2', static function (Db $db) {
     $db->index('p', 'grupo');
     for ($i = 0; $i < 9; $i++) {
         $db->insert('p', ['grupo' => 'g' . ($i % 3)], 'd' . $i);
@@ -164,14 +164,14 @@ iguales('verifyIndexes no encuentra huecos', 'd2', static function (Db $db) {
     return $db->verifyIndexes('p');
 });
 
-iguales('find con filtros y orden', 'd3', static function (Db $db) {
+areEqual('find con filtros y orden', 'd3', static function (Db $db) {
     foreach ([['cafe', 2], ['te', 3], ['tarta', 5], ['guiso', 12]] as $i => [$n, $pr]) {
         $db->insert('p', ['n' => $n, 'precio' => $pr], 'd' . $i);
     }
     return \array_column($db->find('p')->where('precio', '>', 2)->orderBy('precio', 'desc')->get(), 'n');
 });
 
-iguales('AxiSQL da lo mismo', 'd4', static function (Db $db) {
+areEqual('AxiSQL da lo mismo', 'd4', static function (Db $db) {
     $db->sql("INSERT INTO q (cliente, total) VALUES ('Ana', 421.20)");
     $db->sql("INSERT INTO q (cliente, total) VALUES ('Luis', 76.00)");
     return [
@@ -185,7 +185,7 @@ iguales('AxiSQL da lo mismo', 'd4', static function (Db $db) {
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('E] Errores y casos limite');
 
-iguales('un id invalido se rechaza igual', 'e1', static function (Db $db) {
+areEqual('un id invalido se rechaza igual', 'e1', static function (Db $db) {
     $mensajes = [];
     foreach (['../fuera', '', 'a/b', 'con espacio'] as $malo) {
         try {
@@ -198,7 +198,7 @@ iguales('un id invalido se rechaza igual', 'e1', static function (Db $db) {
     return $mensajes;
 });
 
-iguales('update de un id inexistente lanza en los dos', 'e2', static function (Db $db) {
+areEqual('update de un id inexistente lanza en los dos', 'e2', static function (Db $db) {
     try {
         $db->update('p', 'fantasma', ['a' => 1]);
         return 'NO LANZO';
@@ -207,7 +207,7 @@ iguales('update de un id inexistente lanza en los dos', 'e2', static function (D
     }
 });
 
-iguales('portabilidad: ids que solo difieren en mayusculas', 'e3', static function (Db $db) {
+areEqual('portabilidad: ids que solo difieren en mayusculas', 'e3', static function (Db $db) {
     $db->insert('p', ['q' => 'minuscula'], 'l_la');
     $db->insert('p', ['q' => 'Mayuscula'], 'l_lA');
     return [$db->count('p'), $db->get('p', 'l_la')['q'], $db->get('p', 'l_lA')['q']];

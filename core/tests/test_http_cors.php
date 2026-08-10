@@ -98,9 +98,9 @@ eq('descarta la cadena null',                            '', Cors::normalizar('n
 eq('descarta un javascript:',                            '', Cors::normalizar('javascript:alert(1)'));
 
 $cors = new Cors(['https://a.com']);
-ok('un origen sin declarar no pasa',      !$cors->permite('https://b.com'));
-ok('el declarado si',                      $cors->permite('https://a.com'));
-ok('y un origen vacio nunca',             !$cors->permite(''));
-eq('sin permiso no hay ni una cabecera', [], $cors->cabeceras('https://b.com'));
+ok('un origen sin declarar no pasa',      !$cors->allows('https://b.com'));
+ok('el declarado si',                      $cors->allows('https://a.com'));
+ok('y un origen vacio nunca',             !$cors->allows(''));
+eq('sin permiso no hay ni una cabecera', [], $cors->headersFor('https://b.com'));
 
 summary();

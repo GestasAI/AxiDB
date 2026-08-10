@@ -45,10 +45,10 @@ final class Offsets
 
     public function __destruct()
     {
-        $this->cerrar();
+        $this->close();
     }
 
-    public function cerrar(): void
+    public function close(): void
     {
         if (\is_resource($this->fp)) {
             \fclose($this->fp);
@@ -57,34 +57,34 @@ final class Offsets
     }
 
     /** @return array<string, array{0:int,1:int}> */
-    public function mapa(): array
+    public function map(): array
     {
-        return $this->mapa ??= $this->cargar();
+        return $this->mapa ??= $this->loadFrom();
     }
 
-    public function de(string $id): ?array
+    public function of(string $id): ?array
     {
-        $mapa = $this->mapa();
+        $mapa = $this->map();
         return $mapa[$id] ?? null;
     }
 
-    public function vivos(): array
+    public function alive(): array
     {
-        return \array_keys($this->mapa());
+        return \array_keys($this->map());
     }
 
-    public function cuantos(): int
+    public function howMany(): int
     {
-        return \count($this->mapa());
+        return \count($this->map());
     }
 
     /** Apunta donde ha quedado un documento. Quien llama tiene el lock. */
-    public function anotar(string $id, int $desplazamiento, int $longitud): void
+    public function record(string $id, int $desplazamiento, int $longitud): void
     {
-        $this->añadirLinea($id . "\t" . $desplazamiento . "\t" . $longitud . "\n");
-        $this->mapa();                       // fuerza la carga antes de tocarlo
+        $this->addLine($id . "\t" . $desplazamiento . "\t" . $longitud . "\n");
+        $this->map();                       // fuerza la carga antes de tocarlo
         $this->mapa[$id] = [$desplazamiento, $longitud];
-        $this->consolidarSiToca();
+        $this->consolidateIfDue();
     }
 
     /**
@@ -96,12 +96,12 @@ final class Offsets
      * y borrar archivos sin proteccion, y en Windows fallaba ademas al intentar
      * borrar un archivo que otro descriptor tenia abierto.
      */
-    private function consolidarSiToca(): void
+    private function consolidateIfDue(): void
     {
         if ($this->sueltas <= self::ENTRADAS_ANTES_DE_INSTANTANEA) {
             return;
         }
-        $this->guardarInstantanea($this->mapa ?? []);
+        $this->persistSnapshot($this->mapa ?? []);
 
         // Se trunca en vez de borrar: si otro proceso tiene el archivo abierto
         // en modo añadir, borrarlo dejaria su descriptor apuntando a la nada.
@@ -115,26 +115,26 @@ final class Offsets
     }
 
     /** Marca un documento como muerto. Longitud 0 es la lapida. */
-    public function marcarBorrado(string $id): void
+    public function markDeleted(string $id): void
     {
-        $this->añadirLinea($id . "\t0\t0\n");
-        $this->mapa();
+        $this->addLine($id . "\t0\t0\n");
+        $this->map();
         unset($this->mapa[$id]);
     }
 
     /** Sustituye el mapa entero tras una compactacion. */
-    public function reescribir(array $mapa): void
+    public function rewrite(array $mapa): void
     {
         $this->mapa    = $mapa;
         $this->sueltas = 0;
-        $this->guardarInstantanea($mapa);
-        $this->cerrar();                 // no se borra un archivo aun abierto
+        $this->persistSnapshot($mapa);
+        $this->close();                 // no se borra un archivo aun abierto
         @\unlink($this->rutaLog);
     }
 
-    public function borrar(): void
+    public function delete(): void
     {
-        $this->cerrar();
+        $this->close();
         @\unlink($this->rutaLog);
         @\unlink($this->rutaInstantanea);
         $this->mapa = [];
@@ -142,7 +142,7 @@ final class Offsets
 
     /* ─────────────────────────────── Interno ─────────────────────────────── */
 
-    private function añadirLinea(string $linea): void
+    private function addLine(string $linea): void
     {
         if (!\is_resource($this->fp)) {
             $this->fp = @\fopen($this->rutaLog, 'ab');
@@ -164,7 +164,7 @@ final class Offsets
      * Instantanea primero, log despues: el log solo contiene lo posterior a la
      * ultima instantanea, y la ultima entrada de cada id manda.
      */
-    private function cargar(): array
+    private function loadFrom(): array
     {
         $mapa = [];
 
@@ -206,7 +206,7 @@ final class Offsets
         return $mapa;
     }
 
-    private function guardarInstantanea(array $mapa): void
+    private function persistSnapshot(array $mapa): void
     {
         $tmp = $this->rutaInstantanea . '.tmp.' . \bin2hex(\random_bytes(4));
         if (@\file_put_contents($tmp, \json_encode($mapa)) === false) {

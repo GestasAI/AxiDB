@@ -40,12 +40,12 @@ final class VectorStore
         $this->embedder = $embedder ?? new Hash();
     }
 
-    public function activar(string $coleccion, array $opciones = []): Vector\Manifest
+    public function enable(string $coleccion, array $opciones = []): Vector\Manifest
     {
-        $this->exigirSinCifrar($coleccion);
+        $this->requireNotEncrypted($coleccion);
         $this->storage->ensureCollection($coleccion);
         $indice = new VectorIndex(new Store($this->dir($coleccion)), $this->embedder);
-        $m      = $indice->activar($opciones);
+        $m      = $indice->enable($opciones);
         $this->indices[$coleccion] = $indice;
 
         /*
@@ -61,7 +61,7 @@ final class VectorStore
          * reparar un indice vectorial incompleto.
          */
         foreach ($this->storage->all($coleccion) as $doc) {
-            $indice->indexar((string) ($doc['id'] ?? ''), $doc);
+            $indice->indexDocument((string) ($doc['id'] ?? ''), $doc);
         }
         return $m;
     }
@@ -79,7 +79,7 @@ final class VectorStore
      * Se rechaza en vez de avisar en la documentacion: una promesa de cifrado a
      * medias es peor que no cifrar, porque el que la usa cree estar protegido.
      */
-    private function exigirSinCifrar(string $coleccion): void
+    private function requireNotEncrypted(string $coleccion): void
     {
         if ($this->storage->isEncrypted($coleccion)) {
             throw new Exception(
@@ -91,9 +91,9 @@ final class VectorStore
     }
 
     /** El indice de una coleccion. Lanza si no tiene vectores activados. */
-    public function indice(string $coleccion): VectorIndex
+    public function indexOf(string $coleccion): VectorIndex
     {
-        $indice = $this->de($coleccion);
+        $indice = $this->of($coleccion);
         if ($indice === null) {
             throw new Exception(
                 "Vector: collection '{$coleccion}' no tiene vectores. "
@@ -103,14 +103,14 @@ final class VectorStore
         return $indice;
     }
 
-    public function alGuardar(string $coleccion, string $id, array $documento): void
+    public function onSave(string $coleccion, string $id, array $documento): void
     {
-        $this->de($coleccion)?->indexar($id, $documento);
+        $this->of($coleccion)?->indexDocument($id, $documento);
     }
 
-    public function alBorrar(string $coleccion, string $id): void
+    public function onDelete(string $coleccion, string $id): void
     {
-        $this->de($coleccion)?->quitar($id);
+        $this->of($coleccion)?->remove($id);
     }
 
     /**
@@ -131,7 +131,7 @@ final class VectorStore
         ?Query $donde,
         ?string $precision = null
     ): array {
-        $indice = $this->indice($coleccion);
+        $indice = $this->indexOf($coleccion);
 
         $soloEstos = [];
         if ($donde !== null) {
@@ -146,7 +146,7 @@ final class VectorStore
         }
 
         $salida = [];
-        foreach ($indice->buscar($consulta, $k, $soloEstos, $precision) as $fila) {
+        foreach ($indice->search($consulta, $k, $soloEstos, $precision) as $fila) {
             $doc = $this->storage->get($coleccion, $fila['id']);
             if ($doc !== null) {
                 $salida[] = ['id' => $fila['id'], 'score' => $fila['score'], 'doc' => $doc];
@@ -157,13 +157,13 @@ final class VectorStore
 
     /* ─────────────────────────────── Interno ─────────────────────────────── */
 
-    private function de(string $coleccion): ?VectorIndex
+    private function of(string $coleccion): ?VectorIndex
     {
         if (\array_key_exists($coleccion, $this->indices)) {
             return $this->indices[$coleccion];
         }
         $almacen = new Store($this->dir($coleccion));
-        return $this->indices[$coleccion] = $almacen->existe()
+        return $this->indices[$coleccion] = $almacen->hasIndex()
             ? new VectorIndex($almacen, $this->embedder)
             : null;
     }

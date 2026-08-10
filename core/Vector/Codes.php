@@ -50,7 +50,7 @@ final class Codes
         int $cuantos,
         array $vivos = []
     ): array {
-        $tabla   = self::tabla();
+        $tabla   = self::table();
         $ancho   = \strlen($consulta);
         $total   = $ancho > 0 ? \intdiv(\strlen($blob), $ancho) : 0;
         $palabras = \intdiv($ancho, 2);
@@ -80,7 +80,7 @@ final class Codes
     /** Distancia de Hamming entre dos codigos. Para tests y diagnostico. */
     public static function distancia(string $a, string $b): int
     {
-        $tabla = self::tabla();
+        $tabla = self::table();
         $x     = $a ^ $b;
         $d     = 0;
         foreach (\unpack('C*', $x) as $byte) {
@@ -93,7 +93,7 @@ final class Codes
      * La tabla se construye una vez por proceso y cuesta unos 2 ms. Hacerlo en
      * cada busqueda seria mas caro que la busqueda misma.
      */
-    private static function tabla(): string
+    private static function table(): string
     {
         if (self::$tabla !== null) {
             return self::$tabla;

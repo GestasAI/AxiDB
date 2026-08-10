@@ -42,29 +42,29 @@ final class Commit
      */
     public function confirmar(Transaction $tx): int
     {
-        if ($tx->vacia()) {
+        if ($tx->isEmpty()) {
             return 0;
         }
         $base = $this->db->storage()->basePath();
 
         return Lock::con($base, function () use ($tx, $base): int {
-            $this->exigirVersionesIntactas($tx->vistos());
+            $this->requireVersionsIntact($tx->vistos());
 
-            $reservas = $this->reservar($tx->operaciones());
+            $reservas = $this->reserve($tx->operaciones());
             $diario   = new Journal($base, 'tx' . \bin2hex(\random_bytes(8)));
 
             try {
-                $diario->anotar($tx->operaciones());
+                $diario->record($tx->operaciones());
             } catch (\Throwable $e) {
-                self::soltar($reservas);
-                $diario->borrar();
+                self::release($reservas);
+                $diario->delete();
                 throw $e;
             }
 
             $diario->confirmar();                       // ── la frontera ──
 
             $hechas = Applier::aplicar($this->db, $diario->operaciones());
-            $diario->borrar();
+            $diario->delete();
             return $hechas;
         });
     }
@@ -78,7 +78,7 @@ final class Commit
      *
      * @param array<string, int|null> $vistos
      */
-    private function exigirVersionesIntactas(array $vistos): void
+    private function requireVersionsIntact(array $vistos): void
     {
         foreach ($vistos as $clave => $version) {
             [$coleccion, $id] = \explode("\0", $clave, 2);
@@ -89,7 +89,7 @@ final class Commit
             if ($actual !== $version) {
                 throw new Exception(
                     "Tx: '{$coleccion}/{$id}' cambio mientras la transaccion estaba en curso "
-                    . '(version ' . self::pinta($version) . ' -> ' . self::pinta($actual) . '). '
+                    . '(version ' . self::render($version) . ' -> ' . self::render($actual) . '). '
                     . 'Nothing was written; read again and retry.'
                 );
             }
@@ -106,22 +106,22 @@ final class Commit
      * @param list<array{coleccion:string, id:string, accion:string, datos:array}> $operaciones
      * @return list<Unicidad>
      */
-    private function reservar(array $operaciones): array
+    private function reserve(array $operaciones): array
     {
         $hechas = [];
         foreach ($operaciones as $op) {
             if ($op['accion'] !== 'poner') {
                 continue;
             }
-            $unicos = $this->db->storage()->unicosDe($op['coleccion']);
+            $unicos = $this->db->storage()->uniquesOf($op['coleccion']);
             if ($unicos === []) {
                 continue;
             }
             $reserva = new Uniqueness($this->db->indexer(), $op['coleccion'], $op['id']);
             try {
-                $reserva->reservar($unicos, $op['datos'], $this->db->get($op['coleccion'], $op['id']));
+                $reserva->reserve($unicos, $op['datos'], $this->db->get($op['coleccion'], $op['id']));
             } catch (\Throwable $e) {
-                self::soltar($hechas);
+                self::release($hechas);
                 throw $e;
             }
             $hechas[] = $reserva;
@@ -130,14 +130,14 @@ final class Commit
     }
 
     /** @param list<Unicidad> $reservas */
-    private static function soltar(array $reservas): void
+    private static function release(array $reservas): void
     {
         foreach ($reservas as $r) {
-            $r->soltar();
+            $r->release();
         }
     }
 
-    private static function pinta(?int $v): string
+    private static function render(?int $v): string
     {
         return $v === null ? 'no existia' : (string) $v;
     }

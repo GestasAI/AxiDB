@@ -33,17 +33,17 @@ final class Bridge
     ) {
     }
 
-    public function atender(Request $p): Response
+    public function handle(Request $p): Response
     {
-        $accion = $p->texto('accion');
+        $accion = $p->textOf('accion');
         if ($accion === null || !\in_array($accion, self::ACCIONES, true)) {
             return Response::mal(400, 'Accion desconocida. Admitidas: ' . \implode(', ', self::ACCIONES) . '.');
         }
 
-        $ast = $accion === 'sql' ? $this->analizar($p) : null;
+        $ast = $accion === 'sql' ? $this->analyse($p) : null;
 
-        $coleccion = $ast !== null ? (string) ($ast['collection'] ?? '') : (string) $p->texto('coleccion');
-        $escribe   = $ast !== null ? self::sqlEscribe($ast) : Permissions::escribe($accion);
+        $coleccion = $ast !== null ? (string) ($ast['collection'] ?? '') : (string) $p->textOf('coleccion');
+        $escribe   = $ast !== null ? self::sqlWrites($ast) : Permissions::isWrite($accion);
 
         if ($coleccion === '') {
             return Response::mal(400, "Falta 'coleccion'.");
@@ -54,7 +54,7 @@ final class Bridge
             return Response::mal($codigo, $motivo);
         }
 
-        return Response::bien($this->ejecutar($accion, $coleccion, $p, $ast));
+        return Response::bien($this->execute($accion, $coleccion, $p, $ast));
     }
 
     /* ─────────────────────────────── Interno ─────────────────────────────── */
@@ -65,9 +65,9 @@ final class Bridge
      *
      * @throws BadRequest
      */
-    private function analizar(Request $p): array
+    private function analyse(Request $p): array
     {
-        $sentencia = $p->texto('sentencia');
+        $sentencia = $p->textOf('sentencia');
         if ($sentencia === null || \trim($sentencia) === '') {
             throw new BadRequest("Falta 'sentencia'.");
         }
@@ -81,7 +81,7 @@ final class Bridge
         }
     }
 
-    private static function sqlEscribe(array $ast): bool
+    private static function sqlWrites(array $ast): bool
     {
         if (!empty($ast['explain'])) {
             return false;
@@ -89,25 +89,25 @@ final class Bridge
         return !\in_array($ast['type'] ?? '', self::SQL_LECTURA, true);
     }
 
-    private function ejecutar(string $accion, string $coleccion, Request $p, ?array $ast): mixed
+    private function execute(string $accion, string $coleccion, Request $p, ?array $ast): mixed
     {
         return match ($accion) {
-            'insert' => $this->db->insert($coleccion, $this->datos($p), $p->texto('id')),
+            'insert' => $this->db->insert($coleccion, $this->dataOf($p), $p->textOf('id')),
             'get'    => $this->db->get($coleccion, $this->id($p)),
             'update' => $this->db->update(
                 $coleccion,
                 $this->id($p),
-                $this->datos($p),
+                $this->dataOf($p),
                 (bool) ($p->cuerpo['reemplazar'] ?? false)
             ),
             'delete' => $this->db->delete($coleccion, $this->id($p)),
-            'find'   => $this->consulta($coleccion, $p)->get(),
-            'count'  => $this->consulta($coleccion, $p)->count(),
+            'find'   => $this->query($coleccion, $p)->get(),
+            'count'  => $this->query($coleccion, $p)->count(),
             'sql'    => (new Executor($this->db))->run((array) $ast),
         };
     }
 
-    private function consulta(string $coleccion, Request $p): Query
+    private function query(string $coleccion, Request $p): Query
     {
         $q = $this->db->find($coleccion);
 
@@ -136,14 +136,14 @@ final class Bridge
 
     private function id(Request $p): string
     {
-        $id = $p->texto('id');
+        $id = $p->textOf('id');
         if ($id === null || $id === '') {
             throw new BadRequest("Falta 'id'.");
         }
         return $id;
     }
 
-    private function datos(Request $p): array
+    private function dataOf(Request $p): array
     {
         $datos = $p->cuerpo['datos'] ?? null;
         if (!\is_array($datos) || \array_is_list($datos)) {

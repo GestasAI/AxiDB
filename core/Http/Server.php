@@ -37,10 +37,10 @@ final class Server
     }
 
     /** Resuelve la peticion sin tocar cabeceras: asi se puede probar entera. */
-    public function responder(array $server, ?string $crudo = null): Response
+    public function respond(array $server, ?string $crudo = null): Response
     {
         $origen    = isset($server['HTTP_ORIGIN']) ? (string) $server['HTTP_ORIGIN'] : null;
-        $cabeceras = $this->cors->cabeceras($origen);
+        $cabeceras = $this->cors->headersFor($origen);
 
         try {
             $p = Request::desde($server, $crudo);
@@ -53,13 +53,13 @@ final class Server
             if ($p->metodo !== 'POST') {
                 return Response::mal(405, 'The bridge only accepts POST.', $cabeceras + ['Allow' => 'POST, OPTIONS']);
             }
-            if ($origen !== null && !$this->cors->permite($origen)) {
+            if ($origen !== null && !$this->cors->allows($origen)) {
                 return Response::mal(403, 'Origin not allowed.', $cabeceras);
             }
 
-            return $this->puente->atender($p)->conCabeceras($cabeceras);
+            return $this->puente->handle($p)->conCabeceras($cabeceras);
         } catch (BadRequest $e) {
-            return Response::mal($e->codigoHttp(), $e->getMessage(), $cabeceras);
+            return Response::mal($e->httpCode(), $e->getMessage(), $cabeceras);
         } catch (InvalidName $e) {
             return Response::mal(400, $e->getMessage(), $cabeceras);
         } catch (\Throwable $e) {
@@ -69,8 +69,8 @@ final class Server
     }
 
     /** Resuelve y escribe. Es lo que llama el endpoint. */
-    public function atender(array $server, ?string $crudo = null): void
+    public function handle(array $server, ?string $crudo = null): void
     {
-        $this->responder($server, $crudo)->emitir();
+        $this->respond($server, $crudo)->emitir();
     }
 }

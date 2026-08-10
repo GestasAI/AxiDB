@@ -23,7 +23,7 @@ final class Session
     {
     }
 
-    public function ejecutar(string $tipo): array
+    public function execute(string $tipo): array
     {
         return match ($tipo) {
             'begin'    => $this->begin(),
@@ -46,7 +46,7 @@ final class Session
      * Funciona porque `Transaccion` tiene los mismos metodos con las mismas
      * firmas que `Db`. No es casualidad: es la razon de que se llamen igual.
      */
-    public function destino(): Db|Transaction
+    public function target(): Db|Transaction
     {
         return $this->db->currentTransaction() ?? $this->db;
     }

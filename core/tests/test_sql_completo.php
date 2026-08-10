@@ -280,6 +280,6 @@ eq('la vista refleja lo que hay ahora, no una copia de entonces', 3,
 ok('la coleccion donde viven las vistas no sale en SHOW COLLECTIONS',
     !\in_array('axidb_vistas', \array_column($db->sql('SHOW COLLECTIONS'), 'coleccion'), true));
 
-$db->storage()->cerrar();
+$db->storage()->close();
 rmrf($dir);
 summary();

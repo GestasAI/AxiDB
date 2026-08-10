@@ -44,7 +44,7 @@ Mezclar es lo normal. En la misma base de datos:
 ```php
 $db = axidb(__DIR__ . '/datos');
 
-$db->storage()->declararDriver('eventos', 'packed');   // millones, nunca se miran
+$db->storage()->declareDriver('eventos', 'packed');   // millones, nunca se miran
 // 'ajustes' y 'usuarios' se quedan en fs, que es el defecto
 ```
 
@@ -58,7 +58,7 @@ eso no debe poder pasar por despiste.
 ## Cambiar de formato
 
 ```php
-$movidos = $db->storage()->migrarA('eventos', 'packed');
+$movidos = $db->storage()->migrateTo('eventos', 'packed');
 echo "{$movidos} documentos";
 ```
 
@@ -92,7 +92,7 @@ disco fisico:
 | `fast` | deja que el sistema escriba cuando le convenga | datos que puedes rehacer |
 
 ```php
-$db->storage()->declararDurabilidad('metricas', 'fast');
+$db->storage()->declareDurability('metricas', 'fast');
 ```
 
 Con `safe`, un corte de corriente justo despues de guardar no te quita el
@@ -173,8 +173,8 @@ deja hueco muerto. Cuando el hueco pasa del 30% del archivo, la limpieza
 periodica lo compacta sola.
 
 ```php
-$db->storage()->proporcionMuerta('eventos');   // 0.0 a 1.0, para mirarlo
-$db->storage()->compactar('eventos');          // compactar ahora, pase lo que pase
+$db->storage()->deadRatio('eventos');   // 0.0 a 1.0, para mirarlo
+$db->storage()->compact('eventos');          // compactar ahora, pase lo que pase
 ```
 
 Compactar reescribe el archivo dejando solo los documentos vivos, trabajando

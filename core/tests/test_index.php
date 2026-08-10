@@ -169,7 +169,7 @@ ok('se avisa de que hay que rehacerlo',
 ok('y el aviso dice como', \str_contains(
     (string) ($heredado['localid~26cb4baf']['aviso'] ?? ''), 'dropIndex'));
 
-$dbMay->storage()->cerrar();
+$dbMay->storage()->close();
 rmrf($dirMay);
 
 // Simular la perdida: vaciar el bucket de un valor.

@@ -36,14 +36,14 @@ final class Exchange
         if ($json === false) {
             throw new Exception('Export: could not serialise: ' . \json_last_error_msg());
         }
-        self::guardar($destino, $json . "\n");
+        self::persist($destino, $json . "\n");
         return \count($documentos);
     }
 
     /** @return list<array> */
     public static function desdeJson(string $origen): array
     {
-        $json = \json_decode(self::leer($origen), true);
+        $json = \json_decode(self::readAt($origen), true);
         if (!\is_array($json)) {
             throw new Exception("Import: {$origen} does not contain a valid JSON list.");
         }
@@ -78,7 +78,7 @@ final class Exchange
             foreach ($documentos as $doc) {
                 $fila = [];
                 foreach ($columnas as $campo) {
-                    $fila[] = self::aCelda($doc[$campo] ?? null);
+                    $fila[] = self::toCell($doc[$campo] ?? null);
                 }
                 \fputcsv($fp, $fila, $separador, '"', '\\');
             }
@@ -115,7 +115,7 @@ final class Exchange
                 }
                 $doc = [];
                 foreach ($columnas as $i => $campo) {
-                    $doc[(string) $campo] = self::deCelda($fila[$i] ?? null);
+                    $doc[(string) $campo] = self::fromCell($fila[$i] ?? null);
                 }
                 $documentos[] = $doc;
             }
@@ -126,7 +126,7 @@ final class Exchange
     }
 
     /** Una lista o un mapa no caben en una celda: van como JSON dentro. */
-    private static function aCelda(mixed $valor): string
+    private static function toCell(mixed $valor): string
     {
         if ($valor === null) {
             return '';
@@ -140,7 +140,7 @@ final class Exchange
         return (string) $valor;
     }
 
-    private static function deCelda(?string $celda): mixed
+    private static function fromCell(?string $celda): mixed
     {
         if ($celda === null || $celda === '') {
             return null;
@@ -164,14 +164,14 @@ final class Exchange
         return $celda;
     }
 
-    private static function guardar(string $destino, string $contenido): void
+    private static function persist(string $destino, string $contenido): void
     {
         if (@\file_put_contents($destino, $contenido) === false) {
             throw new Exception("Export: could not write to {$destino}.");
         }
     }
 
-    private static function leer(string $origen): string
+    private static function readAt(string $origen): string
     {
         $bytes = @\file_get_contents($origen);
         if ($bytes === false) {

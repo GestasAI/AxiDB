@@ -100,7 +100,7 @@ section('D] Un problema de verdad aparece, y dice como arreglarlo');
  * entre reservar y escribir. No se pierde nada, pero ese valor queda bloqueado
  * y quien lo intente usar vera "ya existe" sobre algo que no existe.
  */
-$db->indexer()->reclamar('clientes', 'nombre', 'fantasma', 'nunca-escrito');
+$db->indexer()->claim('clientes', 'nombre', 'fantasma', 'nunca-escrito');
 
 $avisos = $db->checkup()['avisos'];
 eq('sale un aviso', 1, \count($avisos));
@@ -134,7 +134,7 @@ section('F] Espacio muerto en el formato empaquetado');
 
 $dirP = tmpdir('salud_packed');
 $p = new Db($dirP, ['durable' => false]);
-$p->storage()->declararDriver('log', 'packed');
+$p->storage()->declareDriver('log', 'packed');
 for ($i = 0; $i < 40; $i++) {
     $p->insert('log', ['n' => $i, 'relleno' => \str_repeat('x', 200)], 'd' . $i);
 }
@@ -150,13 +150,13 @@ $avisos = $p->checkup()['avisos'];
 ok('y sale el aviso', \count($avisos) >= 1);
 ok('diciendo que compactar', \str_contains((string) ($avisos[0]['hacer'] ?? ''), 'compactar'));
 
-$p->storage()->compactar('log');
+$p->storage()->compact('log');
 eq('compactar lo baja a cero', 0.0, $p->stats('log')['proporcionMuerta']);
 eq('sin perder los que quedaban', 10, $p->count('log'));
 
-$p->storage()->cerrar();
+$p->storage()->close();
 rmrf($dirP);
 
-$db->storage()->cerrar();
+$db->storage()->close();
 rmrf($dir);
 summary();

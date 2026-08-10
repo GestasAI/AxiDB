@@ -63,7 +63,7 @@ foreach (['fs', 'packed'] as $driver) {
     $dir = tmpdir('cifrado_' . $driver);
     $db  = new Db($dir, ['durable' => false, 'key' => CLAVE]);
     if ($driver !== 'fs') {
-        $db->storage()->declararDriver('fichas', $driver);
+        $db->storage()->declareDriver('fichas', $driver);
     }
 
     // Un documento ANTES de cifrar: al activar el cifrado tiene que reescribirse.
@@ -111,12 +111,12 @@ foreach (['fs', 'packed'] as $driver) {
     $db->delete('fichas', 'f1');
     eq('borrar funciona igual', 1, $db->count('fichas'));
 
-    $db->storage()->cerrar();
+    $db->storage()->close();
 
     /* ─── Reabrir: con la clave, sin ella y con otra ─────────────────────── */
     $otra = new Db($dir, ['durable' => false, 'key' => CLAVE]);
     eq('cerrar y reabrir con la clave devuelve el dato', SECRETO . '-nuevo', $otra->get('fichas', 'f2')['nota']);
-    $otra->storage()->cerrar();
+    $otra->storage()->close();
 
     throws('sin clave, leer una coleccion cifrada se niega en vez de devolver basura',
         static fn () => (new Db($dir, ['durable' => false]))->get('fichas', 'f2'));
@@ -138,7 +138,7 @@ $dir = tmpdir('cifrado_manipulado');
 $db  = new Db($dir, ['durable' => false, 'key' => CLAVE]);
 $db->encrypt('fichas');
 $db->insert('fichas', ['nota' => 'intacta'], 'f1');
-$db->storage()->cerrar();
+$db->storage()->close();
 
 $archivo = $dir . '/fichas/f1.json';
 ok('el documento esta donde se espera', \is_file($archivo));
@@ -155,7 +155,7 @@ $doc['_cif'] = \substr($bloque, 0, $pos) . ($bloque[$pos] === 'A' ? 'B' : 'A') .
 $db2 = new Db($dir, ['durable' => false, 'key' => CLAVE]);
 throws('un byte cambiado hace que abrir falle, no que devuelva basura',
     static fn () => $db2->get('fichas', 'f1'));
-$db2->storage()->cerrar();
+$db2->storage()->close();
 rmrf($dir);
 
 /* ─────────────────────────────────────────────────────────────────────────── */
@@ -171,7 +171,7 @@ $db  = new Db($dir, ['durable' => false, 'key' => CLAVE]);
 $db->encrypt('fichas');
 $db->insert('fichas', ['rol' => 'admin'], 'jefe');
 $db->insert('fichas', ['rol' => 'invitado'], 'intruso');
-$db->storage()->cerrar();
+$db->storage()->close();
 
 $delJefe = \json_decode((string) \file_get_contents($dir . '/fichas/jefe.json'), true);
 $deIntruso = \json_decode((string) \file_get_contents($dir . '/fichas/intruso.json'), true);
@@ -186,14 +186,14 @@ eq('y el original sigue leyendose', 'admin', $db3->get('fichas', 'jefe')['rol'])
 // Lo mismo entre colecciones.
 $db3->encrypt('otras');
 $db3->insert('otras', ['x' => 1], 'jefe');
-$db3->storage()->cerrar();
+$db3->storage()->close();
 $copia = \json_decode((string) \file_get_contents($dir . '/otras/jefe.json'), true);
 $copia['_cif'] = $delJefe['_cif'];
 \file_put_contents($dir . '/otras/jefe.json', \json_encode($copia));
 
 $db4 = new Db($dir, ['durable' => false, 'key' => CLAVE]);
 throws('ni con el mismo id en otra coleccion', static fn () => $db4->get('otras', 'jefe'));
-$db4->storage()->cerrar();
+$db4->storage()->close();
 rmrf($dir);
 
 /* ─────────────────────────────────────────────────────────────────────────── */
@@ -209,7 +209,7 @@ $db->enableVectors('libres');
 $db->insert('libres', ['texto' => 'una nota cualquiera'], 'n1');
 throws('ni se cifra una coleccion que ya tiene vectores',
     static fn () => $db->encrypt('libres'));
-$db->storage()->cerrar();
+$db->storage()->close();
 rmrf($dir);
 
 /* ─────────────────────────────────────────────────────────────────────────── */
@@ -226,10 +226,10 @@ $db->encrypt('fichas');
 for ($i = 1; $i <= 5; $i++) {
     $db->insert('fichas', ['nota' => SECRETO . $i], 'f' . $i);
 }
-eq('se migran los cinco', 5, $db->storage()->migrarA('fichas', 'packed'));
+eq('se migran los cinco', 5, $db->storage()->migrateTo('fichas', 'packed'));
 eq('y siguen leyendose tras la migracion', SECRETO . '3', $db->get('fichas', 'f3')['nota']);
 ok('sin que el secreto asome en el nuevo formato', !\str_contains(bytesEnDisco($dir), SECRETO));
-$db->storage()->cerrar();
+$db->storage()->close();
 rmrf($dir);
 
 /* ─────────────────────────────────────────────────────────────────────────── */
@@ -239,7 +239,7 @@ $dir = tmpdir('cifrado_limites');
 $db  = new Db($dir, ['durable' => false, 'key' => CLAVE]);
 $db->encrypt('fichas');
 $db->insert('fichas', ['nota' => SECRETO], 'un-id-que-dice-algo');
-$db->storage()->cerrar();
+$db->storage()->close();
 
 $crudo = bytesEnDisco($dir);
 ok('el id se ve: no metas secretos en el id', \str_contains($crudo, 'un-id-que-dice-algo'));

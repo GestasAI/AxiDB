@@ -50,7 +50,7 @@ final class Request
             if (\strlen($crudo) > self::LIMITE_BYTES) {
                 throw new BadRequest('The body exceeds the limit of ' . self::LIMITE_BYTES . ' bytes.', 413);
             }
-            $cuerpo = self::descodificar($crudo);
+            $cuerpo = self::decodePayload($crudo);
         }
 
         return new self(
@@ -58,12 +58,12 @@ final class Request
             $cuerpo,
             self::token($server),
             isset($server['HTTP_ORIGIN']) ? (string) $server['HTTP_ORIGIN'] : null,
-            self::esLocal($server)
+            self::isLocal($server)
         );
     }
 
     /** Valor de una clave del cuerpo, como cadena. Null si no viene o no es escalar. */
-    public function texto(string $clave): ?string
+    public function textOf(string $clave): ?string
     {
         $v = $this->cuerpo[$clave] ?? null;
         return \is_string($v) || \is_int($v) ? (string) $v : null;
@@ -71,7 +71,7 @@ final class Request
 
     /* ─────────────────────────────── Interno ─────────────────────────────── */
 
-    private static function descodificar(string $crudo): array
+    private static function decodePayload(string $crudo): array
     {
         if (\trim($crudo) === '') {
             throw new BadRequest('The request body is missing.', 400);
@@ -108,7 +108,7 @@ final class Request
      * Sin REMOTE_ADDR no hay peticion de red: es la linea de comandos, y ahi
      * no tiene sentido negar el acceso a la base de datos del propio disco.
      */
-    private static function esLocal(array $server): bool
+    private static function isLocal(array $server): bool
     {
         $ip = (string) ($server['REMOTE_ADDR'] ?? '');
         return \in_array($ip, ['127.0.0.1', '::1', ''], true) || \str_starts_with($ip, '127.');

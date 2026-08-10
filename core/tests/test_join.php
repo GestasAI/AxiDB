@@ -180,7 +180,7 @@ $cruce = static function (int $n) use (&$ultimasFilas): float {
     $r             = $g->sql("SELECT n, der.txt FROM izq JOIN der ON izq.k = der.k");
     $ms            = (\microtime(true) - $t) * 1000;
     $ultimasFilas  = \count($r);
-    $g->storage()->cerrar();
+    $g->storage()->close();
     rmrf($dir);
     return $ms;
 };
@@ -208,6 +208,6 @@ throws('LEFT sin JOIN, tambien',
 throws('una subconsulta que no empieza por SELECT',
     static fn () => $db->sql("SELECT total FROM pedidos WHERE cli IN (DELETE FROM clientes)"));
 
-$db->storage()->cerrar();
+$db->storage()->close();
 rmrf($dir);
 summary();

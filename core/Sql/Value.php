@@ -25,22 +25,22 @@ final class Value
      * @param array $documento el documento sobre el que se resuelve
      * @param array $agregados valores ya calculados de los agregados, por clave
      */
-    public static function de(array $expr, array $documento, array $agregados = []): mixed
+    public static function of(array $expr, array $documento, array $agregados = []): mixed
     {
         return match ($expr['t'] ?? '') {
             'lit'   => $expr['v'],
             'campo' => $documento[$expr['nombre']] ?? null,
-            'op'    => self::operar(
+            'op'    => self::operate(
                 (string) $expr['op'],
-                self::de($expr['izq'], $documento, $agregados),
-                self::de($expr['der'], $documento, $agregados)
+                self::of($expr['izq'], $documento, $agregados),
+                self::of($expr['der'], $documento, $agregados)
             ),
             'fn'    => Functions::llamar(
                 (string) $expr['nombre'],
-                \array_map(static fn(array $a) => self::de($a, $documento, $agregados), $expr['args'])
+                \array_map(static fn(array $a) => self::of($a, $documento, $agregados), $expr['args'])
             ),
             // Un agregado ya viene resuelto de Agrupacion: aqui solo se recoge.
-            'agg'   => $agregados[self::claveAgregado($expr)] ?? null,
+            'agg'   => $agregados[self::aggregateKey($expr)] ?? null,
             default => null,
         };
     }
@@ -52,7 +52,7 @@ final class Value
      * arbol y no de como estaba escrito en la consulta: `SUM(a+b)` y `SUM( a + b )`
      * son el mismo agregado y no deben calcularse dos veces.
      */
-    public static function claveAgregado(array $expr): string
+    public static function aggregateKey(array $expr): string
     {
         return (string) $expr['fn'] . '(' . self::firma($expr['arg'] ?? null) . ')';
     }
@@ -70,12 +70,12 @@ final class Value
             'fn'    => $expr['nombre'] . '(' . \implode(', ', \array_map(
                 static fn(array $a) => self::firma($a), $expr['args']
             )) . ')',
-            'agg'   => self::claveAgregado($expr),
+            'agg'   => self::aggregateKey($expr),
             default => '?',
         };
     }
 
-    private static function operar(string $op, mixed $a, mixed $b): mixed
+    private static function operate(string $op, mixed $a, mixed $b): mixed
     {
         // El '+' sobre textos concatena, como se espera en una base de datos que
         // guarda documentos. Para numeros suma. Mezclar los dos es un error del
@@ -83,25 +83,25 @@ final class Value
         if ($op === '+' && (\is_string($a) || \is_string($b)) && $a !== null && $b !== null) {
             return \is_string($a) && \is_string($b) ? $a . $b : null;
         }
-        if (!self::esNumero($a) || !self::esNumero($b)) {
+        if (!self::isNumber($a) || !self::isNumber($b)) {
             return null;
         }
         return match ($op) {
             '+' => $a + $b,
             '-' => $a - $b,
             '*' => $a * $b,
-            '/' => self::dividir($a, $b),
+            '/' => self::split($a, $b),
             '%' => (float) $b === 0.0 ? null : \fmod((float) $a, (float) $b),
             default => null,
         };
     }
 
-    private static function dividir(int|float $a, int|float $b): int|float|null
+    private static function split(int|float $a, int|float $b): int|float|null
     {
         return (float) $b === 0.0 ? null : $a / $b;
     }
 
-    private static function esNumero(mixed $v): bool
+    private static function isNumber(mixed $v): bool
     {
         return \is_int($v) || \is_float($v);
     }

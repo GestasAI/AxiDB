@@ -68,7 +68,7 @@ $t = \microtime(true);
 sembrarVectores($almacen, $bloque, DIMS, true, 'c');
 $msUltimos = (\microtime(true) - $t) * 1000 / $bloque;
 
-eq('estan los 50.000', CUANTOS, $almacen->manifiesto()->cuenta);
+eq('estan los 50.000', CUANTOS, $almacen->manifest()->cuenta);
 
 $degrada = $msUltimos / \max($msPrimeros, 0.0001);
 \printf("    el millar 25.000: %.2f ms por vector | el ultimo: %.2f ms | x%.2f\n",
@@ -106,19 +106,19 @@ $buscador = new Searcher($almacen);
  * desplegar esto, pero no se convierte en un rojo.
  */
 $enFrio = \microtime(true);
-$buscador->buscar($almacen->vectorDe(0), 10);
+$buscador->search($almacen->vectorOf(0), 10);
 $enFrio = (\microtime(true) - $enFrio) * 1000;
 
 for ($c = 1; $c <= 3; $c++) {
-    $buscador->buscar($almacen->vectorDe(($c * 7919) % CUANTOS), 10);
+    $buscador->search($almacen->vectorOf(($c * 7919) % CUANTOS), 10);
 }
 \printf("    primera busqueda, con el archivo aun frio: %.0f ms\n", $enFrio);
 
 $tiempos = [];
 for ($c = 0; $c < 5; $c++) {
-    $consulta = $almacen->vectorDe(($c * 9973) % CUANTOS);
+    $consulta = $almacen->vectorOf(($c * 9973) % CUANTOS);
     $t = \microtime(true);
-    $r = $buscador->buscar($consulta, 10);
+    $r = $buscador->search($consulta, 10);
     $tiempos[] = (\microtime(true) - $t) * 1000;
     if ($c === 0) {
         eq('devuelve los diez pedidos', 10, \count($r));
@@ -146,7 +146,7 @@ $medio = \array_sum($tiempos) / \count($tiempos);
 $picoSinExacta = \memory_get_peak_usage(true) / 1048576;
 
 $t        = \microtime(true);
-$conTodos = $buscador->buscar($almacen->vectorDe(31337 % CUANTOS), 10, [], 'exacta');
+$conTodos = $buscador->search($almacen->vectorOf(31337 % CUANTOS), 10, [], 'exacta');
 $sinCriba = (\microtime(true) - $t) * 1000;
 eq('sin criba tambien devuelve los diez', 10, \count($conTodos));
 
@@ -187,7 +187,7 @@ ok(\sprintf('el pico no pasa de 32 MB: %.1f MB', $pico), $pico < 32.0);
  * binarios de 50.000 vectores de 768 dimensiones son 4,6 MB, y los vectores
  * completos serian 147 MB. Si estuvieran en memoria, esto no pasaria.
  */
-$mbCodigos = \strlen($almacen->codigos()) / 1048576;
+$mbCodigos = \strlen($almacen->codes()) / 1048576;
 \printf("    los codigos binarios ocupan %.1f MB; los vectores completos, %.0f MB\n",
     $mbCodigos, CUANTOS * DIMS * 4 / 1048576);
 ok('en memoria solo entran los codigos, no los vectores', $pico < CUANTOS * DIMS * 4 / 1048576);

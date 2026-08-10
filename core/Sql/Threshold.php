@@ -32,11 +32,11 @@ final class Threshold
         if ($expr === null) {
             return [null, null];
         }
-        if (self::esDelParecido($expr)) {
+        if (self::isSameKind($expr)) {
             return [null, $expr];
         }
         if (($expr['type'] ?? '') !== 'and') {
-            self::exigirSinParecidoDentro($expr);
+            self::requireNoSimilarInside($expr);
             return [$expr, null];
         }
 
@@ -78,7 +78,7 @@ final class Threshold
         return self::CAMPO . ' ' . $umbral['op'] . ' ' . (string) ($umbral['value'] ?? '');
     }
 
-    private static function esDelParecido(array $nodo): bool
+    private static function isSameKind(array $nodo): bool
     {
         return ($nodo['type'] ?? '') === 'cmp'
             && ($nodo['field'] ?? null) === self::CAMPO;
@@ -91,9 +91,9 @@ final class Threshold
      * significa. Devolver algo parecido-pero-no-igual seria peor que decir que
      * no: quien escribe la consulta se fiaria del resultado.
      */
-    private static function exigirSinParecidoDentro(array $nodo): void
+    private static function requireNoSimilarInside(array $nodo): void
     {
-        if (self::esDelParecido($nodo)) {
+        if (self::isSameKind($nodo)) {
             throw new Exception(
                 "AxiSQL: '" . self::CAMPO . "' solo se puede comparar en el primer nivel del WHERE, "
                 . 'unido con AND. Dentro de un OR o un NOT no se puede separar de lo demas sin '
@@ -102,7 +102,7 @@ final class Threshold
         }
         foreach (['left', 'right', 'expr'] as $rama) {
             if (isset($nodo[$rama]) && \is_array($nodo[$rama])) {
-                self::exigirSinParecidoDentro($nodo[$rama]);
+                self::requireNoSimilarInside($nodo[$rama]);
             }
         }
     }

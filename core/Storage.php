@@ -48,7 +48,7 @@ final class Storage
         $this->fs          = new FsDriver($this->colecciones, $this->ajustes);
         $this->packed      = new PackedDriver($this->colecciones, $this->ajustes);
 
-        $this->prepararCifrado($this->base, $clave);
+        $this->prepareEncryption($this->base, $clave);
     }
 
     public function basePath(): string
@@ -124,7 +124,7 @@ final class Storage
 
     public function dropCollection(string $collection): bool
     {
-        $this->packed->olvidar($collection);
+        $this->packed->forget($collection);
         return $this->colecciones->drop($collection);
     }
 
@@ -159,8 +159,8 @@ final class Storage
         if (\is_dir($destino)) {
             throw new Exception("Storage: there is already a collection named '{$a}'.");
         }
-        $this->cerrar();                        // sin descriptores abiertos no hay quien impida mover
-        $this->olvidar();
+        $this->close();                        // sin descriptores abiertos no hay quien impida mover
+        $this->forget();
 
         if (!@\rename($origen, $destino)) {
             throw new Exception("Storage: could not rename '{$de}' to '{$a}'.");
@@ -171,33 +171,33 @@ final class Storage
     /* ─────────────────────────────── Unicidad ─────────────────────────────── */
 
     /** @return list<string> campos que no admiten valores repetidos */
-    public function unicosDe(string $collection): array
+    public function uniquesOf(string $collection): array
     {
         return $this->ajustes->uniques($collection);
     }
 
     /** Declara o retira la unicidad de un campo. No comprueba los datos: eso es de Db. */
-    public function declararUnico(string $collection, string $field, bool $unico = true): void
+    public function declareUnique(string $collection, string $field, bool $unico = true): void
     {
-        $campos = $this->unicosDe($collection);
+        $campos = $this->uniquesOf($collection);
         $campos = $unico
             ? [...$campos, $field]
             : \array_values(\array_filter($campos, static fn($c) => $c !== $field));
 
-        $this->ajustes->fijar($collection, ['uniques' => $campos]);
+        $this->ajustes->set($collection, ['uniques' => $campos]);
     }
 
     /* ─────────────────────────────── Esquema y caducidad ───────────────────── */
 
     /** @return array<string, array> reglas por campo. Vacio: la coleccion no tiene esquema */
-    public function esquemaDe(string $collection): array
+    public function schemaOf(string $collection): array
     {
         return $this->ajustes->schema($collection);
     }
 
     public function defineSchema(string $collection, array $reglas): void
     {
-        $this->ajustes->fijar($collection, ['schema' => SchemaRules::validarReglas($reglas)]);
+        $this->ajustes->set($collection, ['schema' => SchemaRules::validarReglas($reglas)]);
     }
 
     /** Segundos de vida de un documento. Cero: no caduca. */
@@ -211,13 +211,13 @@ final class Storage
         if ($segundos < 0) {
             throw new Exception("Storage: the ttl cannot be negative ({$segundos}).");
         }
-        $this->ajustes->fijar($collection, ['ttl' => $segundos]);
+        $this->ajustes->set($collection, ['ttl' => $segundos]);
         $this->caducados = [];
     }
 
-    public function cerrar(): void
+    public function close(): void
     {
-        $this->packed->olvidar();
+        $this->packed->forget();
     }
 
     /**
@@ -227,10 +227,10 @@ final class Storage
      * montados y los descriptores abiertos son de los datos ANTERIORES. Seguir
      * usandolos leeria un archivo que ya no es el que era.
      */
-    public function olvidar(): void
+    public function forget(): void
     {
-        $this->packed->olvidar();
-        $this->ajustes->olvidar();
+        $this->packed->forget();
+        $this->ajustes->forget();
         $this->cifrados = [];
         $this->caducados = [];
     }

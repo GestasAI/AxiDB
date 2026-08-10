@@ -65,7 +65,7 @@ eq('y no se guardo nada', 1, $db->count('p'));
 
 // Mentir en Content-Length no sirve: se vuelve a medir lo que llega de verdad.
 $server = ['REQUEST_METHOD' => 'POST', 'REMOTE_ADDR' => '127.0.0.1', 'CONTENT_LENGTH' => '10'];
-$r = $s->responder($server, $grande);
+$r = $s->respond($server, $grande);
 respuesta('mentir en Content-Length no cuela', $r, 413, false);
 
 $justo = (string) \json_encode(['accion' => 'insert', 'coleccion' => 'p', 'id' => 'ok1',

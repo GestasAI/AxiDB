@@ -78,7 +78,7 @@ eq('el correo de un documento borrado se puede reutilizar',
 section('E] La restriccion vive en la coleccion');
 
 eq('se puede consultar que campos son unicos', ['correo'], $db->uniques('usuarios'));
-$db->storage()->cerrar();
+$db->storage()->close();
 
 $otro = new Db($dir, ['durable' => false]);
 eq('sobrevive a cerrar y reabrir', ['correo'], $otro->uniques('usuarios'));
@@ -92,7 +92,7 @@ $otro->dropIndex('usuarios', 'correo');
 eq('quitar el indice quita la unicidad', [], $otro->uniques('usuarios'));
 $otro->insert('usuarios', ['correo' => 'ana@ejemplo.com'], 'uY');
 eq('y entonces si se admite el repetido', 'ana@ejemplo.com', $otro->get('usuarios', 'uY')['correo']);
-$otro->storage()->cerrar();
+$otro->storage()->close();
 rmrf($dir);
 
 /* ─────────────────────────────────────────────────────────────────────────── */
@@ -110,7 +110,7 @@ eq('y la coleccion no queda marcada a medias', [], $db->uniques('c'));
 $db->delete('c', 'b');
 $db->sql('CREATE UNIQUE INDEX ON c (e)');
 eq('una vez limpia, se declara sin problema', ['e'], $db->uniques('c'));
-$db->storage()->cerrar();
+$db->storage()->close();
 rmrf($dir);
 
 /* ─────────────────────────────────────────────────────────────────────────── */
@@ -130,7 +130,7 @@ const PROCESOS = 8;
 $dir = tmpdir('unicidad_carrera');
 $db  = new Db($dir, ['durable' => false]);
 $db->sql('CREATE UNIQUE INDEX ON cuentas (correo)');
-$db->storage()->cerrar();
+$db->storage()->close();
 
 $arranque = \microtime(true) + 1.2;          // margen para que arranquen los ocho
 $handles  = [];
@@ -158,7 +158,7 @@ $revision = $final->verifyIndexes('cuentas')['correo'] ?? [];
 eq('el indice no quedo con entradas de mas', 0, $revision['sobran'] ?? -1);
 eq('ni le falta ninguna', 0, $revision['faltan'] ?? -1);
 
-$final->storage()->cerrar();
+$final->storage()->close();
 rmrf($dir);
 
 /* ─────────────────────────────────────────────────────────────────────────── */
@@ -180,7 +180,7 @@ $db->insert('cuentas', ['correo' => 'real@ejemplo.com'], 'c1');
 
 eq('de partida el indice esta limpio', 0, $db->verifyIndexes('cuentas')['correo']['sobran'] ?? -1);
 
-$db->indexer()->reclamar('cuentas', 'correo', 'fantasma@ejemplo.com', 'nunca-escrito');
+$db->indexer()->claim('cuentas', 'correo', 'fantasma@ejemplo.com', 'nunca-escrito');
 
 eq('la reserva sin documento se cuenta como sobrante',
     1, $db->verifyIndexes('cuentas')['correo']['sobran'] ?? -1);
@@ -195,7 +195,7 @@ eq('reconstruir el indice la limpia', 0, $db->verifyIndexes('cuentas')['correo']
 $db->insert('cuentas', ['correo' => 'fantasma@ejemplo.com'], 'c2');
 eq('y el valor vuelve a estar libre', 2, $db->count('cuentas'));
 
-$db->storage()->cerrar();
+$db->storage()->close();
 rmrf($dir);
 
 summary();

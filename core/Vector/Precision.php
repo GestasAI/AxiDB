@@ -76,7 +76,7 @@ final class Precision
      * En `exacta` se devuelve null, que significa "todos, sin criba". No es un
      * numero muy grande: es que ahi no se hace la primera pasada.
      */
-    public static function candidatos(string $modo, int $k): ?int
+    public static function candidates(string $modo, int $k): ?int
     {
         if ($modo === self::EXACTA) {
             return null;

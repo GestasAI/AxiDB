@@ -78,7 +78,7 @@ eq('y los vectores piden ai', ['dice_perfil_actual' => true, 'dice_el_que_falta'
     'dice_como_cambiarlo' => true, 'dice_que_no_pasa' => true],
     $explica(static fn () => $blog->enableVectors('entradas'), 'ai'));
 
-$blog->storage()->cerrar();
+$blog->storage()->close();
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('C] El blog se hace tienda: una linea, cero migraciones');
@@ -129,7 +129,7 @@ eq('los vectores siguen fuera', ['dice_perfil_actual' => false, 'dice_el_que_fal
         return [];
     })());
 
-$tienda->storage()->cerrar();
+$tienda->storage()->close();
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('D] Y la tienda busca por significado: otra linea');
@@ -160,19 +160,19 @@ $sinPerfil = new Db($dir, ['durable' => false]);
 eq('el perfil es "todo"', Profile::TODO, $sinPerfil->profile()->nombre);
 $sinPerfil->transaction(static fn ($tx) => null);
 ok('y las transacciones van sin declarar nada', true);
-ok('los vectores tambien', $sinPerfil->vectorIndex('entradas')->manifiesto()->dims > 0);
+ok('los vectores tambien', $sinPerfil->vectorIndex('entradas')->manifest()->dims > 0);
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('F] Que trae cada perfil');
 
-eq('core no incluye transacciones', false, (new Profile(Profile::CORE))->tiene('transactions'));
-eq('docs si',                        true, (new Profile(Profile::DOCS))->tiene('transactions'));
-eq('docs no incluye vectores',      false, (new Profile(Profile::DOCS))->tiene('vectors'));
-eq('ai si',                          true, (new Profile(Profile::IA))->tiene('vectors'));
+eq('core no incluye transacciones', false, (new Profile(Profile::CORE))->has('transactions'));
+eq('docs si',                        true, (new Profile(Profile::DOCS))->has('transactions'));
+eq('docs no incluye vectores',      false, (new Profile(Profile::DOCS))->has('vectors'));
+eq('ai si',                          true, (new Profile(Profile::IA))->has('vectors'));
 
 // Acumulativos: ai trae todo lo de docs, y docs todo lo de core.
 foreach ((new Profile(Profile::CORE))->funciones() as $f) {
-    ok("docs hereda '{$f}' de core", (new Profile(Profile::DOCS))->tiene($f));
+    ok("docs hereda '{$f}' de core", (new Profile(Profile::DOCS))->has($f));
 }
 eq('ai trae lo de los tres', 14, \count((new Profile(Profile::IA))->funciones()));
 
@@ -192,7 +192,7 @@ section('G] Bajar de perfil: no se pierde nada');
  * `vectores()`, la activacion. Con perfil core se podia seguir buscando por
  * significado. Una regla aplicada a medias es una regla que no esta.
  */
-$ia->storage()->cerrar();
+$ia->storage()->close();
 $bajado = new Db($dir, ['durable' => false, 'profile' => Profile::CORE]);
 
 eq('los documentos siguen',        4, $bajado->count('entradas'));
@@ -216,13 +216,13 @@ throws('y el acceso al indice vectorial, tambien',
     static fn () => $bajado->vectorIndex('entradas'));
 
 ok('pero el indice vectorial NO se borra del disco', \is_dir($dir . '/entradas/_vec'));
-$bajado->storage()->cerrar();
+$bajado->storage()->close();
 
 $devuelta = new Db($dir, ['durable' => false, 'profile' => Profile::IA]);
 eq('al volver a subir, los vectores estan donde estaban', 2,
     \count($devuelta->similar('entradas', 'pan de masa madre', 2)));
 eq('y los documentos', 4, $devuelta->count('entradas'));
-$devuelta->storage()->cerrar();
+$devuelta->storage()->close();
 
 $ia = new Db($dir, ['durable' => false, 'profile' => Profile::IA]);
 
@@ -256,8 +256,8 @@ eq('el perfil solo se consulta en las puertas de entrada, no dentro del motor',
     [], $fuera);
 ok('y se consulta en varias de ellas (' . \count($conPerfil) . ')', \count($conPerfil) >= 4);
 
-$ia->storage()->cerrar();
-$sinPerfil->storage()->cerrar();
+$ia->storage()->close();
+$sinPerfil->storage()->close();
 rmrf($copias);
 rmrf($dir);
 summary();

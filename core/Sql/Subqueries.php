@@ -36,7 +36,7 @@ final class Subqueries
      * Recorre el arbol de condiciones y sustituye cada subconsulta por su
      * resultado ya calculado.
      */
-    public function resolver(?array $expr): ?array
+    public function resolve(?array $expr): ?array
     {
         if ($expr === null) {
             return null;
@@ -44,20 +44,20 @@ final class Subqueries
         return match ($expr['type'] ?? '') {
             'and', 'or' => [
                 'type'  => $expr['type'],
-                'left'  => $this->resolver($expr['left']),
-                'right' => $this->resolver($expr['right']),
+                'left'  => $this->resolve($expr['left']),
+                'right' => $this->resolve($expr['right']),
             ],
-            'not'      => ['type' => 'not', 'expr' => $this->resolver($expr['expr'])],
-            'subquery' => $this->existe($expr),
-            'cmp'      => $this->enLista($expr),
+            'not'      => ['type' => 'not', 'expr' => $this->resolve($expr['expr'])],
+            'subquery' => $this->hasIndex($expr),
+            'cmp'      => $this->inList($expr),
             default    => $expr,
         };
     }
 
     /** `EXISTS (SELECT ...)`: se convierte en un si o un no, ya resuelto. */
-    private function existe(array $nodo): array
+    private function hasIndex(array $nodo): array
     {
-        $hay = $this->filas((string) $nodo['sql']) !== [];
+        $hay = $this->rows((string) $nodo['sql']) !== [];
         $vale = ($nodo['negado'] ?? false) ? !$hay : $hay;
 
         // Un nodo que siempre se cumple, o que nunca. Se escribe como una
@@ -68,13 +68,13 @@ final class Subqueries
     }
 
     /** `campo IN (SELECT ...)`: se cambia la subconsulta por la lista de valores. */
-    private function enLista(array $nodo): array
+    private function inList(array $nodo): array
     {
         $valor = $nodo['value'] ?? null;
         if (!\is_array($valor) || ($valor['subquery'] ?? null) === null) {
             return $nodo;
         }
-        $nodo['value'] = $this->columna((string) $valor['subquery']);
+        $nodo['value'] = $this->column((string) $valor['subquery']);
         return $nodo;
     }
 
@@ -86,10 +86,10 @@ final class Subqueries
      *
      * @return list<mixed>
      */
-    private function columna(string $sql): array
+    private function column(string $sql): array
     {
         $valores = [];
-        foreach ($this->filas($sql) as $fila) {
+        foreach ($this->rows($sql) as $fila) {
             if ($fila === []) {
                 throw new Exception(
                     'AxiSQL: the subquery of an IN must return a column.'
@@ -101,7 +101,7 @@ final class Subqueries
     }
 
     /** @return list<array> */
-    private function filas(string $sql): array
+    private function rows(string $sql): array
     {
         $r = $this->db->sql($sql);
         return \is_array($r) ? \array_values(\array_filter($r, 'is_array')) : [];

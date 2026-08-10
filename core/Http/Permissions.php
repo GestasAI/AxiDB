@@ -63,30 +63,30 @@ final class Permissions
             return [false, 403, 'The bridge is in read-only mode.'];
         }
 
-        $portador = $this->tokenValido($token);
+        $portador = $this->validToken($token);
 
         if ($portador === null) {
             if ($token !== null && $token !== '') {
                 return [false, 401, 'Invalid token.'];
             }
-            return $this->sinToken($escribe, $coleccion, $esLocal);
+            return $this->withoutToken($escribe, $coleccion, $esLocal);
         }
 
         if ($escribe && !$portador['escribir']) {
             return [false, 403, 'This token is read-only.'];
         }
-        if (!self::alcanza($portador['colecciones'], $coleccion)) {
+        if (!self::reaches($portador['colecciones'], $coleccion)) {
             return [false, 403, "This token does not reach '{$coleccion}'."];
         }
         return [true, 200, ''];
     }
 
-    public function hayTokens(): bool
+    public function hasTokens(): bool
     {
         return $this->tokens !== [];
     }
 
-    public static function escribe(string $accion): bool
+    public static function isWrite(string $accion): bool
     {
         return \in_array($accion, self::ESCRITURAS, true);
     }
@@ -94,7 +94,7 @@ final class Permissions
     /* ─────────────────────────────── Interno ─────────────────────────────── */
 
     /** @return array{colecciones: string|list<string>, escribir: bool}|null */
-    private function tokenValido(?string $token): ?array
+    private function validToken(?string $token): ?array
     {
         if ($token === null || $token === '') {
             return null;
@@ -112,12 +112,12 @@ final class Permissions
     }
 
     /** @return array{0: bool, 1: int, 2: string} */
-    private function sinToken(bool $escribe, ?string $coleccion, bool $esLocal): array
+    private function withoutToken(bool $escribe, ?string $coleccion, bool $esLocal): array
     {
         if (!$escribe && $coleccion !== null && \in_array($coleccion, $this->publicas, true)) {
             return [true, 200, ''];
         }
-        if ($this->hayTokens()) {
+        if ($this->hasTokens()) {
             return [false, 401, 'A token is required.'];
         }
         if ($this->abierto) {
@@ -131,7 +131,7 @@ final class Permissions
             . "Declara 'tokens' o pon 'abierto' => true si de verdad quieres una API sin llave."];
     }
 
-    private static function alcanza(string|array $ambito, ?string $coleccion): bool
+    private static function reaches(string|array $ambito, ?string $coleccion): bool
     {
         if ($ambito === '*' || $coleccion === null) {
             return true;

@@ -97,9 +97,9 @@ foreach (['fs', 'packed'] as $driver) {
     $dir = tmpdir('tortura_' . $driver);
     $db  = new Db($dir, ['durable' => false]);
     if ($driver !== 'fs') {
-        $db->storage()->declararDriver('docs', $driver);
+        $db->storage()->declareDriver('docs', $driver);
     }
-    $db->storage()->cerrar();
+    $db->storage()->close();
 
     $muertes   = 0;
     $escritos  = 0;
@@ -130,7 +130,7 @@ foreach (['fs', 'packed'] as $driver) {
         $revision = revisar($lector);
         $escritos = \max($escritos, $revision['revisados']);
         $rotos    = \array_merge($rotos, $revision['rotos']);
-        $lector->storage()->cerrar();
+        $lector->storage()->close();
     }
 
     // Cada vuelta del worker hace dos escrituras: el documento nuevo y el que
@@ -172,7 +172,7 @@ foreach (['fs', 'packed'] as $driver) {
     $r = revisar($db);
     ok('y el barrido no se llevo por delante ningun documento', $r['revisados'] >= $antes);
 
-    $db->storage()->cerrar();
+    $db->storage()->close();
     rmrf($dir);
 }
 
@@ -212,7 +212,7 @@ ok('un documento que no se estaba escribiendo no se toca', ($viejo['carga'] ?? n
 
 $revision = revisar($lector);
 eq('y de los que si se escribian, ninguno quedo a medias', [], \array_slice($revision['rotos'], 0, 5));
-$lector->storage()->cerrar();
+$lector->storage()->close();
 rmrf($dir);
 
 summary();

@@ -21,7 +21,7 @@ final class Projection
     {
     }
 
-    public function esCountPelado(): bool
+    public function isBareCount(): bool
     {
         $pelado = $this->ts->peek()->type === Token::KW
             && \strtoupper((string) $this->ts->peek()->value) === 'COUNT'
@@ -50,7 +50,7 @@ final class Projection
      *
      * @return list<string>|list<array{expr?:array, alias?:string, star?:bool}>
      */
-    public function parseLista(): array
+    public function parseList(): array
     {
         // El caso de siempre —`SELECT * FROM`— se resuelve aparte y devuelve la
         // misma forma que antes, para no cambiarle el AST a lo que ya funciona.

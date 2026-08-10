@@ -33,69 +33,69 @@ final class Agent
     ) {
     }
 
-    public function actor(): string
+    public function actorName(): string
     {
         return 'agent:' . $this->nombre;
     }
 
     /* ─────────────────────────── Interruptor de parada ─────────────────────── */
 
-    public function detener(string $motivo = ''): void
+    public function stop(string $motivo = ''): void
     {
         @\mkdir($this->dirParadas, 0755, true);
-        @\file_put_contents($this->archivoParada(), (string) \json_encode([
+        @\file_put_contents($this->stopFile(), (string) \json_encode([
             'ts'     => \date('c'),
             'motivo' => $motivo,
         ]));
-        $this->auditoria->anotar($this->actor(), 'detener', null, null, true, $motivo ?: null);
+        $this->auditoria->record($this->actorName(), 'detener', null, null, true, $motivo ?: null);
     }
 
-    public function reanudar(): void
+    public function resume(): void
     {
-        @\unlink($this->archivoParada());
-        $this->auditoria->anotar($this->actor(), 'reanudar', null, null, true);
+        @\unlink($this->stopFile());
+        $this->auditoria->record($this->actorName(), 'reanudar', null, null, true);
     }
 
-    public function detenido(): bool
+    public function isStopped(): bool
     {
-        return \is_file($this->archivoParada());
+        return \is_file($this->stopFile());
     }
 
     /* ─────────────────────────────── Operaciones ───────────────────────────── */
 
     public function get(string $coleccion, string $id): ?array
     {
-        return $this->hacer('get', $coleccion, $id, fn() => $this->db->get($coleccion, $id));
+        return $this->build('get', $coleccion, $id, fn() => $this->db->get($coleccion, $id));
     }
 
     public function exists(string $coleccion, string $id): bool
     {
-        return $this->hacer('exists', $coleccion, $id, fn() => $this->db->exists($coleccion, $id));
+        return $this->build('exists', $coleccion, $id, fn() => $this->db->exists($coleccion, $id));
     }
 
     public function find(string $coleccion): Query
     {
-        return $this->hacer('find', $coleccion, null, fn() => $this->db->find($coleccion));
+        return $this->build('find', $coleccion, null, fn() => $this->db->find($coleccion));
     }
 
     public function count(string $coleccion): int
     {
-        return $this->hacer('count', $coleccion, null, fn() => $this->db->count($coleccion));
+        return $this->build('count', $coleccion, null, fn() => $this->db->count($coleccion));
     }
 
     public function ids(string $coleccion): array
     {
-        return $this->hacer('ids', $coleccion, null, fn() => $this->db->ids($coleccion));
+        return $this->build('ids', $coleccion, null, fn() => $this->db->ids($coleccion));
     }
 
     public function all(string $coleccion): array
     {
-        return $this->hacer('all', $coleccion, null, fn() => $this->db->all($coleccion));
+        return $this->build('all', $coleccion, null, fn() => $this->db->all($coleccion));
     }
 
     public function similar(string $coleccion, string|array $consulta, int $k = 10, ?Query $donde = null): array
     {
-        return $this->hacer(
+        return $this->build(
             'similar',
             $coleccion,
             null,
@@ -105,12 +105,12 @@ final class Agent
 
     public function insert(string $coleccion, array $datos, ?string $id = null): array
     {
-        return $this->hacer('insert', $coleccion, $id, fn() => $this->db->insert($coleccion, $datos, $id));
+        return $this->build('insert', $coleccion, $id, fn() => $this->db->insert($coleccion, $datos, $id));
     }
 
     public function update(string $coleccion, string $id, array $datos, bool $reemplazar = false): array
     {
-        return $this->hacer(
+        return $this->build(
             'update',
             $coleccion,
             $id,
@@ -120,7 +120,7 @@ final class Agent
 
     public function delete(string $coleccion, string $id): bool
     {
-        return $this->hacer('delete', $coleccion, $id, fn() => $this->db->delete($coleccion, $id));
+        return $this->build('delete', $coleccion, $id, fn() => $this->db->delete($coleccion, $id));
     }
 
     /**
@@ -136,16 +136,16 @@ final class Agent
         $tipo = (string) ($ast['type'] ?? 'sql');
         $col  = isset($ast['collection']) ? (string) $ast['collection'] : null;
 
-        $this->guardia();
+        $this->guard();
         try {
-            $this->sandbox->exigirSql($tipo, $col);
+            $this->sandbox->requireSqlOp($tipo, $col);
         } catch (NotAllowed $e) {
-            $this->auditoria->anotar($this->actor(), 'sql:' . $tipo, $col, null, false, $e->getMessage());
+            $this->auditoria->record($this->actorName(), 'sql:' . $tipo, $col, null, false, $e->getMessage());
             throw $e;
         }
 
         $resultado = (new \Axi\Core\Sql\Executor($this->db))->run($ast);
-        $this->auditoria->anotar($this->actor(), 'sql:' . $tipo, $col, null, true);
+        $this->auditoria->record($this->actorName(), 'sql:' . $tipo, $col, null, true);
         return $resultado;
     }
 
@@ -157,37 +157,37 @@ final class Agent
      * Que sea uno solo es lo que hace que no se pueda olvidar la auditoria en
      * una operacion nueva; para añadirla hay que pasar por aqui.
      */
-    private function hacer(string $operacion, ?string $coleccion, ?string $id, callable $tarea): mixed
+    private function build(string $operacion, ?string $coleccion, ?string $id, callable $tarea): mixed
     {
-        $this->guardia();
+        $this->guard();
         try {
-            $this->sandbox->exigir($operacion, $coleccion);
+            $this->sandbox->requireOp($operacion, $coleccion);
         } catch (NotAllowed $e) {
-            $this->auditoria->anotar($this->actor(), $operacion, $coleccion, $id, false, $e->getMessage());
+            $this->auditoria->record($this->actorName(), $operacion, $coleccion, $id, false, $e->getMessage());
             throw $e;
         }
 
         try {
             $resultado = $tarea();
         } catch (\Throwable $e) {
-            $this->auditoria->anotar($this->actor(), $operacion, $coleccion, $id, false, $e->getMessage());
+            $this->auditoria->record($this->actorName(), $operacion, $coleccion, $id, false, $e->getMessage());
             throw $e;
         }
 
-        $this->auditoria->anotar($this->actor(), $operacion, $coleccion, $id, true);
+        $this->auditoria->record($this->actorName(), $operacion, $coleccion, $id, true);
         return $resultado;
     }
 
-    private function guardia(): void
+    private function guard(): void
     {
-        if ($this->detenido()) {
-            $parada = \json_decode((string) @\file_get_contents($this->archivoParada()), true);
+        if ($this->isStopped()) {
+            $parada = \json_decode((string) @\file_get_contents($this->stopFile()), true);
             $motivo = \is_array($parada) && !empty($parada['motivo']) ? " Motivo: {$parada['motivo']}" : '';
             throw new NotAllowed("El agente '{$this->nombre}' esta detenido.{$motivo}");
         }
     }
 
-    private function archivoParada(): string
+    private function stopFile(): string
     {
         return $this->dirParadas . '/' . \preg_replace('/[^a-zA-Z0-9_-]/', '_', $this->nombre) . '.stop';
     }

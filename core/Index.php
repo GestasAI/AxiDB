@@ -107,7 +107,7 @@ final class Index
         }
         // El directorio se crea aunque no haya nada que indexar: es lo que declara
         // el indice como existente para que put() lo mantenga desde la primera alta.
-        $this->anotarCampo($dir, $field);
+        $this->recordField($dir, $field);
 
         $buckets = [];
         foreach ($this->storage->all($collection) as $doc) {
@@ -178,7 +178,7 @@ final class Index
         // script de mantenimiento con otro usuario dejo el dueño equivocado.
         $fp = @\fopen($path, 'c+');
         if (!$fp) {
-            throw new Exception("Index: could not write '{$path}'. " . IndexVerifier::pistaPermisos($dir));
+            throw new Exception("Index: could not write '{$path}'. " . IndexVerifier::permissionHint($dir));
         }
         try {
             if (!\flock($fp, LOCK_EX)) {

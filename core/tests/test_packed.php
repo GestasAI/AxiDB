@@ -17,7 +17,7 @@ use Axi\Core\Db;
 function packed(string $sufijo): Db
 {
     $db = new Db(tmpdir('packed_' . $sufijo), ['durable' => false]);
-    $db->storage()->declararDriver('p', 'packed');
+    $db->storage()->declareDriver('p', 'packed');
     return $db;
 }
 
@@ -83,7 +83,7 @@ eq('el documento desaparece de las consultas', 2, $db2->count('p'));
 ok('get devuelve null',   $db2->get('p', 'd2') === null);
 eq('el archivo de datos no se ha tocado', $lineasAntes,
     \substr_count((string) \file_get_contents($db2->path() . '/p/data.axi'), "\n"));
-ok('el espacio muerto sube', $db2->storage()->proporcionMuerta('p') > 0);
+ok('el espacio muerto sube', $db2->storage()->deadRatio('p') > 0);
 
 $db2->insert('p', ['n' => 'renacido'], 'd2');
 eq('se puede reutilizar un id borrado', 'renacido', $db2->get('p', 'd2')['n']);
@@ -134,7 +134,7 @@ foreach ($procs as $p) {
     waitFor($p);
 }
 
-$db4->storage()->declararDriver('p', 'packed');   // olvida el mapa en memoria
+$db4->storage()->declareDriver('p', 'packed');   // olvida el mapa en memoria
 eq('las 160 altas concurrentes estan todas', 160, $db4->count('p'));
 eq('y se leen todas',                        160, \count($db4->all('p')));
 

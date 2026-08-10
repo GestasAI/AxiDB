@@ -21,7 +21,7 @@ use Axi\Core\Vector\Manifest;
 function almacenNuevo(string $dir, int $dims, string $fuente = 'test'): Store
 {
     $almacen = new Store($dir);
-    $almacen->activar(Manifest::nuevo('embedding', $dims, $fuente, []));
+    $almacen->enable(Manifest::nuevo('embedding', $dims, $fuente, []));
     return $almacen;
 }
 
@@ -43,7 +43,7 @@ function sembrarVectores(
     int $semilla = 12345
 ): array {
     foreach (generadorVectores($cuantos, $dims, $agrupados, $semilla) as $i => $v) {
-        $almacen->poner($prefijo . $i, $v);
+        $almacen->put($prefijo . $i, $v);
     }
     $muestras = [];
     for ($c = 0; $c < 5; $c++) {
@@ -139,8 +139,8 @@ function generarVectores(int $cuantos, int $dims, bool $agrupados, int $semilla 
 function fuerzaBruta(Store $almacen, array $consulta, int $k): array
 {
     $todos = [];
-    $almacen->recorrerVectores(function (int $ordinal, array $v) use (&$todos, $consulta, $almacen) {
-        $id = $almacen->idDe($ordinal);
+    $almacen->eachVector(function (int $ordinal, array $v) use (&$todos, $consulta, $almacen) {
+        $id = $almacen->idOf($ordinal);
         if ($id !== null) {
             $todos[$id] = Quantizer::coseno($consulta, $v);
         }

@@ -33,38 +33,38 @@ final class Compaction
      * Se llama con el cerrojo ya cogido: quien compacta no puede competir con
      * quien escribe.
      */
-    public function ejecutar(Manifest $m): int
+    public function execute(Manifest $m): int
     {
         if ($m->bajas === 0) {
             return 0;
         }
         $anchos = [
-            'codigos'  => $m->anchoCodigo(),
-            'vectores' => $m->anchoFloat(),
+            'codigos'  => $m->codeWidth(),
+            'vectores' => $m->floatWidth(),
             'ids'      => Manifest::ANCHO_ID,
         ];
 
         $crudos = [];
         $nuevos = [];
         foreach ($anchos as $cual => $ancho) {
-            $crudos[$cual] = $this->archivos->leerTodo($cual);
+            $crudos[$cual] = $this->archivos->readAll($cual);
             $nuevos[$cual] = '';
         }
 
-        foreach (\array_keys($this->ids->vivos()) as $ordinal) {
+        foreach (\array_keys($this->ids->alive()) as $ordinal) {
             foreach ($anchos as $cual => $ancho) {
                 $nuevos[$cual] .= \substr($crudos[$cual], $ordinal * $ancho, $ancho);
             }
         }
         foreach (\array_keys($anchos) as $cual) {
-            $this->archivos->escribirAtomico($cual, $nuevos[$cual]);
+            $this->archivos->writeAtomic($cual, $nuevos[$cual]);
         }
 
         $retiradas = $m->bajas;
         $m->cuenta = \intdiv(\strlen($nuevos['ids']), Manifest::ANCHO_ID);
         $m->bajas  = 0;
 
-        $this->ids->olvidar();              // los ordinales han cambiado todos
+        $this->ids->forget();              // los ordinales han cambiado todos
         return $retiradas;
     }
 }

@@ -11,6 +11,85 @@ romperlo en la version siguiente.
 
 ---
 
+## [0.7.0] — 2026-08-10
+
+El motor habla un solo idioma.
+
+**Esta version rompe la API.** Si vienes de 0.6.x, la tabla de abajo dice como
+se llama ahora cada cosa. El nombre nuevo es el de siempre en una base de datos:
+`begin`, `commit`, `rollback`, `unique`, `encrypt`, `backup`, `UPPER`, `ROUND`.
+
+### Por que
+
+`insert`, `find`, `where` y `count` convivian con `unico`, `transaccion`,
+`cifrar` y `declararEsquema`. Noventa clases en español entre las inglesas.
+`MAYUS` y `REDONDEA` dentro de un `SELECT ... GROUP BY`. Quien leia la API no
+podia adivinar en que idioma estaria el siguiente metodo que necesitase, y eso
+no se arregla documentandolo: se arregla eligiendo uno.
+
+Los comentarios del codigo siguen en español, a proposito. Ahi vive el porque de
+cada decision, y traducirlos es un trabajo distinto.
+
+### La API
+
+| Antes | Ahora |
+|---|---|
+| `transaccion()` | `transaction()` |
+| `abrir()` / `cerrar()` / `descartar()` | `begin()` / `commit()` / `rollback()` |
+| `unico()` / `unicos()` | `unique()` / `uniques()` |
+| `declararEsquema()` / `esquema()` | `defineSchema()` / `schema()` |
+| `declararCaducidad()` / `caducidad()` | `defineTtl()` / `ttl()` |
+| `cifrar()` / `estaCifrada()` | `encrypt()` / `isEncrypted()` |
+| `copiar()` / `copias()` / `restaurar()` | `backup()` / `backups()` / `restore()` |
+| `exportar()` / `importar()` | `export()` / `import()` |
+| `describir()` / `estadisticas()` / `revision()` | `describe()` / `stats()` / `checkup()` |
+| `vectores()` / `vectorial()` / `hibrida()` | `enableVectors()` / `vectorIndex()` / `hybrid()` |
+| `agente()` / `auditoria()` | `agent()` / `audit()` |
+| `renombrarColeccion()` | `renameCollection()` |
+| `perfil()` | `profile()` |
+| `indice()` | **eliminado**, duplicaba a `indexer()` |
+
+Las opciones del constructor: `perfil` es `profile`, `clave` es `key`,
+`recuperar` es `recover`. `durable` y `embedder` no cambian.
+
+### AxiSQL
+
+`MAYUS`→`UPPER`, `MINUS`→`LOWER`, `LARGO`→`LENGTH`, `RECORTA`→`TRIM`,
+`UNIR`→`CONCAT`, `TROZO`→`SUBSTR`, `REEMPLAZA`→`REPLACE`, `REDONDEA`→`ROUND`,
+`TECHO`→`CEIL`, `SUELO`→`FLOOR`, `AHORA`→`NOW`, `HOY`→`CURDATE`, `FECHA`→`DATE`,
+`ANIO`→`YEAR`, `MES`→`MONTH`, `DIA`→`DAY`, `HORA`→`HOUR`,
+`DIAS_ENTRE`→`DATEDIFF`, `SI_NULO`→`IFNULL`.
+
+`LARGO` y `LONGITUD` eran la misma funcion con dos nombres: ahora solo `LENGTH`.
+
+### Los datos, sin tocar
+
+Las claves de `_axidb.json` pasan de `unicos`, `esquema`, `caducidad`,
+`cifrado` y `durabilidad` a `uniques`, `schema`, `ttl`, `encrypted` y
+`durability`. **El motor lee las dos formas** y escribe la nueva, asi que una
+base creada con 0.6.x abre con sus reglas puestas y se actualiza sola en la
+primera escritura.
+
+Sin eso, una coleccion con `UNIQUE` declarado se habria abierto sin el —sin un
+error y sin un aviso— y habria empezado a admitir duplicados. Hay un test que lo
+comprueba: fabrica una base con los nombres antiguos y verifica que sigue
+rechazando el duplicado.
+
+### Los mensajes
+
+Los 163 mensajes de error, en ingles, que es el idioma en el que se buscan
+cuando saltan. Conservan lo que los hacia utiles: la posicion y el token en los
+de sintaxis, la dimension que llego, la ruta, y la frase que dice que hacer.
+
+### Y un guardian para que dure
+
+`test_agnostico` comprueba ahora que ningun metodo del nucleo lleve nombre en
+español ni una tilde en el identificador, y que AxiSQL ofrezca `UPPER` y `ROUND`
+y ya no `MAYUS` ni `REDONDEA`. En su primera ejecucion encontro cuatro metodos
+que se habian escapado a tres barridos manuales.
+
+---
+
 ## [0.6.1] — 2026-08-09
 
 Lo que recibe quien clona el repositorio.
@@ -95,8 +174,8 @@ Perfiles: declarar para que es esta base de datos.
 ### Corregido
 
 - **Un `is_file` cacheado hacia creer que una coleccion no tenia vectores.**
-  `Files::tamaño()` limpiaba la cache de stat de PHP —con un comentario que
-  explicaba por que— y `Files::hay()` no. Y `hay()` es justo lo que decide si
+  `Files::size()` limpiaba la cache de stat de PHP —con un comentario que
+  explicaba por que— y `Files::exists()` no. Y `hay()` es justo lo que decide si
   una coleccion tiene vectores activados.
 
   Solo fallaba con la maquina cargada, y siempre igual: "esta coleccion no tiene
@@ -248,7 +327,7 @@ ahi desde antes, encontrados por el camino.
 
 ### Añadido
 
-- **Copias de seguridad, completas e incrementales.** `$db->copiar('./copias')`,
+- **Copias de seguridad, completas e incrementales.** `$db->copyDocument('./copias')`,
   `$db->backups('./copias')` y `$db->restore($archivo)`. Guia:
   [13-copias](docs/guide/13-copias.md).
 
@@ -312,7 +391,7 @@ ahi desde antes, encontrados por el camino.
   a `Query` una fuente alternativa de documentos, no reimplementandola. Lo unico
   que cambia es que ahi dentro no se usan indices —viven en el disco y no saben
   nada de lo que no se ha confirmado— y `EXPLAIN` lo dice.
-- `$db->indice()` da acceso al indice secundario, como ya lo daban `storage()` y
+- `$db->indexOf()` da acceso al indice secundario, como ya lo daban `storage()` y
   `vectorial()`. `verifyIndexes()` avisa ademas de los indices heredados cuyo
   campo no se puede saber, en vez de saltarselos en silencio.
 - **`UNIQUE` que se cumple de verdad.** `CREATE UNIQUE INDEX ON clientes (email)`
@@ -325,7 +404,7 @@ ahi desde antes, encontrados por el camino.
 
   Sin valor no es compartir valor: varios documentos sin ese campo conviven,
   igual que con NULL en SQL. Quitar el indice quita la unicidad.
-- `$db->indice()` da acceso al indice secundario, como ya lo daban `storage()` y
+- `$db->indexOf()` da acceso al indice secundario, como ya lo daban `storage()` y
   `vectorial()` a los otros dos subsistemas.
 - `verifyIndexes()` cuenta ahora las entradas que **sobran**, no solo las que
   faltan. Hacen falta porque una reserva de un campo unico cuyo documento nunca
@@ -408,7 +487,7 @@ Busqueda por significado y agentes con permisos.
   No era el tamaño del archivo sino que leerlo mientras el propio proceso lo
   tiene abierto para escribir cuesta carisimo en Windows. Con el mapa en memoria:
   **0,27 ms, 80 veces mas rapido.**
-- `Storage::poner()` no comprobaba las dimensiones: un vector corto descolocaba
+- `Storage::put()` no comprobaba las dimensiones: un vector corto descolocaba
   todos los registros posteriores y no se notaba hasta la siguiente busqueda.
 - `Sweeper::rmrf()` no podia borrar archivos de solo lectura, asi que borrar una
   coleccion que tuviera alguno fallaba a medias y en silencio.
@@ -432,7 +511,7 @@ en verde.
   archivo JSON por documento —legible, comparable con git, reparable a mano— y
   `packed` guarda la coleccion entera en un archivo al que solo se añade.
   Empaquetado escribe unas 40 veces mas rapido. El defecto sigue siendo `fs`.
-- `Storage::migrarA()` cambia el formato de una coleccion en los dos sentidos
+- `Storage::migrateTo()` cambia el formato de una coleccion en los dos sentidos
   sin tocar el contenido: ni la version, ni las fechas.
 - Durabilidad por coleccion, `safe` o `fast`. La que no necesita `fsync` no lo paga.
 - Compactacion del formato empaquetado por umbral de espacio muerto (30%).

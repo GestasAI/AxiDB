@@ -37,13 +37,13 @@ final class Planner
                 return $encontrada;
             }
         }
-        return $expr === null ? null : $this->buscarEnAnd($expr);
+        return $expr === null ? null : $this->searchInAnd($expr);
     }
 
-    private function buscarEnAnd(array $nodo): ?array
+    private function searchInAnd(array $nodo): ?array
     {
         if (($nodo['type'] ?? '') === 'and') {
-            return $this->buscarEnAnd($nodo['left']) ?? $this->buscarEnAnd($nodo['right']);
+            return $this->searchInAnd($nodo['left']) ?? $this->searchInAnd($nodo['right']);
         }
         // Un cmp sin `field` compara una expresion —`MONTH(fecha) = 3`— y no un
         // campo. Ningun indice guarda el mes de una fecha, asi que ahi no hay

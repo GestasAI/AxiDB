@@ -38,23 +38,23 @@ final class Structure
     {
     }
 
-    public function ejecutar(array $ast): mixed
+    public function execute(array $ast): mixed
     {
         return match ($ast['type']) {
-            'show_collections'   => $this->colecciones(),
-            'show_indexes'       => $this->indices($ast['collection']),
+            'show_collections'   => $this->collectionsOf(),
+            'show_indexes'       => $this->indexesOf($ast['collection']),
             'describe'           => $this->describe($ast['collection']),
-            'create_view'        => $this->crearVista($ast),
+            'create_view'        => $this->createView($ast),
             'alter_rename'       => $this->renameCollection($ast),
-            'alter_add_field'    => $this->añadirCampo($ast),
-            'alter_drop_field'   => $this->quitarCampo($ast),
-            'alter_rename_field' => $this->renombrarCampo($ast),
+            'alter_add_field'    => $this->addField($ast),
+            'alter_drop_field'   => $this->dropField($ast),
+            'alter_rename_field' => $this->renameField($ast),
             default => throw new Exception("AxiSQL: '{$ast['type']}' no es una orden de estructura."),
         };
     }
 
     /** @return list<array{coleccion:string, documentos:int}> */
-    private function colecciones(): array
+    private function collectionsOf(): array
     {
         $fuera = [];
         foreach ($this->db->collections() as $c) {
@@ -67,7 +67,7 @@ final class Structure
     }
 
     /** @return list<array{campo:string, unico:bool, valores:int}> */
-    private function indices(string $coleccion): array
+    private function indexesOf(string $coleccion): array
     {
         $unicos = $this->db->uniques($coleccion);
         $fuera  = [];
@@ -94,7 +94,7 @@ final class Structure
                 $campos[$campo] ??= ['tipos' => [], 'cuantos' => 0];
                 $campos[$campo]['cuantos']++;
                 if ($valor !== null) {
-                    $campos[$campo]['tipos'][self::tipoDe($valor)] = true;
+                    $campos[$campo]['tipos'][self::typeOf($valor)] = true;
                 }
             }
         }
@@ -118,7 +118,7 @@ final class Structure
         return $fuera;
     }
 
-    private static function tipoDe(mixed $v): string
+    private static function typeOf(mixed $v): string
     {
         return match (true) {
             \is_bool($v)   => 'bool',
@@ -130,7 +130,7 @@ final class Structure
         };
     }
 
-    private function crearVista(array $ast): array
+    private function createView(array $ast): array
     {
         $this->db->put(self::VISTAS, (string) $ast['view'], [
             'sql'    => (string) $ast['sql'],
@@ -152,9 +152,9 @@ final class Structure
         return ['renamed' => $this->db->renameCollection($ast['collection'], (string) $ast['to'])];
     }
 
-    private function añadirCampo(array $ast): array
+    private function addField(array $ast): array
     {
-        return ['updated' => $this->db->campo(
+        return ['updated' => $this->db->fieldOp(
             $ast['collection'],
             'añadir',
             (string) $ast['field'],
@@ -162,14 +162,14 @@ final class Structure
         )];
     }
 
-    private function quitarCampo(array $ast): array
+    private function dropField(array $ast): array
     {
-        return ['updated' => $this->db->campo($ast['collection'], 'quitar', (string) $ast['field'])];
+        return ['updated' => $this->db->fieldOp($ast['collection'], 'quitar', (string) $ast['field'])];
     }
 
-    private function renombrarCampo(array $ast): array
+    private function renameField(array $ast): array
     {
-        return ['updated' => $this->db->campo(
+        return ['updated' => $this->db->fieldOp(
             $ast['collection'],
             'renombrar',
             (string) $ast['field'],

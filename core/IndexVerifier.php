@@ -25,7 +25,7 @@ final class IndexVerifier
      * mantenimiento lanzado con otra cuenta deja los indices inservibles para el
      * servidor web.
      */
-    public static function pistaPermisos(string $dir): string
+    public static function permissionHint(string $dir): string
     {
         if (!\function_exists('posix_geteuid') || !\function_exists('posix_getpwuid')) {
             return 'Check the directory permissions and rebuild with reindex().';
@@ -60,7 +60,7 @@ final class IndexVerifier
 
             // Un solo bucket se consulta una vez aunque lo compartan mil documentos.
             $cache[$value] ??= $index->ids($collection, $field, $value) ?? [];
-            $esperados[$index->nombreDeBucket($collection, $field, $value)][$id] = true;
+            $esperados[$index->bucketNameOf($collection, $field, $value)][$id] = true;
 
             if (\in_array($id, $cache[$value], true)) {
                 $indexados++;
@@ -71,7 +71,7 @@ final class IndexVerifier
             'documentos' => $documentos,
             'indexados'  => $indexados,
             'faltan'     => $documentos - $indexados,
-            'sobran'     => self::sobrantes($index, $collection, $field, $esperados),
+            'sobran'     => self::leftovers($index, $collection, $field, $esperados),
         ];
     }
 
@@ -92,7 +92,7 @@ final class IndexVerifier
      *
      * @param array<string, array<string,true>> $esperados ids validos por bucket
      */
-    private static function sobrantes(
+    private static function leftovers(
         Index $index,
         string $collection,
         string $field,

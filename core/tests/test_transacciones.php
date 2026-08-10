@@ -115,7 +115,7 @@ $db->transaction(static fn ($tx) => $tx->delete('usuarios', 'u1'));
 eq('borrar dentro de una transaccion libera el valor unico', [],
     $db->by('usuarios', 'correo', 'ana@ejemplo.com'));
 
-$db->storage()->cerrar();
+$db->storage()->close();
 rmrf($dir);
 
 /* ─────────────────────────────────────────────────────────────────────────── */
@@ -182,7 +182,7 @@ throws('y no se anidan', static fn () => $sql->sql('BEGIN'));
 $sql->sql('ROLLBACK');
 
 eq('no queda ningun diario', [], \glob($dir2 . '/_tx/*') ?: []);
-$sql->storage()->cerrar();
+$sql->storage()->close();
 rmrf($dir2);
 
 /* ─────────────────────────────────────────────────────────────────────────── */
@@ -195,15 +195,15 @@ section('E] La marca de confirmacion decide');
 $dir = tmpdir('tx_recuperacion');
 $db  = new Db($dir, ['durable' => false]);
 $db->insert('c', ['n' => 1], 'd1');
-$db->storage()->cerrar();
+$db->storage()->close();
 
 $plan = [['coleccion' => 'c', 'id' => 'd1', 'accion' => 'poner', 'datos' => ['n' => 42]]];
 
 $sinMarca = new Journal($dir, 'tx_sin_marca');
-$sinMarca->anotar($plan);
+$sinMarca->record($plan);
 
 $conMarca = new Journal($dir, 'tx_con_marca');
-$conMarca->anotar($plan);
+$conMarca->record($plan);
 $conMarca->confirmar();
 
 $reabierto = new Db($dir, ['durable' => false, 'recover' => false]);
@@ -220,16 +220,16 @@ eq('no queda ningun diario', [], \glob($dir . '/_tx/*') ?: []);
 // Aplicar dos veces el mismo plan tiene que dar el mismo resultado: si no, una
 // recuperacion que se repita —dos procesos abriendo a la vez— haria daño.
 $otra = new Journal($dir, 'tx_repetido');
-$otra->anotar($plan);
+$otra->record($plan);
 $otra->confirmar();
 $reabierto->recover();
 $otra2 = new Journal($dir, 'tx_repetido_2');
-$otra2->anotar($plan);
+$otra2->record($plan);
 $otra2->confirmar();
 $reabierto->recover();
 eq('aplicar el mismo plan dos veces deja lo mismo', 42, $reabierto->get('c', 'd1')['n']);
 
-$reabierto->storage()->cerrar();
+$reabierto->storage()->close();
 rmrf($dir);
 
 /* ─────────────────────────────────────────────────────────────────────────── */
@@ -249,7 +249,7 @@ $dir = tmpdir('tx_tortura');
 $db  = new Db($dir, ['durable' => false]);
 $db->insert('cuentas', ['saldo' => 500], 'a');
 $db->insert('cuentas', ['saldo' => 500], 'b');
-$db->storage()->cerrar();
+$db->storage()->close();
 
 $muertes  = 0;
 $descuadres = [];
@@ -266,7 +266,7 @@ for ($ronda = 0; $ronda < RONDAS_TX; $ronda++) {
 
     $lector = new Db($dir, ['durable' => false, 'recover' => false]);
     $pendientes = \count(Journal::pendientes($dir));
-    $lector->storage()->cerrar();
+    $lector->storage()->close();
 
     $tras = new Db($dir, ['durable' => false]);          // recupera al abrir
     $suma = ($tras->get('cuentas', 'a')['saldo'] ?? 0) + ($tras->get('cuentas', 'b')['saldo'] ?? 0);
@@ -274,7 +274,7 @@ for ($ronda = 0; $ronda < RONDAS_TX; $ronda++) {
         $descuadres[] = "ronda {$ronda}: la suma vale {$suma}";
     }
     $recuperadas += $pendientes;
-    $tras->storage()->cerrar();
+    $tras->storage()->close();
 }
 
 $final = new Db($dir, ['durable' => false]);
@@ -289,7 +289,7 @@ $suma = $final->get('cuentas', 'a')['saldo'] + $final->get('cuentas', 'b')['sald
 eq('el total sigue siendo el de partida', TOTAL, $suma);
 eq('y no queda ningun diario sin resolver', [], \glob($dir . '/_tx/*') ?: []);
 
-$final->storage()->cerrar();
+$final->storage()->close();
 rmrf($dir);
 
 summary();

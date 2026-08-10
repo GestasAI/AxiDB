@@ -326,5 +326,62 @@ ok('ningun tipo apunta a una clase inexistente'
     . ($sinResolver === [] ? '' : ' -> ' . \implode(' | ', \array_slice($sinResolver, 0, 5))),
     $sinResolver === []);
 
+/* ─────────────────────────────────────────────────────────────────────────── */
+section('I] El codigo, en un solo idioma');
+
+/*
+ * El motor estuvo a medias en dos idiomas: `insert`, `find` y `count` conviviendo
+ * con `unico`, `transaccion` y `declararEsquema`; noventa clases en español entre
+ * las inglesas; `MAYUS` y `REDONDEA` dentro de un SELECT. Un desarrollador no
+ * podia adivinar en que idioma estaria el siguiente metodo que necesitase.
+ *
+ * Costo un dia entero arreglarlo: mil cien renombrados de metodo, noventa clases
+ * y ciento sesenta y tres mensajes. Sin un guardian, se deshace en dos semanas:
+ * basta con que alguien añada `function buscarPorNombre()` porque le salio asi.
+ *
+ * Los comentarios SI van en español, a proposito: es donde vive el porque de
+ * cada decision. Por eso esto mira identificadores y no texto.
+ */
+$sospechosas = [
+    'buscar', 'guardar', 'borrar', 'crear', 'obtener', 'devolver', 'cerrar',
+    'abrir', 'leer', 'escribir', 'anotar', 'quitar', 'poner', 'contar',
+    'nombre', 'campo', 'valor', 'clave', 'ruta', 'archivo', 'tamaño',
+    'cantidad', 'fecha', 'cadena', 'lista', 'consulta', 'coleccion',
+    'documento', 'indice', 'ajuste', 'copia', 'esquema', 'unico', 'vacio',
+];
+
+$enEspañol = [];
+foreach ($fuentes as $archivo => $codigo) {
+    \preg_match_all('/\bfunction\s+([a-zA-Z_\x80-\xff][a-zA-Z0-9_\x80-\xff]*)\s*\(/', $codigo, $m);
+    foreach ($m[1] ?? [] as $metodo) {
+        // Una tilde o una eñe en un identificador no admite discusion.
+        if (\preg_match('/[áéíóúñÁÉÍÓÚÑ]/u', $metodo) === 1) {
+            $enEspañol[] = "{$archivo}::{$metodo}() (lleva tilde o eñe)";
+            continue;
+        }
+        foreach ($sospechosas as $palabra) {
+            if (\stripos($metodo, $palabra) === 0) {
+                $enEspañol[] = "{$archivo}::{$metodo}()";
+                break;
+            }
+        }
+    }
+}
+ok('ningun metodo del nucleo tiene nombre en español'
+    . ($enEspañol === [] ? '' : ' -> ' . \implode(', ', \array_slice($enEspañol, 0, 6))),
+    $enEspañol === []);
+
+/*
+ * Y las funciones de AxiSQL, que son las que escribe quien consulta: los nombres
+ * de siempre, no una traduccion. Quien viene de MySQL o SQLite ya se los sabe.
+ */
+$sql = (string) @\file_get_contents($core . '/Sql/Functions.php');
+foreach (['UPPER', 'LOWER', 'LENGTH', 'ROUND', 'CONCAT', 'SUBSTR', 'NOW', 'IFNULL'] as $fn) {
+    ok("AxiSQL ofrece {$fn}()", \str_contains($sql, "'{$fn}'"));
+}
+foreach (['MAYUS', 'REDONDEA', 'LARGO', 'UNIR', 'SI_NULO'] as $viejo) {
+    ok("y ya no {$viejo}()", !\str_contains($sql, "'{$viejo}'"));
+}
+
 rmrf($tmp);
 summary();

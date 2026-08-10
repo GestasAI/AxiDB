@@ -34,22 +34,22 @@ final class CaducidadDriver implements Driver
     ) {
     }
 
-    public function nombre(): string
+    public function driverName(): string
     {
-        return $this->dentro->nombre() . '+caducidad';
+        return $this->dentro->driverName() . '+caducidad';
     }
 
     public function get(string $collection, string $id): ?array
     {
         $doc = $this->dentro->get($collection, $id);
-        return $doc !== null && $this->vencido($doc) ? null : $doc;
+        return $doc !== null && $this->isExpired($doc) ? null : $doc;
     }
 
     public function all(string $collection): array
     {
         $fuera = [];
         foreach ($this->dentro->all($collection) as $clave => $doc) {
-            if (!$this->vencido($doc)) {
+            if (!$this->isExpired($doc)) {
                 $fuera[$clave] = $doc;
             }
         }
@@ -69,7 +69,7 @@ final class CaducidadDriver implements Driver
     {
         $barridos = 0;
         foreach ($this->dentro->all($collection) as $doc) {
-            if ($this->vencido($doc) && $this->dentro->delete($collection, (string) ($doc['id'] ?? ''))) {
+            if ($this->isExpired($doc) && $this->dentro->delete($collection, (string) ($doc['id'] ?? ''))) {
                 $barridos++;
             }
         }
@@ -83,9 +83,9 @@ final class CaducidadDriver implements Driver
         return $this->dentro->put($collection, $id, $data, $replace);
     }
 
-    public function copiar(string $collection, string $id, array $doc): void
+    public function copyDocument(string $collection, string $id, array $doc): void
     {
-        $this->dentro->copiar($collection, $id, $doc);
+        $this->dentro->copyDocument($collection, $id, $doc);
     }
 
     public function delete(string $collection, string $id): bool
@@ -99,7 +99,7 @@ final class CaducidadDriver implements Driver
      * Es la eleccion prudente: ante la duda, se conserva. Al reves, una fecha
      * que no se entiende borraria datos, y eso no se puede deshacer.
      */
-    private function vencido(array $doc): bool
+    private function isExpired(array $doc): bool
     {
         $marca = \strtotime((string) ($doc['_updatedAt'] ?? ''));
         return $marca !== false && $marca + $this->segundos <= \time();

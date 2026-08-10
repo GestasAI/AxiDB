@@ -39,7 +39,7 @@ final class Evaluator
             'or'  => self::matches($doc, $expr['left'], $agregados)
                   || self::matches($doc, $expr['right'], $agregados),
             'not' => !self::matches($doc, $expr['expr'], $agregados),
-            'cmp' => self::comparacion($doc, $expr, $agregados),
+            'cmp' => self::comparison($doc, $expr, $agregados),
             default => throw new Exception(
                 "Evaluator: unknown expression node '" . ($expr['type'] ?? 'null') . "'."
             ),
@@ -55,16 +55,16 @@ final class Evaluator
      * exactamente como estaba, que es el de casi todas las consultas y el que
      * no debe pagar nada por esto.
      */
-    private static function comparacion(array $doc, array $nodo, array $agregados): bool
+    private static function comparison(array $doc, array $nodo, array $agregados): bool
     {
         if (isset($nodo['expr'])) {
             // El lado derecho tambien puede ser una expresion: `precio > coste * 2`.
             $derecha = isset($nodo['valueExpr'])
-                ? Sql\Value::de($nodo['valueExpr'], $doc, $agregados)
+                ? Sql\Value::of($nodo['valueExpr'], $doc, $agregados)
                 : ($nodo['value'] ?? null);
 
-            return self::sobreValor(
-                Sql\Value::de($nodo['expr'], $doc, $agregados),
+            return self::onValue(
+                Sql\Value::of($nodo['expr'], $doc, $agregados),
                 true,
                 (string) $nodo['op'],
                 $derecha
@@ -80,26 +80,26 @@ final class Evaluator
      */
     public static function cmp(array $doc, string $field, string $op, mixed $target): bool
     {
-        return self::sobreValor($doc[$field] ?? null, \array_key_exists($field, $doc), $op, $target);
+        return self::onValue($doc[$field] ?? null, \array_key_exists($field, $doc), $op, $target);
     }
 
     /** El nucleo de la comparacion, ya con el valor de la izquierda resuelto. */
-    private static function sobreValor(mixed $actual, bool $existe, string $op, mixed $target): bool
+    private static function onValue(mixed $actual, bool $existe, string $op, mixed $target): bool
     {
         $op = \strtoupper(\trim($op));
 
         return match ($op) {
-            '=', '=='     => self::iguales($actual, $target),
-            '!=', '<>'    => !self::iguales($actual, $target),
-            '>'           => self::comparar($actual, $target) > 0,
-            '>='          => self::comparar($actual, $target) >= 0,
-            '<'           => self::comparar($actual, $target) < 0,
-            '<='          => self::comparar($actual, $target) <= 0,
-            'IN'          => \is_array($target) && self::enLista($actual, $target),
-            'NOT IN'      => \is_array($target) && !self::enLista($actual, $target),
+            '=', '=='     => self::areEqual($actual, $target),
+            '!=', '<>'    => !self::areEqual($actual, $target),
+            '>'           => self::compare($actual, $target) > 0,
+            '>='          => self::compare($actual, $target) >= 0,
+            '<'           => self::compare($actual, $target) < 0,
+            '<='          => self::compare($actual, $target) <= 0,
+            'IN'          => \is_array($target) && self::inList($actual, $target),
+            'NOT IN'      => \is_array($target) && !self::inList($actual, $target),
             'LIKE'        => \is_string($actual) && self::like($actual, (string) $target),
             'NOT LIKE'    => !(\is_string($actual) && self::like($actual, (string) $target)),
-            'CONTAINS'    => self::contiene($actual, $target),
+            'CONTAINS'    => self::contains($actual, $target),
             'BETWEEN'     => self::entre($actual, $target),
             'NOT BETWEEN' => !self::entre($actual, $target),
             'IS NULL'     => !$existe || $actual === null,
@@ -116,7 +116,7 @@ final class Evaluator
      * mismo precio. Sin ella, un valor que ha pasado por un formulario HTML
      * nunca casaria con el numero guardado.
      */
-    private static function iguales(mixed $a, mixed $b): bool
+    private static function areEqual(mixed $a, mixed $b): bool
     {
         if ($a === null || $b === null) {
             return $a === $b;
@@ -131,7 +131,7 @@ final class Evaluator
     }
 
     /** -1, 0 o 1. null se ordena por debajo de todo. */
-    private static function comparar(mixed $a, mixed $b): int
+    private static function compare(mixed $a, mixed $b): int
     {
         if ($a === null || $b === null) {
             return $a === $b ? 0 : ($a === null ? -1 : 1);
@@ -142,10 +142,10 @@ final class Evaluator
         return \strcmp((string) $a, (string) $b);
     }
 
-    private static function enLista(mixed $aguja, array $pajar): bool
+    private static function inList(mixed $aguja, array $pajar): bool
     {
         foreach ($pajar as $item) {
-            if (self::iguales($aguja, $item)) {
+            if (self::areEqual($aguja, $item)) {
                 return true;
             }
         }
@@ -163,8 +163,8 @@ final class Evaluator
         if (!\is_array($limites) || \count($limites) !== 2 || $actual === null) {
             return false;
         }
-        return self::comparar($actual, $limites[0]) >= 0
-            && self::comparar($actual, $limites[1]) <= 0;
+        return self::compare($actual, $limites[0]) >= 0
+            && self::compare($actual, $limites[1]) <= 0;
     }
 
     /** LIKE con % (cualquier secuencia) y _ (un caracter). Sin distinguir mayusculas. */
@@ -175,10 +175,10 @@ final class Evaluator
     }
 
     /** En texto, subcadena. En lista, pertenencia. */
-    private static function contiene(mixed $actual, mixed $aguja): bool
+    private static function contains(mixed $actual, mixed $aguja): bool
     {
         if (\is_array($actual)) {
-            return self::enLista($aguja, $actual);
+            return self::inList($aguja, $actual);
         }
         if (\is_string($actual) && (\is_string($aguja) || \is_numeric($aguja))) {
             return \stripos($actual, (string) $aguja) !== false;

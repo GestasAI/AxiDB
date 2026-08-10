@@ -2,7 +2,7 @@
 /**
  * AxiDB - utilidades compartidas por los tests del puente HTTP.
  *
- * Casi todo se prueba en proceso, llamando a Server::responder() con un
+ * Casi todo se prueba en proceso, llamando a Server::respond() con un
  * $_SERVER fabricado. No es un atajo: es mas fiable. Un servidor de verdad
  * añade puertos ocupados, arranques lentos y procesos huerfanos —los tres nos
  * han costado ya un dia de trabajo—, y no demuestra nada que esto no demuestre.
@@ -50,7 +50,7 @@ function pedir(
     $crudo = \is_string($cuerpo) ? $cuerpo : (string) \json_encode($cuerpo);
     $server['CONTENT_LENGTH'] = (string) \strlen($crudo);
 
-    return $s->responder($server, $crudo);
+    return $s->respond($server, $crudo);
 }
 
 /** Comprueba codigo HTTP y que la respuesta diga ok. */

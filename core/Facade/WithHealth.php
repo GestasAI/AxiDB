@@ -29,7 +29,7 @@ trait WithHealth
      */
     public function describe(string $collection): array
     {
-        return (new Structure($this))->ejecutar(['type' => 'describe', 'collection' => $collection]);
+        return (new Structure($this))->execute(['type' => 'describe', 'collection' => $collection]);
     }
 
     /**

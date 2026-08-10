@@ -27,7 +27,7 @@ final class Read
     {
     }
 
-    public function ejecutar(array $ast, bool $explicar): mixed
+    public function execute(array $ast, bool $explicar): mixed
     {
         return $ast['type'] === 'count'
             ? $this->count($ast, $explicar)
@@ -49,9 +49,9 @@ final class Read
     private function select(array $ast, bool $explicar): mixed
     {
         if (isset($ast['vector'])) {
-            return (new VectorSql($this->db))->ejecutar($ast, $explicar);
+            return (new VectorSql($this->db))->execute($ast, $explicar);
         }
-        $deVista = $this->resolverVista($ast);
+        $deVista = $this->resolveView($ast);
         if ($deVista !== null) {
             if ($explicar) {
                 return $this->plan('select', $ast['collection'], ['estrategia' => 'vista']);
@@ -60,12 +60,12 @@ final class Read
         }
 
         if (($ast['joins'] ?? []) !== []) {
-            return $this->conCruce($ast, $explicar);
+            return $this->withJoin($ast, $explicar);
         }
 
-        $q = $this->construirConsulta($ast);
+        $q = $this->buildQuery($ast);
         if ($explicar) {
-            return $this->explicarConsulta($q, $ast, 'select');
+            return $this->explainQuery($q, $ast, 'select');
         }
         /*
          * Query resuelve el WHERE —y usa indices si puede—; de ahi en adelante
@@ -78,9 +78,9 @@ final class Read
 
     private function count(array $ast, bool $explicar): mixed
     {
-        $q = $this->construirConsulta($ast);
+        $q = $this->buildQuery($ast);
         if ($explicar) {
-            return $this->explicarConsulta($q, $ast, 'count');
+            return $this->explainQuery($q, $ast, 'count');
         }
         return $q->count();
     }
@@ -93,12 +93,12 @@ final class Read
      * La excepcion es COUNT(*) pelado, que no construye filas y puede seguir
      * contando en el propio Query.
      */
-    private function construirConsulta(array $ast): Query
+    private function buildQuery(array $ast): Query
     {
         // Db::find() ya devuelve la vista correcta: si hay una transaccion
         // abierta, la consulta se resuelve sobre lo que esa transaccion ve.
         return $this->db->find($ast['collection'])
-            ->whereExpr((new Subqueries($this->db))->resolver($ast['where_expr']));
+            ->whereExpr((new Subqueries($this->db))->resolve($ast['where_expr']));
     }
 
     /**
@@ -109,7 +109,7 @@ final class Read
      * filtrar antes con un indice de la izquierda descartaria documentos que la
      * union habria traido. Correcto antes que rapido; `EXPLAIN` lo dice.
      */
-    private function conCruce(array $ast, bool $explicar): mixed
+    private function withJoin(array $ast, bool $explicar): mixed
     {
         if ($explicar) {
             return $this->plan('select', $ast['collection'], [
@@ -128,7 +128,7 @@ final class Read
             $ast['joins']
         );
 
-        $donde = (new Subqueries($this->db))->resolver($ast['where_expr']);
+        $donde = (new Subqueries($this->db))->resolve($ast['where_expr']);
         if ($donde !== null) {
             $filas = \array_values(\array_filter(
                 $filas,
@@ -146,7 +146,7 @@ final class Read
      * no existe segun lo que haya guardado en la base, y eso no se sabe al
      * analizar el texto.
      */
-    private function resolverVista(array $ast): ?array
+    private function resolveView(array $ast): ?array
     {
         $sql = Structure::sqlDeVista($this->db, (string) ($ast['collection'] ?? ''));
         if ($sql === null) {
@@ -172,7 +172,7 @@ final class Read
         ));
     }
 
-    private function explicarConsulta(Query $q, array $ast, string $tipo): array
+    private function explainQuery(Query $q, array $ast, string $tipo): array
     {
         $q->count();                       // resuelve el plan sin devolver datos
         $plan = $q->plan();

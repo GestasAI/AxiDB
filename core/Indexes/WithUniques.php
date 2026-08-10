@@ -32,7 +32,7 @@ trait WithUniques
      * ese valor queda ocupado. No se pierde ningun dato y `verifyIndexes()` lo
      * detecta como sobrante, pero conviene saberlo.
      */
-    public function reclamar(string $collection, string $field, string $value, string $id): void
+    public function claim(string $collection, string $field, string $value, string $id): void
     {
         $this->mutate(
             $collection,

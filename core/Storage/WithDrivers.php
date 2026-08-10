@@ -5,7 +5,7 @@
  * Elegir formato, migrar entre formatos y compactar son un asunto propio, y
  * separado de "guardar y leer documentos", que es lo que queda en Storage.
  *
- * No cambia nada de puertas afuera: se sigue escribiendo `$storage->migrarA(...)`.
+ * No cambia nada de puertas afuera: se sigue escribiendo `$storage->migrateTo(...)`.
  */
 
 declare(strict_types=1);
@@ -28,9 +28,9 @@ trait WithDrivers
     }
 
     /** 'safe' (fsync en cada escritura) o 'fast'. */
-    public function durabilidadDe(string $collection): string
+    public function durabilityOf(string $collection): string
     {
-        return $this->ajustes->durabilidad($collection);
+        return $this->ajustes->durability($collection);
     }
 
     /**
@@ -41,11 +41,11 @@ trait WithDrivers
      * puede depender de que el que llama haya leido la documentacion. Para
      * mover, migrarA().
      */
-    public function declararDriver(string $collection, string $nombre): void
+    public function declareDriver(string $collection, string $nombre): void
     {
         $actual = $this->driverDe($collection);
         if ($actual !== $nombre) {
-            $cuantos = $this->driverPorNombre($actual)->count($collection);
+            $cuantos = $this->driverByName($actual)->count($collection);
             if ($cuantos > 0) {
                 throw new Exception(
                     "Storage: '{$collection}' ya tiene {$cuantos} documentos en '{$actual}'. "
@@ -53,8 +53,8 @@ trait WithDrivers
                 );
             }
         }
-        $this->ajustes->fijar($collection, ['driver' => $nombre]);
-        $this->packed->olvidar($collection);
+        $this->ajustes->set($collection, ['driver' => $nombre]);
+        $this->packed->forget($collection);
     }
 
     /**
@@ -68,10 +68,10 @@ trait WithDrivers
      * Es por coleccion porque no todas valen lo mismo: una que se puede
      * regenerar desde su origen no necesita pagar el fsync.
      */
-    public function declararDurabilidad(string $collection, string $nivel): void
+    public function declareDurability(string $collection, string $nivel): void
     {
-        $this->ajustes->fijar($collection, ['durability' => $nivel]);
-        $this->packed->olvidar($collection);
+        $this->ajustes->set($collection, ['durability' => $nivel]);
+        $this->packed->forget($collection);
     }
 
     /**
@@ -80,7 +80,7 @@ trait WithDrivers
      *
      * @return int documentos migrados
      */
-    public function migrarA(string $collection, string $destino): int
+    public function migrateTo(string $collection, string $destino): int
     {
         self::name($collection, 'coleccion');
         if (!\in_array($destino, self::DRIVERS, true)) {
@@ -88,10 +88,10 @@ trait WithDrivers
         }
         $migrados = (new Migration($this->colecciones, $this->ajustes))->mover(
             $collection,
-            $this->driverPorNombre($this->driverDe($collection)),
-            $this->driverPorNombre($destino)
+            $this->driverByName($this->driverDe($collection)),
+            $this->driverByName($destino)
         );
-        $this->packed->olvidar($collection);
+        $this->packed->forget($collection);
         return $migrados;
     }
 
@@ -99,19 +99,19 @@ trait WithDrivers
      * Compacta la coleccion ahora, sin esperar al umbral. Solo tiene efecto en
      * packed; en fs no hay nada que compactar. Devuelve los bytes recuperados.
      */
-    public function compactar(string $collection): int
+    public function compact(string $collection): int
     {
         self::name($collection, 'coleccion');
         return $this->driverDe($collection) === 'packed'
-            ? $this->packed->compactar($collection)
+            ? $this->packed->compact($collection)
             : 0;
     }
 
     /** Cuanto del archivo es espacio muerto (solo packed). Para diagnostico. */
-    public function proporcionMuerta(string $collection): float
+    public function deadRatio(string $collection): float
     {
         return $this->driverDe($collection) === 'packed'
-            ? $this->packed->proporcionMuerta($collection)
+            ? $this->packed->deadRatio($collection)
             : 0.0;
     }
 
@@ -133,13 +133,13 @@ trait WithDrivers
     private function driver(string $collection): Driver
     {
         self::name($collection, 'coleccion');
-        return $this->envolver(
-            $this->driverPorNombre($this->driverDe($collection)),
+        return $this->wrap(
+            $this->driverByName($this->driverDe($collection)),
             $collection
         );
     }
 
-    private function driverPorNombre(string $nombre): Driver
+    private function driverByName(string $nombre): Driver
     {
         return $nombre === 'packed' ? $this->packed : $this->fs;
     }

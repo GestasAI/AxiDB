@@ -53,7 +53,7 @@ final class Functions
         'YEAR' => 'YEAR', 'MONTH' => 'MONTH', 'NOW' => 'NOW',
     ];
 
-    public static function existe(string $nombre): bool
+    public static function hasIndex(string $nombre): bool
     {
         return isset(self::FIRMAS[self::canonico($nombre)]);
     }
@@ -87,46 +87,46 @@ final class Functions
     public static function llamar(string $nombre, array $args): mixed
     {
         return match (self::canonico($nombre)) {
-            'UPPER'     => self::texto($args[0], static fn($s) => \strtoupper($s)),
-            'LOWER'     => self::texto($args[0], static fn($s) => \strtolower($s)),
-            'TRIM'   => self::texto($args[0], static fn($s) => \trim($s)),
-            'LENGTH'    => self::largo($args[0]),
-            'CONCAT'      => \implode('', \array_map(static fn($v) => self::comoTexto($v), $args)),
-            'SUBSTR'     => self::trozo($args),
-            'REPLACE' => self::texto($args[0], static fn($s) => \str_replace(
-                self::comoTexto($args[1]), self::comoTexto($args[2]), $s
+            'UPPER'     => self::textOf($args[0], static fn($s) => \strtoupper($s)),
+            'LOWER'     => self::textOf($args[0], static fn($s) => \strtolower($s)),
+            'TRIM'   => self::textOf($args[0], static fn($s) => \trim($s)),
+            'LENGTH'    => self::lengthOf($args[0]),
+            'CONCAT'      => \implode('', \array_map(static fn($v) => self::asText($v), $args)),
+            'SUBSTR'     => self::chunkOf($args),
+            'REPLACE' => self::textOf($args[0], static fn($s) => \str_replace(
+                self::asText($args[1]), self::asText($args[2]), $s
             )),
 
-            'ROUND'  => self::numero($args[0], static fn($n) => \round($n, (int) ($args[1] ?? 0))),
-            'ABS'       => self::numero($args[0], static fn($n) => \abs($n)),
-            'CEIL'     => self::numero($args[0], static fn($n) => (float) \ceil($n)),
-            'FLOOR'     => self::numero($args[0], static fn($n) => (float) \floor($n)),
+            'ROUND'  => self::numberOf($args[0], static fn($n) => \round($n, (int) ($args[1] ?? 0))),
+            'ABS'       => self::numberOf($args[0], static fn($n) => \abs($n)),
+            'CEIL'     => self::numberOf($args[0], static fn($n) => (float) \ceil($n)),
+            'FLOOR'     => self::numberOf($args[0], static fn($n) => (float) \floor($n)),
 
             'NOW'     => \date('c'),
             'CURDATE'       => \date('Y-m-d'),
-            'DATE'     => self::parte($args[0], 'Y-m-d'),
-            'YEAR'      => self::parteInt($args[0], 'Y'),
-            'MONTH'       => self::parteInt($args[0], 'n'),
-            'DAY'       => self::parteInt($args[0], 'j'),
-            'HOUR'      => self::parteInt($args[0], 'G'),
-            'DATEDIFF' => self::diasEntre($args[0], $args[1]),
+            'DATE'     => self::part($args[0], 'Y-m-d'),
+            'YEAR'      => self::intPart($args[0], 'Y'),
+            'MONTH'       => self::intPart($args[0], 'n'),
+            'DAY'       => self::intPart($args[0], 'j'),
+            'HOUR'      => self::intPart($args[0], 'G'),
+            'DATEDIFF' => self::daysBetween($args[0], $args[1]),
 
             'IFNULL'   => $args[0] ?? $args[1],
             default     => throw new Exception("AxiSQL: the function '{$nombre}' no existe."),
         };
     }
 
-    private static function texto(mixed $v, callable $fn): ?string
+    private static function textOf(mixed $v, callable $fn): ?string
     {
         return \is_scalar($v) ? $fn((string) $v) : null;
     }
 
-    private static function numero(mixed $v, callable $fn): int|float|null
+    private static function numberOf(mixed $v, callable $fn): int|float|null
     {
         return \is_int($v) || \is_float($v) ? $fn($v) : null;
     }
 
-    private static function largo(mixed $v): ?int
+    private static function lengthOf(mixed $v): ?int
     {
         if (\is_array($v)) {
             return \count($v);
@@ -134,7 +134,7 @@ final class Functions
         return \is_scalar($v) ? \strlen((string) $v) : null;
     }
 
-    private static function trozo(array $args): ?string
+    private static function chunkOf(array $args): ?string
     {
         if (!\is_scalar($args[0])) {
             return null;
@@ -145,7 +145,7 @@ final class Functions
             : \substr((string) $args[0], $desde);
     }
 
-    private static function comoTexto(mixed $v): string
+    private static function asText(mixed $v): string
     {
         if ($v === null) {
             return '';
@@ -157,7 +157,7 @@ final class Functions
     }
 
     /** Una marca de tiempo, o null si eso no es una fecha. */
-    private static function marca(mixed $v): ?int
+    private static function marker(mixed $v): ?int
     {
         if (!\is_string($v) || $v === '') {
             return null;
@@ -166,22 +166,22 @@ final class Functions
         return $t === false ? null : $t;
     }
 
-    private static function parte(mixed $v, string $formato): ?string
+    private static function part(mixed $v, string $formato): ?string
     {
-        $t = self::marca($v);
+        $t = self::marker($v);
         return $t === null ? null : \date($formato, $t);
     }
 
-    private static function parteInt(mixed $v, string $formato): ?int
+    private static function intPart(mixed $v, string $formato): ?int
     {
-        $t = self::marca($v);
+        $t = self::marker($v);
         return $t === null ? null : (int) \date($formato, $t);
     }
 
-    private static function diasEntre(mixed $a, mixed $b): ?int
+    private static function daysBetween(mixed $a, mixed $b): ?int
     {
-        $ta = self::marca($a);
-        $tb = self::marca($b);
+        $ta = self::marker($a);
+        $tb = self::marker($b);
         if ($ta === null || $tb === null) {
             return null;
         }

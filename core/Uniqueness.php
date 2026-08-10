@@ -41,17 +41,17 @@ final class Uniqueness
      * @param array        $documento el documento tal y como va a quedar
      * @param array|null   $anterior  el que habia, para no reservar lo ya propio
      */
-    public function reservar(array $campos, array $documento, ?array $anterior): void
+    public function reserve(array $campos, array $documento, ?array $anterior): void
     {
         foreach ($campos as $campo) {
-            $valor = self::valorDe($documento, $campo);
-            if ($valor === null || $valor === self::valorDe($anterior ?? [], $campo)) {
+            $valor = self::valueOf($documento, $campo);
+            if ($valor === null || $valor === self::valueOf($anterior ?? [], $campo)) {
                 continue;                      // sin valor, o ya era suyo
             }
             try {
-                $this->index->reclamar($this->collection, $campo, $valor, $this->id);
+                $this->index->claim($this->collection, $campo, $valor, $this->id);
             } catch (Exception $e) {
-                $this->soltar();
+                $this->release();
                 throw $e;
             }
             $this->reservadas[] = ['campo' => $campo, 'valor' => $valor];
@@ -59,7 +59,7 @@ final class Uniqueness
     }
 
     /** Suelta lo reservado. Se llama si la escritura del documento no sale. */
-    public function soltar(): void
+    public function release(): void
     {
         foreach ($this->reservadas as $r) {
             $this->index->remove($this->collection, $r['campo'], $r['valor'], $this->id);
@@ -68,7 +68,7 @@ final class Uniqueness
     }
 
     /** Un valor indexable, o null si ese campo no participa. */
-    private static function valorDe(array $documento, string $campo): ?string
+    private static function valueOf(array $documento, string $campo): ?string
     {
         $v = $documento[$campo] ?? null;
         if ($v === null || $v === '' || \is_array($v)) {
@@ -88,7 +88,7 @@ final class Uniqueness
     {
         $vistos = [];
         foreach ($storage->all($collection) as $doc) {
-            $valor = self::valorDe($doc, $campo);
+            $valor = self::valueOf($doc, $campo);
             if ($valor === null) {
                 continue;
             }

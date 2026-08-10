@@ -32,18 +32,18 @@ final class Maker
      * @param string|null $desde   copia anterior, para hacerla incremental
      * @return array{id:string, tipo:string, base:?string, archivos:int, guardados:int, bytes:int, archivo:string}
      */
-    public static function hacer(string $base, string $carpeta, ?string $desde = null): array
+    public static function build(string $base, string $carpeta, ?string $desde = null): array
     {
         if (!\is_dir($base)) {
             throw new Exception("Backup: there is nothing to back up in {$base}.");
         }
-        $inventario = Inventory::de($base);
+        $inventario = Inventory::of($base);
         $huellas    = Inventory::huellas($inventario);
 
-        $anteriores = $desde === null ? [] : self::huellasDe($desde);
+        $anteriores = $desde === null ? [] : self::fingerprintsOf($desde);
         $tipo       = $desde === null ? self::COMPLETA : self::INCREMENTAL;
 
-        $id       = self::nuevoId($tipo);
+        $id       = self::newId($tipo);
         $destino  = \rtrim($carpeta, '/\\') . '/' . $id . Catalog::EXTENSION;
         $cabecera = [
             'version' => 1,
@@ -54,7 +54,7 @@ final class Maker
             'huellas' => $huellas,
         ];
 
-        $contenedor = Container::crear($destino, $cabecera);
+        $contenedor = Container::create($destino, $cabecera);
         $guardados  = 0;
 
         try {
@@ -64,11 +64,11 @@ final class Maker
                 if (($anteriores[$ruta] ?? null) === $entrada['sha1']) {
                     continue;
                 }
-                $contenedor->añadir($ruta, $entrada['absoluta']);
+                $contenedor->append($ruta, $entrada['absoluta']);
                 $guardados++;
             }
         } finally {
-            $contenedor->cerrar();
+            $contenedor->close();
         }
 
         return [
@@ -83,7 +83,7 @@ final class Maker
     }
 
     /** @return array<string, string> */
-    private static function huellasDe(string $copia): array
+    private static function fingerprintsOf(string $copia): array
     {
         if (!\is_file($copia)) {
             throw new Exception("Backup: the previous backup {$copia} does not exist.");
@@ -102,7 +102,7 @@ final class Maker
      * la encadena a la copia equivocada y la cadena de restauracion sale mal.
      * Lo destapo el test, que hacia las dos copias dentro del mismo segundo.
      */
-    private static function nuevoId(string $tipo): string
+    private static function newId(string $tipo): string
     {
         $t  = \microtime(true);
         $us = \sprintf('%06d', (int) (($t - (int) $t) * 1000000));

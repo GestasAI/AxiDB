@@ -51,9 +51,9 @@ final class Ids
         return \str_pad($id, Manifest::ANCHO_ID, "\0");
     }
 
-    public function escribir(int $ordinal, string $id): void
+    public function writeTo(int $ordinal, string $id): void
     {
-        $this->archivos->escribirEn('ids', $ordinal, Manifest::ANCHO_ID, self::empaquetar($id));
+        $this->archivos->writeAt('ids', $ordinal, Manifest::ANCHO_ID, self::empaquetar($id));
 
         if ($this->mapa !== null) {
             $this->mapa[$id]   = $ordinal;
@@ -61,9 +61,9 @@ final class Ids
         }
     }
 
-    public function darDeBaja(int $ordinal): void
+    public function markDeleted(int $ordinal): void
     {
-        $this->archivos->escribirEn(
+        $this->archivos->writeAt(
             'ids',
             $ordinal,
             Manifest::ANCHO_ID,
@@ -78,16 +78,16 @@ final class Ids
     }
 
     /** El id de un ordinal, o null si esa posicion esta de baja. */
-    public function de(int $ordinal): ?string
+    public function of(int $ordinal): ?string
     {
-        $bruto = $this->archivos->leerTrozo('ids', $ordinal, Manifest::ANCHO_ID);
+        $bruto = $this->archivos->readChunk('ids', $ordinal, Manifest::ANCHO_ID);
         $id    = \rtrim($bruto, "\0");
         return $id === '' ? null : $id;
     }
 
-    public function ordinalDe(string $id): ?int
+    public function ordinalOf(string $id): ?int
     {
-        return $this->mapa()[$id] ?? null;
+        return $this->map()[$id] ?? null;
     }
 
     /**
@@ -100,14 +100,14 @@ final class Ids
      *
      * @return array<string,int>
      */
-    public function mapa(): array
+    public function map(): array
     {
-        $tamaño = $this->archivos->tamaño('ids');
+        $tamaño = $this->archivos->size('ids');
         if ($this->mapa !== null && $tamaño === $this->tamañoVisto) {
             return $this->mapa;
         }
 
-        $crudo = $this->archivos->leerTodo('ids');
+        $crudo = $this->archivos->readAll('ids');
         $total = \intdiv(\strlen($crudo), Manifest::ANCHO_ID);
         $mapa  = [];
         for ($i = 0; $i < $total; $i++) {
@@ -127,9 +127,9 @@ final class Ids
      *
      * @return array<int,true>
      */
-    public function vivos(): array
+    public function alive(): array
     {
-        $crudo = $this->archivos->leerTodo('ids');
+        $crudo = $this->archivos->readAll('ids');
         $total = \intdiv(\strlen($crudo), Manifest::ANCHO_ID);
         $vivos = [];
         for ($i = 0; $i < $total; $i++) {
@@ -141,7 +141,7 @@ final class Ids
     }
 
     /** Tira el mapa. Tras compactar, los ordinales son otros. */
-    public function olvidar(): void
+    public function forget(): void
     {
         $this->mapa        = null;
         $this->tamañoVisto = -1;

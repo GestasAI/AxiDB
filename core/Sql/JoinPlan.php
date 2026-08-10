@@ -43,12 +43,12 @@ final class JoinPlan
     public static function aplicar(callable $documentosDe, array $izquierda, string $aliasIzq, array $uniones): array
     {
         $filas = \array_map(
-            static fn(array $doc): array => self::conPrefijo($doc, $aliasIzq) + $doc,
+            static fn(array $doc): array => self::withPrefix($doc, $aliasIzq) + $doc,
             $izquierda
         );
 
         foreach ($uniones as $union) {
-            $filas = self::unaUnion($documentosDe, $filas, $union);
+            $filas = self::oneUnion($documentosDe, $filas, $union);
         }
         return $filas;
     }
@@ -58,14 +58,14 @@ final class JoinPlan
      * @param array{coleccion:string, alias:string, tipo:string, izq:string, der:string} $union
      * @return list<array>
      */
-    private static function unaUnion(callable $documentosDe, array $filas, array $union): array
+    private static function oneUnion(callable $documentosDe, array $filas, array $union): array
     {
-        $mapa = self::mapaPor($documentosDe($union['coleccion']), $union['der']);
-        $vacio = self::vacioDe($mapa, $union['alias']);
+        $mapa = self::mapBy($documentosDe($union['coleccion']), $union['der']);
+        $vacio = self::emptyOf($mapa, $union['alias']);
 
         $fuera = [];
         foreach ($filas as $fila) {
-            $clave = self::clave($fila[$union['izq']] ?? null);
+            $clave = self::keyOf($fila[$union['izq']] ?? null);
             $casan = $clave === null ? [] : ($mapa[$clave] ?? []);
 
             if ($casan === []) {
@@ -77,7 +77,7 @@ final class JoinPlan
                 continue;
             }
             foreach ($casan as $doc) {
-                $fuera[] = $fila + self::conPrefijo($doc, $union['alias']);
+                $fuera[] = $fila + self::withPrefix($doc, $union['alias']);
             }
         }
         return $fuera;
@@ -87,7 +87,7 @@ final class JoinPlan
      * @param list<array> $documentos
      * @return array<string, list<array>>
      */
-    private static function mapaPor(array $documentos, string $campo): array
+    private static function mapBy(array $documentos, string $campo): array
     {
         // El campo de la derecha puede venir con prefijo —`c.id`— porque es como
         // se escribe en el ON. Aqui se busca en el documento, que no lo lleva.
@@ -95,7 +95,7 @@ final class JoinPlan
         $mapa  = [];
 
         foreach ($documentos as $doc) {
-            $clave = self::clave($doc[$campo] ?? null);
+            $clave = self::keyOf($doc[$campo] ?? null);
             if ($clave !== null) {
                 $mapa[$clave][] = $doc;
             }
@@ -111,7 +111,7 @@ final class JoinPlan
      *
      * @param array<string, list<array>> $mapa
      */
-    private static function vacioDe(array $mapa, string $alias): array
+    private static function emptyOf(array $mapa, string $alias): array
     {
         foreach ($mapa as $grupo) {
             $vacio = [];
@@ -124,7 +124,7 @@ final class JoinPlan
     }
 
     /** @return array<string, mixed> los campos del documento con su prefijo delante */
-    private static function conPrefijo(array $doc, string $alias): array
+    private static function withPrefix(array $doc, string $alias): array
     {
         $fuera = [];
         foreach ($doc as $campo => $valor) {
@@ -147,7 +147,7 @@ final class JoinPlan
      * nada, ni siquiera con otro null, que es lo que hace SQL y lo unico
      * sensato: "no se sabe" no es igual a "no se sabe".
      */
-    private static function clave(mixed $valor): ?string
+    private static function keyOf(mixed $valor): ?string
     {
         if ($valor === null || \is_array($valor)) {
             return null;

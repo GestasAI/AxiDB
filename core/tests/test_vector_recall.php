@@ -40,17 +40,17 @@ $muestras = sembrarVectores($almacen, CUANTOS, DIMS, true);
 \printf("    %d vectores indexados en %.1f s (%.2f ms cada uno)\n",
     CUANTOS, \microtime(true) - $t, (\microtime(true) - $t) * 1000 / CUANTOS);
 
-eq('estan todos', CUANTOS, $almacen->manifiesto()->vivos());
+eq('estan todos', CUANTOS, $almacen->manifest()->alive());
 
 $buscador = new Searcher($almacen);
 $recalls  = [];
 $tiempos  = [];
 
 foreach ($muestras as $indice) {
-    $consulta = $almacen->vectorDe($indice);
+    $consulta = $almacen->vectorOf($indice);
 
     $t         = \microtime(true);
-    $rapido    = $buscador->buscar($consulta, 10);
+    $rapido    = $buscador->search($consulta, 10);
     $tiempos[] = (\microtime(true) - $t) * 1000;
 
     $recalls[] = recall($rapido, fuerzaBruta($almacen, $consulta, 10));
@@ -85,14 +85,14 @@ ok(\sprintf('ninguna consulta llega a 1 s: %.1f ms la peor', \max($tiempos)), \m
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('B] Lo que cuesta hacerlo exacto');
 
-$consulta = $almacen->vectorDe(42);
+$consulta = $almacen->vectorOf(42);
 
 $t = \microtime(true);
 $exacto = fuerzaBruta($almacen, $consulta, 10);
 $msExacto = (\microtime(true) - $t) * 1000;
 
 $t = \microtime(true);
-$rapido = $buscador->buscar($consulta, 10);
+$rapido = $buscador->search($consulta, 10);
 $msRapido = (\microtime(true) - $t) * 1000;
 
 \printf("    coseno sobre los %d: %.0f ms | dos pasadas: %.0f ms | x%.0f\n",
@@ -118,15 +118,15 @@ $buscador2 = new Searcher($almacen2);
 
 $recalls = [];
 for ($c = 0; $c < 3; $c++) {
-    $consulta  = $almacen2->vectorDe(($c * 577) % 2000);
-    $recalls[] = recall($buscador2->buscar($consulta, 10), fuerzaBruta($almacen2, $consulta, 10));
+    $consulta  = $almacen2->vectorOf(($c * 577) % 2000);
+    $recalls[] = recall($buscador2->search($consulta, 10), fuerzaBruta($almacen2, $consulta, 10));
 }
 $peorCaso = \array_sum($recalls) / \count($recalls);
 \printf("    recall@10 con vectores aleatorios: %.0f%%\n", $peorCaso);
 
 ok("incluso en el peor caso encuentra mas de la mitad: {$peorCaso}%", $peorCaso >= 50.0);
 eq('y el identico a la consulta sale el primero',
-    'r7', $buscador2->buscar($almacen2->vectorDe(7), 5)[0]['id'] ?? null);
+    'r7', $buscador2->search($almacen2->vectorOf(7), 5)[0]['id'] ?? null);
 
 rmrf($dir);
 summary();

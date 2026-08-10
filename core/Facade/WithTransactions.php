@@ -34,7 +34,7 @@ trait WithTransactions
      */
     public function begin(): void
     {
-        $this->profile()->exigir('transactions', 'transaction() y BEGIN');
+        $this->profile()->requireCapability('transactions', 'transaction() y BEGIN');
         if ($this->abierta !== null) {
             throw new \Axi\Core\Exception('Tx: there is already an open transaction. AxiDB does not nest them.');
         }
@@ -44,7 +44,7 @@ trait WithTransactions
     /** Confirma la abierta con BEGIN. @return int operaciones aplicadas */
     public function commit(): int
     {
-        $tx = $this->exigirAbierta('COMMIT');
+        $tx = $this->requireOpen('COMMIT');
         $this->abierta = null;                  // fuera antes de aplicar: al
                                                 // aplicar se escribe de verdad,
                                                 // y no debe volver al buffer
@@ -54,7 +54,7 @@ trait WithTransactions
     /** Descarta la abierta con BEGIN. Nada de lo acumulado llega al disco. */
     public function rollback(): int
     {
-        $tx = $this->exigirAbierta('ROLLBACK');
+        $tx = $this->requireOpen('ROLLBACK');
         $this->abierta = null;
         return \count($tx->operaciones());
     }
@@ -65,7 +65,7 @@ trait WithTransactions
         return $this->abierta;
     }
 
-    private function exigirAbierta(string $que): Transaction
+    private function requireOpen(string $que): Transaction
     {
         if ($this->abierta === null) {
             throw new \Axi\Core\Exception("Tx: {$que} without an open transaction. BEGIN is missing.");

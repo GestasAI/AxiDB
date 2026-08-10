@@ -25,7 +25,7 @@ final class Catalog
      *
      * @return list<array{archivo:string, id:string, momento:string, tipo:string, base:?string, archivos:int}>
      */
-    public static function de(string $carpeta): array
+    public static function of(string $carpeta): array
     {
         $copias = [];
         foreach (\glob(\rtrim($carpeta, '/\\') . '/*' . self::EXTENSION) ?: [] as $archivo) {
@@ -62,9 +62,9 @@ final class Catalog
     }
 
     /** La ruta del archivo que tiene ese id. Lanza si no aparece. */
-    public static function buscar(string $carpeta, string $id): string
+    public static function search(string $carpeta, string $id): string
     {
-        foreach (self::de($carpeta) as $copia) {
+        foreach (self::of($carpeta) as $copia) {
             if ($copia['id'] === $id) {
                 return $copia['archivo'];
             }
@@ -78,7 +78,7 @@ final class Catalog
     /** La mas reciente, o null si no hay ninguna legible. */
     public static function ultima(string $carpeta): ?array
     {
-        foreach (self::de($carpeta) as $copia) {
+        foreach (self::of($carpeta) as $copia) {
             if ($copia['tipo'] !== 'ilegible') {
                 return $copia;
             }

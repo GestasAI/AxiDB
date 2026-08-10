@@ -123,8 +123,8 @@ final class Parser
          * un GROUP BY— pasa a ser un SELECT normal que devuelve filas.
          */
         $proyeccion = new Projection($this->ts);
-        $esCount    = $proyeccion->esCountPelado();
-        $campos     = $esCount ? ['*'] : $proyeccion->parseLista();
+        $esCount    = $proyeccion->isBareCount();
+        $campos     = $esCount ? ['*'] : $proyeccion->parseList();
 
         $this->ts->consumeKw('FROM');
 

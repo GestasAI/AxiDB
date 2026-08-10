@@ -94,12 +94,12 @@ eq('y la coleccion no queda con un esquema a medias', [], $db->schema('x'));
 
 eq('las reglas se pueden consultar', ['tipo' => 'entero'], $db->schema('clientes')['edad'] ?? null);
 
-$db->storage()->cerrar();
+$db->storage()->close();
 $otro = new Db($dir, ['durable' => false]);
 eq('y sobreviven a cerrar y reabrir', true, $otro->schema('clientes')['correo']['obligatorio'] ?? false);
 throws('la coleccion sigue rechazando lo que no cumple',
     static fn () => $otro->insert('clientes', ['edad' => 1], 'z'));
-$otro->storage()->cerrar();
+$otro->storage()->close();
 rmrf($dir);
 
 /* ─────────────────────────────────────────────────────────────────────────── */
@@ -164,7 +164,7 @@ foreach (['fs', 'packed'] as $driver) {
     $d = tmpdir('reglas_' . $driver);
     $x = new Db($d, ['durable' => false]);
     if ($driver !== 'fs') {
-        $x->storage()->declararDriver('t', $driver);
+        $x->storage()->declareDriver('t', $driver);
     }
     $x->defineSchema('t', ['nombre' => ['tipo' => 'texto', 'obligatorio' => true]]);
     $x->defineTtl('t', 60);
@@ -173,10 +173,10 @@ foreach (['fs', 'packed'] as $driver) {
     throws("{$driver}: el esquema se cumple", static fn () => $x->insert('t', [], 'b'));
     eq("{$driver}: y el vivo se ve", 1, $x->count('t'));
 
-    $x->storage()->cerrar();
+    $x->storage()->close();
     rmrf($d);
 }
 
-$db->storage()->cerrar();
+$db->storage()->close();
 rmrf($dir);
 summary();

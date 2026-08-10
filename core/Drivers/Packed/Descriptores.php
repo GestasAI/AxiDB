@@ -34,13 +34,13 @@ final class Descriptores
     }
 
     /** @return array{log:Log, off:Offsets} */
-    public function de(string $collection): array
+    public function of(string $collection): array
     {
         if (isset($this->abiertas[$collection])) {
             return $this->abiertas[$collection];
         }
         $dir     = $this->colecciones->path($collection);
-        $durable = $this->ajustes->esDurable($collection);
+        $durable = $this->ajustes->isDurable($collection);
 
         return $this->abiertas[$collection] = [
             'log' => new Log($dir . '/data.axi', $durable),
@@ -57,7 +57,7 @@ final class Descriptores
      *
      * @return resource
      */
-    public function bloquear(string $collection)
+    public function lock(string $collection)
     {
         $this->colecciones->ensure($collection);
 
@@ -76,7 +76,7 @@ final class Descriptores
         return $fp;
     }
 
-    public function desbloquear($fp): void
+    public function unlock($fp): void
     {
         if (\is_resource($fp)) {
             \flock($fp, LOCK_UN);
@@ -88,14 +88,14 @@ final class Descriptores
      * fuera, y antes de borrar la coleccion: en Windows no se borra un
      * directorio que tiene archivos abiertos dentro.
      */
-    public function olvidar(?string $collection = null): void
+    public function forget(?string $collection = null): void
     {
         $cuales = $collection === null ? \array_keys($this->abiertas) : [$collection];
 
         foreach ($cuales as $c) {
             if (isset($this->abiertas[$c])) {
-                $this->abiertas[$c]['log']->cerrar();
-                $this->abiertas[$c]['off']->cerrar();
+                $this->abiertas[$c]['log']->close();
+                $this->abiertas[$c]['off']->close();
                 unset($this->abiertas[$c]);
             }
             if (isset($this->locks[$c])) {

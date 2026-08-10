@@ -71,7 +71,7 @@ final class Sandbox
      *
      * @throws NotAllowed
      */
-    public function exigir(string $operacion, ?string $coleccion): void
+    public function requireOp(string $operacion, ?string $coleccion): void
     {
         if (!\in_array($operacion, $this->operaciones, true)) {
             throw new NotAllowed(
@@ -88,7 +88,7 @@ final class Sandbox
         }
     }
 
-    public function escribe(string $operacion): bool
+    public function isWrite(string $operacion): bool
     {
         return \in_array($operacion, self::ESCRITURAS, true);
     }
@@ -98,7 +98,7 @@ final class Sandbox
      * verdad la dice el AST, no la palabra 'sql'. Sin esto, un agente de solo
      * lectura borraria una coleccion entera con un DELETE.
      */
-    public function exigirSql(string $tipo, ?string $coleccion): void
+    public function requireSqlOp(string $tipo, ?string $coleccion): void
     {
         $equivalente = match ($tipo) {
             'select', 'count'                                            => 'find',
@@ -108,11 +108,11 @@ final class Sandbox
             'create_collection', 'create_index'                          => 'update',
             default                                                      => 'sql',
         };
-        $this->exigir($equivalente, $coleccion);
+        $this->requireOp($equivalente, $coleccion);
     }
 
     /** @return array{operaciones: list<string>, colecciones: list<string>|null} */
-    public function resumen(): array
+    public function summary(): array
     {
         return ['operaciones' => $this->operaciones, 'colecciones' => $this->colecciones];
     }

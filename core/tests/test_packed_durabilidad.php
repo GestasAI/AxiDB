@@ -23,7 +23,7 @@ use Axi\Core\Db;
 function packedD(string $sufijo): Db
 {
     $db = new Db(tmpdir('packed_dur_' . $sufijo), ['durable' => false]);
-    $db->storage()->declararDriver('p', 'packed');
+    $db->storage()->declareDriver('p', 'packed');
     return $db;
 }
 
@@ -37,7 +37,7 @@ function packedD(string $sufijo): Db
 function reabrir(Db $db): Db
 {
     $ruta = $db->path();
-    $db->storage()->cerrar();
+    $db->storage()->close();
     unset($db);
     return new Db($ruta, ['durable' => false]);
 }
@@ -106,7 +106,7 @@ ok('el huerfano no aparece',          $db6->get('p', 'huerfano') === null);
 ok('ni en el listado',                !\in_array('huerfano', \array_column($db6->all('p'), 'id'), true));
 eq('los documentos buenos se leen',        5, $db6->get('p', 'd5')['n']);
 
-$db6->storage()->compactar("p");
+$db6->storage()->compact("p");
 eq('tras compactar siguen los buenos', $antes, $db6->count('p'));
 ok('y el huerfano ya no ocupa disco',
     !\str_contains((string) \file_get_contents($db6->path() . '/p/data.axi'), 'huerfano'));
@@ -132,7 +132,7 @@ ok('una instantanea rota no revienta', $db9->count('p') >= 0);
 
 // Con la instantanea inservible y el log ya consolidado, el mapa se pierde:
 // la reconstruccion completa es reindexar desde el log de datos.
-$db9->storage()->declararDriver('p', 'packed');
+$db9->storage()->declareDriver('p', 'packed');
 ok('la base sigue en pie y se puede escribir', \is_array($db9->insert('p', ['n' => 'x'], 'tras_rotura')));
 eq('y lo nuevo se lee',                  'x', $db9->get('p', 'tras_rotura')['n']);
 
@@ -144,7 +144,7 @@ $datos  = tmpdir('packed_dur_matar');
 \file_put_contents($worker, '<?php
 require ' . \var_export(\dirname(__DIR__) . '/axidb.php', true) . ';
 $db = new Axi\Core\Db($argv[1], ["durable" => false]);
-$db->storage()->declararDriver("p", "packed");
+$db->storage()->declareDriver("p", "packed");
 $carga = str_repeat("A", 4000);
 for ($i = 0; $i < 20000 && microtime(true) < ' . (\microtime(true) + 8) . '; $i++) {
     $db->insert("p", ["n" => $i, "carga" => $carga], "d" . $i);

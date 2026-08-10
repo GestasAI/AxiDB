@@ -20,11 +20,11 @@ use Axi\Core\Drivers\Packed\Compactador;
 function packedC(string $sufijo): Db
 {
     $db = new Db(tmpdir('compactacion_' . $sufijo), ['durable' => false]);
-    $db->storage()->declararDriver('p', 'packed');
+    $db->storage()->declareDriver('p', 'packed');
     return $db;
 }
 
-function tamañoLog(Db $db): int
+function logSize(Db $db): int
 {
     return (int) @\filesize($db->path() . '/p/data.axi');
 }
@@ -36,19 +36,19 @@ $db = packedC('medida');
 for ($i = 0; $i < 100; $i++) {
     $db->insert('p', ['n' => $i, 'txt' => \str_repeat('x', 100)], 'd' . $i);
 }
-ok('recien escrito no hay espacio muerto', $db->storage()->proporcionMuerta('p') < 0.01);
+ok('recien escrito no hay espacio muerto', $db->storage()->deadRatio('p') < 0.01);
 
 for ($i = 0; $i < 50; $i++) {
     $db->put('p', 'd' . $i, ['n' => $i * 10]);
 }
-$muerto = $db->storage()->proporcionMuerta('p');
+$muerto = $db->storage()->deadRatio('p');
 \printf("    tras modificar 50 de 100: %.0f%% muerto\n", $muerto * 100);
 ok('modificar genera espacio muerto', $muerto > 0.2);
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('B] Compactar recupera espacio sin perder nada');
 
-$antesTamaño = tamañoLog($db);
+$antesTamaño = logSize($db);
 $antesDocs   = $db->all('p');
 \usort($antesDocs, static fn($a, $b) => \strcmp($a['id'], $b['id']));
 
@@ -56,8 +56,8 @@ $recuperados = $db->storage()->sweep('p');
 
 \printf("    %d bytes recuperados de %d\n", $recuperados, $antesTamaño);
 ok('se recupero espacio',          $recuperados > 0);
-ok('el archivo es mas pequeño',    tamañoLog($db) < $antesTamaño);
-ok('y queda casi sin espacio muerto', $db->storage()->proporcionMuerta('p') < 0.01);
+ok('el archivo es mas pequeño',    logSize($db) < $antesTamaño);
+ok('y queda casi sin espacio muerto', $db->storage()->deadRatio('p') < 0.01);
 
 $despuesDocs = $db->all('p');
 \usort($despuesDocs, static fn($a, $b) => \strcmp($a['id'], $b['id']));
@@ -74,18 +74,18 @@ $db2 = packedC('borrados');
 for ($i = 0; $i < 1200; $i++) {
     $db2->insert('p', ['n' => $i, 'txt' => \str_repeat('y', 80)], 'd' . $i);
 }
-$conTodos = tamañoLog($db2);
+$conTodos = logSize($db2);
 
 for ($i = 0; $i < 1000; $i++) {
     $db2->delete('p', 'd' . $i);
 }
 eq('quedan doscientos vivos', 200, $db2->count('p'));
-ok('el archivo aun no ha encogido', tamañoLog($db2) >= $conTodos);
+ok('el archivo aun no ha encogido', logSize($db2) >= $conTodos);
 
 $db2->storage()->sweep('p');
 
-\printf("    de %d a %d bytes tras compactar\n", $conTodos, tamañoLog($db2));
-ok('ahora si ha encogido mucho', tamañoLog($db2) < $conTodos / 3);
+\printf("    de %d a %d bytes tras compactar\n", $conTodos, logSize($db2));
+ok('ahora si ha encogido mucho', logSize($db2) < $conTodos / 3);
 eq('los doscientos vivos siguen',   200, $db2->count('p'));
 eq('y se leen',                    1000, $db2->get('p', 'd1000')['n']);
 ok('los borrados siguen borrados',  $db2->get('p', 'd0') === null);
@@ -110,14 +110,14 @@ eq('sin espacio muerto no compacta', 0, $sinNecesidad);
 for ($i = 0; $i < 10; $i++) {
     $db3->put('p', 'd' . $i, ['n' => 1000 + $i]);
 }
-\printf("    tras 10 de 40: %.0f%% muerto\n", $db3->storage()->proporcionMuerta('p') * 100);
+\printf("    tras 10 de 40: %.0f%% muerto\n", $db3->storage()->deadRatio('p') * 100);
 eq('por debajo del umbral no compacta', 0, $db3->storage()->sweep('p'));
 
 // Modificando el resto se pasa de largo.
 for ($i = 10; $i < 40; $i++) {
     $db3->put('p', 'd' . $i, ['n' => 1000 + $i]);
 }
-\printf("    tras 40 de 40: %.0f%% muerto\n", $db3->storage()->proporcionMuerta('p') * 100);
+\printf("    tras 40 de 40: %.0f%% muerto\n", $db3->storage()->deadRatio('p') * 100);
 ok('por encima del umbral si compacta', $db3->storage()->sweep('p') > 0);
 eq('sin perder documentos', 40, $db3->count('p'));
 

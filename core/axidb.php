@@ -22,7 +22,7 @@ declare(strict_types=1);
 
 if (!\defined('AXIDB_CORE')) {
     \define('AXIDB_CORE', __DIR__);
-    \define('AXIDB_VERSION', '0.6.1');
+    \define('AXIDB_VERSION', '0.7.0');
 
     \spl_autoload_register(static function (string $class): void {
         if (!\str_starts_with($class, 'Axi\\Core\\')) {
@@ -85,7 +85,7 @@ if (!\function_exists('axidb')) {
             axidb($dataPath),
             $opciones + (array) ($config['http'] ?? [])
         );
-        $puente->atender($_SERVER);
+        $puente->handle($_SERVER);
     }
 
     /**

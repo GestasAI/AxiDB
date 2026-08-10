@@ -25,8 +25,8 @@ section('A] El generador que no sale a internet');
 $hash = new Hash(256);
 
 eq('dice cuantas dimensiones da',   256, $hash->dims());
-eq('y como se llama',        'hash:256', $hash->nombre());
-ok('y que es local',                     $hash->esLocal());
+eq('y como se llama',        'hash:256', $hash->driverName());
+ok('y que es local',                     $hash->isLocal());
 
 $v = $hash->vector('poda de olivos en invierno');
 eq('devuelve las dimensiones prometidas', 256, \count($v));
@@ -76,17 +76,17 @@ throws('unas dimensiones que no son multiplo de ocho se rechazan',
 section('C] Los cuatro que necesitan red: solo la configuracion');
 
 $ollama = new Remote('ollama');
-eq('ollama trae su modelo por defecto', 'ollama:nomic-embed-text', $ollama->nombre());
+eq('ollama trae su modelo por defecto', 'ollama:nomic-embed-text', $ollama->driverName());
 eq('y sus dimensiones',                                       768, $ollama->dims());
-ok('ollama cuenta como local: corre en tu maquina',                $ollama->esLocal());
+ok('ollama cuenta como local: corre en tu maquina',                $ollama->isLocal());
 
 $openai = new Remote('openai', ['clave' => 'sk-de-mentira']);
-eq('openai',   'openai:text-embedding-3-small', $openai->nombre());
+eq('openai',   'openai:text-embedding-3-small', $openai->driverName());
 eq('con sus dimensiones',                 1536, $openai->dims());
-ok('y no es local',                            !$openai->esLocal());
+ok('y no es local',                            !$openai->isLocal());
 
 $gemini = new Remote('gemini', ['clave' => 'x']);
-eq('gemini', 'gemini:text-embedding-004', $gemini->nombre());
+eq('gemini', 'gemini:text-embedding-004', $gemini->driverName());
 
 /*
  * Voyage y no "claude": Anthropic NO publica una API de embeddings. Su
@@ -95,11 +95,11 @@ eq('gemini', 'gemini:text-embedding-004', $gemini->nombre());
  * solo serviria para fallar en produccion.
  */
 $voyage = new Remote('voyage', ['clave' => 'x']);
-eq('voyage, que es lo que recomienda Anthropic', 'voyage:voyage-3', $voyage->nombre());
+eq('voyage, que es lo que recomienda Anthropic', 'voyage:voyage-3', $voyage->driverName());
 eq('con sus dimensiones',                                     1024, $voyage->dims());
 
 $aMedida = new Remote('openai', ['clave' => 'x', 'modelo' => 'text-embedding-3-large', 'dims' => 3072]);
-eq('se puede cambiar el modelo', 'openai:text-embedding-3-large', $aMedida->nombre());
+eq('se puede cambiar el modelo', 'openai:text-embedding-3-large', $aMedida->driverName());
 eq('y las dimensiones',                                     3072, $aMedida->dims());
 
 throws('un proveedor que no existe se dice al momento',

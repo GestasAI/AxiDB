@@ -33,31 +33,31 @@ final class Compactador
     }
 
     /** Cuanto del archivo es espacio muerto, entre 0 y 1. */
-    public function proporcionMuerta(): float
+    public function deadRatio(): float
     {
-        $total = $this->log->tamaño();
+        $total = $this->log->size();
         if ($total === 0) {
             return 0.0;
         }
         $vivo = 0;
-        foreach ($this->offsets->mapa() as [$desplazamiento, $longitud]) {
+        foreach ($this->offsets->map() as [$desplazamiento, $longitud]) {
             $vivo += $longitud;
         }
         return \max(0.0, ($total - $vivo) / $total);
     }
 
-    public function haceFalta(): bool
+    public function isNeeded(): bool
     {
-        return $this->proporcionMuerta() > self::UMBRAL;
+        return $this->deadRatio() > self::UMBRAL;
     }
 
     /**
      * Reescribe el log con lo vivo. Devuelve los bytes recuperados.
      * Quien llama debe tener el lock de escritura de la coleccion.
      */
-    public function compactar(): int
+    public function compact(): int
     {
-        $antes = $this->log->tamaño();
+        $antes = $this->log->size();
         if ($antes === 0) {
             return 0;
         }
@@ -73,8 +73,8 @@ final class Compactador
             $desplazamiento = 0;
             // Se recorren los ids vivos y se lee cada uno por su desplazamiento
             // actual: asi se copia la ultima version de cada documento y nada mas.
-            foreach ($this->offsets->mapa() as $id => [$desde, $largo]) {
-                $doc = $this->log->leer($desde, $largo);
+            foreach ($this->offsets->map() as $id => [$desde, $largo]) {
+                $doc = $this->log->readAt($desde, $largo);
                 if ($doc === null) {
                     continue;                    // ilegible: no se arrastra
                 }
@@ -105,13 +105,13 @@ final class Compactador
          * se recupero nada. La proxima vez saldra.
          */
         try {
-            $this->log->reemplazarCon($tmp);
+            $this->log->replaceWith($tmp);
         } catch (Exception) {
             @\unlink($tmp);
             return 0;
         }
-        $this->offsets->reescribir($nuevoMapa);
+        $this->offsets->rewrite($nuevoMapa);
 
-        return \max(0, $antes - $this->log->tamaño());
+        return \max(0, $antes - $this->log->size());
     }
 }

@@ -41,11 +41,11 @@ final class Log
 
     public function __destruct()
     {
-        $this->cerrar();
+        $this->close();
     }
 
     /** Suelta el descriptor. Obligatorio antes de reemplazar el archivo. */
-    public function cerrar(): void
+    public function close(): void
     {
         if (\is_resource($this->fp)) {
             \fclose($this->fp);
@@ -58,14 +58,14 @@ final class Log
         return $this->path;
     }
 
-    public function existe(): bool
+    public function hasIndex(): bool
     {
         return \is_file($this->path);
     }
 
-    public function tamaño(): int
+    public function size(): int
     {
-        return $this->existe() ? (int) @\filesize($this->path) : 0;
+        return $this->hasIndex() ? (int) @\filesize($this->path) : 0;
     }
 
     /**
@@ -75,11 +75,11 @@ final class Log
      * Quien llama debe tener el lock de escritura de la coleccion: dos añadidos
      * simultaneos sin lock podrian entrelazarse a mitad de linea.
      */
-    public function añadir(array $doc): array
+    public function append(array $doc): array
     {
         $linea = Meta::codificarPlano($doc) . "\n";
 
-        $fp = $this->descriptor();
+        $fp = $this->handleFor();
 
         // fseek al final antes de preguntar la posicion: en Windows, ftell()
         // sobre un descriptor en modo 'a' no refleja el tamaño real del archivo
@@ -100,7 +100,7 @@ final class Log
     }
 
     /** Lee un documento por desplazamiento. null si no se puede interpretar. */
-    public function leer(int $desplazamiento, int $longitud): ?array
+    public function readAt(int $desplazamiento, int $longitud): ?array
     {
         $fp = @\fopen($this->path, 'rb');
         if (!$fp) {
@@ -124,9 +124,9 @@ final class Log
      * Una ultima linea sin salto final es una escritura que se corto: se
      * descarta, que es justo lo que debe pasar.
      */
-    public function recorrer(): \Generator
+    public function each(): \Generator
     {
-        if (!$this->existe()) {
+        if (!$this->hasIndex()) {
             return;
         }
         $fp = @\fopen($this->path, 'rb');
@@ -151,7 +151,7 @@ final class Log
         }
     }
 
-    private function descriptor()
+    private function handleFor()
     {
         if (!\is_resource($this->fp)) {
             $this->fp = @\fopen($this->path, 'ab');
@@ -163,16 +163,16 @@ final class Log
     }
 
     /** Reemplaza el archivo entero de forma atomica. Lo usa la compactacion. */
-    public function reemplazarCon(string $rutaTemporal): void
+    public function replaceWith(string $rutaTemporal): void
     {
-        $this->cerrar();                 // no se puede reemplazar con el abierto
+        $this->close();                 // no se puede reemplazar con el abierto
         if (!@\rename($rutaTemporal, $this->path)) {
             @\unlink($rutaTemporal);
             throw new Exception("Packed: could not replace '{$this->path}'.");
         }
     }
 
-    public function borrar(): void
+    public function delete(): void
     {
         @\unlink($this->path);
     }

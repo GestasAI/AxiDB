@@ -35,21 +35,21 @@ final class ResultSet
         $proyeccion = $ast['fields'] ?? ['*'];
         $agrupa     = ($ast['group_by'] ?? []) !== [];
         $agregados  = Grouping::recoger(
-            [...self::expresionesDe($proyeccion), $ast['having'] ?? null]
+            [...self::expressionsOf($proyeccion), $ast['having'] ?? null]
         );
 
         $pares = $agrupa || $agregados !== []
-            ? self::porGrupos($documentos, $ast, $agregados)
+            ? self::byGroups($documentos, $ast, $agregados)
             : \array_map(
-                static fn(array $doc) => [self::proyectar($doc, $proyeccion, []), $doc],
+                static fn(array $doc) => [self::project($doc, $proyeccion, []), $doc],
                 $documentos
             );
 
         if (!empty($ast['distinct'])) {
-            $pares = self::distintos($pares);
+            $pares = self::distinctRows($pares);
         }
         if (($ast['order_by'] ?? []) !== []) {
-            $pares = self::ordenar($pares, $ast['order_by']);
+            $pares = self::sortRows($pares, $ast['order_by']);
         }
         $filas = \array_map(static fn(array $par) => $par[0], $pares);
 
@@ -64,10 +64,10 @@ final class ResultSet
     /**
      * @return list<array{0: array, 1: array}> pares de [fila, documento de origen]
      */
-    private static function porGrupos(array $documentos, array $ast, array $agregados): array
+    private static function byGroups(array $documentos, array $ast, array $agregados): array
     {
         $pares = [];
-        foreach (Grouping::hacer($documentos, $ast['group_by'] ?? [], $agregados) as $grupo) {
+        foreach (Grouping::build($documentos, $ast['group_by'] ?? [], $agregados) as $grupo) {
             // El documento de referencia del grupo: sus campos agrupados valen
             // para todos, y el resto sirve para ordenar por algo no agregado.
             $origen = ($grupo['documentos'][0] ?? []) ;
@@ -86,7 +86,7 @@ final class ResultSet
              * nombre. Se resuelve igual que en MySQL y SQLite —primero el alias,
              * despues el campo— y por eso la fila va delante en la suma.
              */
-            $fila = self::proyectar($origen, $ast['fields'] ?? ['*'], $grupo['valores']);
+            $fila = self::project($origen, $ast['fields'] ?? ['*'], $grupo['valores']);
 
             if (isset($ast['having']) && !Evaluator::matches($fila + $origen, $ast['having'], $grupo['valores'])) {
                 continue;
@@ -97,7 +97,7 @@ final class ResultSet
     }
 
     /** @param array<string,mixed> $agregados */
-    private static function proyectar(array $doc, array $proyeccion, array $agregados): array
+    private static function project(array $doc, array $proyeccion, array $agregados): array
     {
         if ($proyeccion === ['*']) {
             return $doc;
@@ -109,13 +109,13 @@ final class ResultSet
                 continue;
             }
             $nombre = $item['alias'] ?? Value::firma($item['expr']);
-            $fila[$nombre] = Value::de($item['expr'], $doc, $agregados);
+            $fila[$nombre] = Value::of($item['expr'], $doc, $agregados);
         }
         return $fila;
     }
 
     /** @return list<?array> las expresiones de la proyeccion, sin el `*` */
-    private static function expresionesDe(array $proyeccion): array
+    private static function expressionsOf(array $proyeccion): array
     {
         if ($proyeccion === ['*']) {
             return [];
@@ -133,7 +133,7 @@ final class ResultSet
      * @param list<array{0: array, 1: array}> $pares
      * @return list<array{0: array, 1: array}>
      */
-    private static function distintos(array $pares): array
+    private static function distinctRows(array $pares): array
     {
         $vistas = [];
         $fuera  = [];
@@ -151,7 +151,7 @@ final class ResultSet
      * @param list<array{0: array, 1: array}> $pares
      * @return list<array{0: array, 1: array}>
      */
-    private static function ordenar(array $pares, array $clausulas): array
+    private static function sortRows(array $pares, array $clausulas): array
     {
         \usort($pares, static function (array $a, array $b) use ($clausulas): int {
             foreach ($clausulas as $c) {

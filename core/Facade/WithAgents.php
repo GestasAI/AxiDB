@@ -29,7 +29,7 @@ trait WithAgents
      */
     public function agent(string $nombre, array $puede, ?array $colecciones = null): Agents\Agent
     {
-        $this->profile()->exigir('agents', 'los agentes');
+        $this->profile()->requireCapability('agents', 'los agentes');
         return new Agents\Agent(
             $nombre,
             $this,

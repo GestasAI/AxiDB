@@ -69,7 +69,7 @@ final class Manifest
         return $m;
     }
 
-    public function aArray(): array
+    public function toArray(): array
     {
         return [
             'version' => 1,
@@ -85,19 +85,19 @@ final class Manifest
     }
 
     /** Bytes que ocupa un codigo binario. */
-    public function anchoCodigo(): int
+    public function codeWidth(): int
     {
         return \intdiv($this->dims, 8);
     }
 
     /** Bytes que ocupa un vector float32. */
-    public function anchoFloat(): int
+    public function floatWidth(): int
     {
         return $this->dims * 4;
     }
 
     /** Vectores vivos, sin contar las bajas. */
-    public function vivos(): int
+    public function alive(): int
     {
         return $this->cuenta - $this->bajas;
     }
@@ -107,7 +107,7 @@ final class Manifest
      * debajo de una quinta parte de basura, mover megabytes cuesta mas de lo que
      * ahorra.
      */
-    public function convieneCompactar(): bool
+    public function shouldCompact(): bool
     {
         return $this->cuenta > 0 && $this->bajas / $this->cuenta > 0.2;
     }

@@ -41,7 +41,7 @@ trait WithEncryption
     public function encrypt(string $collection): int
     {
         self::name($collection, 'coleccion');
-        $this->exigirLlavero($collection);
+        $this->requireKeyring($collection);
 
         if ($this->ajustes->isEncrypted($collection)) {
             return 0;
@@ -57,12 +57,12 @@ trait WithEncryption
             );
         }
         $enClaro = $this->driver($collection)->all($collection);
-        $this->ajustes->fijar($collection, ['encrypted' => true]);
+        $this->ajustes->set($collection, ['encrypted' => true]);
         $this->cifrados = [];
 
         $n = 0;
         foreach ($enClaro as $doc) {
-            $this->driver($collection)->copiar($collection, (string) $doc['id'], $doc);
+            $this->driver($collection)->copyDocument($collection, (string) $doc['id'], $doc);
             $n++;
         }
 
@@ -74,7 +74,7 @@ trait WithEncryption
         //
         // Compactar reescribe el log dejando solo lo vivo. Sin esta linea, el
         // cifrado sobre packed es teatro.
-        $this->compactar($collection);
+        $this->compact($collection);
 
         return $n;
     }
@@ -84,13 +84,13 @@ trait WithEncryption
         return $this->ajustes->isEncrypted($collection);
     }
 
-    public function hayLlavero(): bool
+    public function hasKeyring(): bool
     {
         return $this->llavero !== null;
     }
 
     /** Monta el llavero al abrir la base. Sin clave, no se monta nada. */
-    private function prepararCifrado(string $base, ?string $clave): void
+    private function prepareEncryption(string $base, ?string $clave): void
     {
         if ($clave !== null && $clave !== '') {
             $this->llavero = new Keyring($base, $clave);
@@ -105,30 +105,30 @@ trait WithEncryption
      * La caducidad va fuera porque solo mira `_updatedAt`, que queda en claro
      * incluso cifrando: asi no necesita la clave para saber si algo vencio.
      */
-    private function envolver(Driver $base, string $collection): Driver
+    private function wrap(Driver $base, string $collection): Driver
     {
-        $driver = $this->envolverSiCifrada($base, $collection);
+        $driver = $this->wrapIfEncrypted($base, $collection);
 
         $segundos = $this->ajustes->ttl($collection);
         if ($segundos <= 0) {
             return $driver;
         }
-        $clave = $collection . '|' . $driver->nombre() . '|' . $segundos;
+        $clave = $collection . '|' . $driver->driverName() . '|' . $segundos;
         return $this->caducados[$clave] ??= new CaducidadDriver($driver, $segundos);
     }
 
-    private function envolverSiCifrada(Driver $base, string $collection): Driver
+    private function wrapIfEncrypted(Driver $base, string $collection): Driver
     {
         if (!$this->ajustes->isEncrypted($collection)) {
             return $base;
         }
-        $this->exigirLlavero($collection);
+        $this->requireKeyring($collection);
 
-        $clave = $collection . '|' . $base->nombre();
-        return $this->cifrados[$clave] ??= new CifradoDriver($base, $this->llavero->caja());
+        $clave = $collection . '|' . $base->driverName();
+        return $this->cifrados[$clave] ??= new CifradoDriver($base, $this->llavero->box());
     }
 
-    private function exigirLlavero(string $collection): void
+    private function requireKeyring(string $collection): void
     {
         if ($this->llavero === null) {
             throw new Exception(

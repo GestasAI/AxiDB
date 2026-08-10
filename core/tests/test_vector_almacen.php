@@ -29,10 +29,10 @@ $original = Quantizer::normalizar([...\array_map(
     \range(0, 127)
 )]);
 
-$ordinal = $almacen->poner('v1', $original);
+$ordinal = $almacen->put('v1', $original);
 eq('el primero ocupa el ordinal cero', 0, $ordinal);
 
-$leido = $almacen->vectorDe(0);
+$leido = $almacen->vectorOf(0);
 eq('vuelven las 128 dimensiones', 128, \count($leido));
 
 /*
@@ -48,9 +48,9 @@ foreach ($original as $i => $v) {
 \printf("    mayor diferencia tras el viaje: %.3e\n", $maxError);
 ok('la diferencia es la propia de float32, no un error', $maxError < 1e-6);
 
-eq('el id se recupera', 'v1', $almacen->idDe(0));
-eq('y el ordinal desde el id', 0, $almacen->ordinalDe('v1'));
-eq('un id que no existe da null', null, $almacen->ordinalDe('nada'));
+eq('el id se recupera', 'v1', $almacen->idOf(0));
+eq('y el ordinal desde el id', 0, $almacen->ordinalOf('v1'));
+eq('un id que no existe da null', null, $almacen->ordinalOf('nada'));
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('B] Mil vectores, y todos donde deben');
@@ -58,17 +58,17 @@ section('B] Mil vectores, y todos donde deben');
 $almacen2 = almacenNuevo($dir . '/b', 256);
 sembrarVectores($almacen2, 1000, 256, true);
 
-eq('mil vectores', 1000, $almacen2->manifiesto()->cuenta);
-eq('mil vivos',    1000, $almacen2->manifiesto()->vivos());
-eq('cero bajas',      0, $almacen2->manifiesto()->bajas);
+eq('mil vectores', 1000, $almacen2->manifest()->cuenta);
+eq('mil vivos',    1000, $almacen2->manifest()->alive());
+eq('cero bajas',      0, $almacen2->manifest()->bajas);
 
 $bytes = \filesize($dir . '/b/vectores.f32');
 eq('el archivo mide exactamente lo que tiene que medir', 1000 * 256 * 4, $bytes);
 eq('y el de codigos tambien',  1000 * 32, \filesize($dir . '/b/codigos.bin'));
 eq('y el de ids',              1000 * 64, \filesize($dir . '/b/ids.bin'));
 
-ok('el ordinal 500 tiene su id',  $almacen2->idDe(500) === 'd500');
-ok('y su vector se lee entero',   \count($almacen2->vectorDe(500)) === 256);
+ok('el ordinal 500 tiene su id',  $almacen2->idOf(500) === 'd500');
+ok('y su vector se lee entero',   \count($almacen2->vectorOf(500)) === 256);
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('C] Sobrevive a cerrar el proceso');
@@ -79,22 +79,22 @@ section('C] Sobrevive a cerrar el proceso');
  */
 $antes = [];
 foreach ([0, 1, 499, 999] as $o) {
-    $antes[$o] = $almacen2->vectorDe($o);
+    $antes[$o] = $almacen2->vectorOf($o);
 }
 unset($almacen2);
 
 $reabierto = new Store($dir . '/b');
-eq('el manifiesto se relee', 1000, $reabierto->manifiesto()->cuenta);
-eq('y dice las dimensiones',  256, $reabierto->manifiesto()->dims);
+eq('el manifiesto se relee', 1000, $reabierto->manifest()->cuenta);
+eq('y dice las dimensiones',  256, $reabierto->manifest()->dims);
 
 $iguales = true;
 foreach ($antes as $o => $v) {
-    if ($v !== $reabierto->vectorDe($o)) {
+    if ($v !== $reabierto->vectorOf($o)) {
         $iguales = false;
     }
 }
 ok('los vectores son byte a byte los mismos tras reabrir', $iguales);
-eq('y los ids tambien', 'd999', $reabierto->idDe(999));
+eq('y los ids tambien', 'd999', $reabierto->idOf(999));
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('D] La cuantizacion binaria hace lo que dice');
@@ -118,7 +118,7 @@ eq('y con su opuesto, -1',                     -1.0, \round(Quantizer::coseno($a
 section('E] Lo que no se acepta');
 
 throws('un vector con dimensiones de menos',
-    static fn() => $almacen->poner('malo', \array_fill(0, 64, 0.1)));
+    static fn() => $almacen->put('malo', \array_fill(0, 64, 0.1)));
 throws('un vector con texto dentro',
     static fn() => Quantizer::validar(['a', 'b'], 2));
 throws('un vector con infinito',
@@ -126,11 +126,11 @@ throws('un vector con infinito',
 throws('dimensiones que no son multiplo de ocho',
     static fn() => Manifest::nuevo('embedding', 100, 'test', []));
 throws('un id que no cabe en 64 bytes',
-    static fn() => $almacen->poner(\str_repeat('x', 65), $original));
+    static fn() => $almacen->put(\str_repeat('x', 65), $original));
 
 $ceros = Quantizer::normalizar(\array_fill(0, 128, 0.0));
 ok('un vector de ceros se acepta y no revienta',
-    \is_int($almacen->poner('ceros', $ceros)));
+    \is_int($almacen->put('ceros', $ceros)));
 
 rmrf($dir);
 summary();

@@ -33,16 +33,16 @@ final class Inventory
      *
      * @return array<string, array{absoluta:string, sha1:string}> clave: ruta relativa
      */
-    public static function de(string $base): array
+    public static function of(string $base): array
     {
         $fuera = [];
-        self::recorrer($base, '', $fuera);
+        self::each($base, '', $fuera);
         \ksort($fuera, SORT_STRING);
         return $fuera;
     }
 
     /** @param array<string, array{absoluta:string, sha1:string}> $acumulado */
-    private static function recorrer(string $dir, string $prefijo, array &$acumulado): void
+    private static function each(string $dir, string $prefijo, array &$acumulado): void
     {
         foreach (\scandir($dir) ?: [] as $entrada) {
             if ($entrada === '.' || $entrada === '..' || $entrada === '_tx') {
@@ -52,10 +52,10 @@ final class Inventory
             $relativa = $prefijo === '' ? $entrada : $prefijo . '/' . $entrada;
 
             if (\is_dir($absoluta)) {
-                self::recorrer($absoluta, $relativa, $acumulado);
+                self::each($absoluta, $relativa, $acumulado);
                 continue;
             }
-            if (!self::copiable($entrada)) {
+            if (!self::copyable($entrada)) {
                 continue;
             }
             $bytes = @\file_get_contents($absoluta);
@@ -66,7 +66,7 @@ final class Inventory
         }
     }
 
-    private static function copiable(string $nombre): bool
+    private static function copyable(string $nombre): bool
     {
         if (\in_array($nombre, self::FUERA, true)) {
             return false;

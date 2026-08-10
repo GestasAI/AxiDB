@@ -56,12 +56,12 @@ final class Joins
                 }
                 return $uniones;
             }
-            $uniones[] = $this->unaUnion($tipo);
+            $uniones[] = $this->oneUnion($tipo);
         }
     }
 
     /** @return array{coleccion:string, alias:string, tipo:string, izq:string, der:string} */
-    private function unaUnion(string $tipo): array
+    private function oneUnion(string $tipo): array
     {
         $coleccion = $this->ts->consumeIdent();
         $alias     = $this->alias($coleccion);

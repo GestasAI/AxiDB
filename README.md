@@ -147,7 +147,7 @@ dependencia— y se instala desde el repositorio:
 ```json
 {
     "repositories": [{ "type": "vcs", "url": "https://github.com/guiacarlos/axidb" }],
-    "require": { "gestasai/axidb": "^0.6" }
+    "require": { "gestasai/axidb": "^0.7" }
 }
 ```
 
@@ -162,7 +162,7 @@ carpeta copiada a mano. Si algun dia eso deja de pasar, la suite se pone roja.
 
 ## Estado
 
-**Version 0.6.1.** El 0 va en serio: la API todavia puede cambiar. Al llegar a
+**Version 0.7.0.** El 0 va en serio: la API todavia puede cambiar. Al llegar a
 1.0.0 dejara de poder hacerlo sin subir el numero mayor. Preferimos decirlo asi a
 poner un 1.0 y romperlo en la siguiente version.
 

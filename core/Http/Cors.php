@@ -30,7 +30,7 @@ final class Cors
     }
 
     /** True si el origen esta declarado. Un origen vacio (misma pagina) no lo esta. */
-    public function permite(?string $origen): bool
+    public function allows(?string $origen): bool
     {
         $origen = self::normalizar((string) $origen);
         return $origen !== '' && \in_array($origen, $this->permitidos, true);
@@ -42,9 +42,9 @@ final class Cors
      *
      * @return array<string, string>
      */
-    public function cabeceras(?string $origen): array
+    public function headersFor(?string $origen): array
     {
-        if (!$this->permite($origen)) {
+        if (!$this->allows($origen)) {
             return [];
         }
         return [

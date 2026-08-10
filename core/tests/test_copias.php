@@ -50,7 +50,7 @@ ok('la extension es la suya',   \str_ends_with($completa['archivo'], Catalog::EX
  * reaplicaria al restaurar, en un momento que ya no tiene nada que ver.
  */
 $rutas = [];
-\Axi\Core\Backup\Container::recorrer($completa['archivo'], static function (string $r) use (&$rutas): void {
+\Axi\Core\Backup\Container::each($completa['archivo'], static function (string $r) use (&$rutas): void {
     $rutas[] = $r;
 });
 eq('no se copia ningun cerrojo', [],
@@ -150,7 +150,7 @@ eq('y lo marca como ilegible', 1,
 ok('las buenas se siguen viendo, que es cuando mas falta hace',
     \count(\array_filter($sano->backups($carpeta), static fn($c) => $c['tipo'] !== 'ilegible')) === 3);
 
-$sano->storage()->cerrar();
+$sano->storage()->close();
 rmrf($sueltas);
 rmrf($carpeta);
 rmrf($dir);
@@ -163,7 +163,7 @@ foreach (['fs', 'packed'] as $driver) {
     $g = tmpdir('copias_' . $driver . '_g');
     $x = new Db($d, ['durable' => false]);
     if ($driver !== 'fs') {
-        $x->storage()->declararDriver('t', $driver);
+        $x->storage()->declareDriver('t', $driver);
     }
     for ($i = 0; $i < 20; $i++) {
         $x->insert('t', ['n' => $i, 'txt' => 'documento ' . $i], 'd' . $i);
@@ -175,7 +175,7 @@ foreach (['fs', 'packed'] as $driver) {
     $y = new Db($d, ['durable' => false]);
     eq("{$driver}: vuelven los veinte", 20, $y->count('t'));
     eq("{$driver}: y el borrado esta",  'documento 5', $y->get('t', 'd5')['txt'] ?? null);
-    $y->storage()->cerrar();
+    $y->storage()->close();
     rmrf($d);
     rmrf($g);
 }
@@ -248,6 +248,6 @@ throws('un formato que no se conoce se rechaza',
     static fn () => $db->export('p', $dir . '/p.txt'));
 eq('pero se puede decir a mano', 2, $db->export('p', $dir . '/p.txt', 'json'));
 
-$db->storage()->cerrar();
+$db->storage()->close();
 rmrf($dir);
 summary();

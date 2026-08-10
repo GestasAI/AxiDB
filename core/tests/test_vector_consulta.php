@@ -50,7 +50,7 @@ foreach ($articulos as $id => $doc) {
 }
 
 eq('los cuatro documentos estan',  4, $db->count('articulos'));
-eq('y los cuatro tienen vector',   4, $db->vectorIndex('articulos')->manifiesto()->vivos());
+eq('y los cuatro tienen vector',   4, $db->vectorIndex('articulos')->manifest()->alive());
 
 $r = $db->similar('articulos', 'poda de arboles del huerto', 2);
 eq('devuelve dos',            2, \count($r));
@@ -107,14 +107,14 @@ section('E] Los cambios se reflejan');
 $db->update('articulos', 'a3', ['titulo' => 'Podar un limonero', 'resumen' => 'poda de arboles citricos']);
 $r = $db->similar('articulos', 'podar arboles', 3);
 ok('un documento cambiado se reindexa solo', \in_array('a3', \array_column($r, 'id'), true));
-eq('sin duplicar vectores', 4, $db->vectorIndex('articulos')->manifiesto()->vivos());
-eq('y contando la baja del anterior', 1, $db->vectorIndex('articulos')->manifiesto()->bajas);
+eq('sin duplicar vectores', 4, $db->vectorIndex('articulos')->manifest()->alive());
+eq('y contando la baja del anterior', 1, $db->vectorIndex('articulos')->manifest()->bajas);
 
 $db->delete('articulos', 'a1');
 $r = $db->similar('articulos', 'podar un olivo', 5);
 ok('un documento borrado desaparece de la busqueda',
     !\in_array('a1', \array_column($r, 'id'), true));
-eq('y del indice', 3, $db->vectorIndex('articulos')->manifiesto()->vivos());
+eq('y del indice', 3, $db->vectorIndex('articulos')->manifest()->alive());
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('F] Un vector puesto a mano');
@@ -177,17 +177,17 @@ $ya->insert('notas', ['texto' => 'huerto en marzo'], 'n3');
 
 $ya->enableVectors('notas', ['auto' => ['texto']]);
 
-eq('los tres que ya estaban quedan indexados', 3, $ya->vectorIndex('notas')->manifiesto()->vivos());
+eq('los tres que ya estaban quedan indexados', 3, $ya->vectorIndex('notas')->manifest()->alive());
 eq('y la busqueda los encuentra', 3, \count($ya->similar('notas', 'pan', 3)));
 
 $ya->insert('notas', ['texto' => 'levadura natural'], 'n4');
-eq('los nuevos siguen entrando', 4, $ya->vectorIndex('notas')->manifiesto()->vivos());
+eq('los nuevos siguen entrando', 4, $ya->vectorIndex('notas')->manifest()->alive());
 
 // Reactivar reindexa: es tambien la forma de reparar un indice incompleto.
 $ya->enableVectors('notas', ['auto' => ['texto']]);
-eq('volver a activar es idempotente', 4, $ya->vectorIndex('notas')->manifiesto()->vivos());
+eq('volver a activar es idempotente', 4, $ya->vectorIndex('notas')->manifest()->alive());
 
-$ya->storage()->cerrar();
+$ya->storage()->close();
 rmrf($dirYa);
 
 /* ─────────────────────────────────────────────────────────────────────────── */
@@ -249,7 +249,7 @@ ok('y trae el documento entero', isset($hibrida[0]['doc']['titulo']));
 // Con cinco documentos y 200 candidatos, la criba no descarta a nadie: se salta.
 eq('una coleccion pequeña devuelve todo lo pedido', 5, \count($u->similar('art', 'pan', 5)));
 
-$u->storage()->cerrar();
+$u->storage()->close();
 rmrf($dirU);
 
 summary();

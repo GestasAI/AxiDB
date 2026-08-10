@@ -27,7 +27,7 @@ final class Candidates
      * @param \Closure|null $fuente documentos ya resueltos, si los hay
      * @return array{0: list<array>, 1: array} [documentos, plan]
      */
-    public static function de(
+    public static function of(
         Storage $storage,
         Index $index,
         string $collection,

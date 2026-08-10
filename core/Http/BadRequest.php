@@ -23,7 +23,7 @@ final class BadRequest extends Exception
         parent::__construct($mensaje);
     }
 
-    public function codigoHttp(): int
+    public function httpCode(): int
     {
         return $this->codigoHttp;
     }

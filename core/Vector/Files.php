@@ -42,7 +42,7 @@ final class Files
      * escribir cuesta 16 ms en esta maquina: mil bajas se iban en medio minuto
      * de abrir y cerrar archivos que nadie habia tocado.
      */
-    public function cerrar(?string $cual = null): void
+    public function close(?string $cual = null): void
     {
         foreach ($this->abiertos as $clave => $fp) {
             if ($cual !== null && $clave !== $cual && $clave !== 'r:' . $cual) {
@@ -57,10 +57,10 @@ final class Files
 
     public function __destruct()
     {
-        $this->cerrar();
+        $this->close();
     }
 
-    public function ruta(string $cual): string
+    public function pathOf(string $cual): string
     {
         return $this->dir . '/' . self::NOMBRES[$cual];
     }
@@ -79,37 +79,37 @@ final class Files
      * si los tenia. Un fallo intermitente que dependia de la cache del
      * interprete, no de los datos.
      */
-    public function hay(string $cual): bool
+    public function exists(string $cual): bool
     {
-        \clearstatcache(true, $this->ruta($cual));
-        return \is_file($this->ruta($cual));
+        \clearstatcache(true, $this->pathOf($cual));
+        return \is_file($this->pathOf($cual));
     }
 
-    public function crearDirectorio(): void
+    public function makeDir(): void
     {
         if (!\is_dir($this->dir) && !@\mkdir($this->dir, 0755, true) && !\is_dir($this->dir)) {
             throw new Exception("Vector: could not create {$this->dir}.");
         }
         foreach (['codigos', 'vectores', 'ids'] as $cual) {
-            if (!$this->hay($cual)) {
-                \file_put_contents($this->ruta($cual), '');
+            if (!$this->exists($cual)) {
+                \file_put_contents($this->pathOf($cual), '');
             }
         }
     }
 
     /** Bytes que ocupa el archivo. Cero si no existe. */
-    public function tamaño(string $cual): int
+    public function size(string $cual): int
     {
         // clearstatcache primero: PHP recuerda el tamaño de un archivo, y aqui
         // se pregunta justo despues de haberlo agrandado.
-        \clearstatcache(true, $this->ruta($cual));
-        $t = @\filesize($this->ruta($cual));
+        \clearstatcache(true, $this->pathOf($cual));
+        $t = @\filesize($this->pathOf($cual));
         return $t === false ? 0 : $t;
     }
 
-    public function leerTodo(string $cual): string
+    public function readAll(string $cual): string
     {
-        return (string) @\file_get_contents($this->ruta($cual));
+        return (string) @\file_get_contents($this->pathOf($cual));
     }
 
     /**
@@ -120,9 +120,9 @@ final class Files
      * doscientas aperturas eran 30 de los 147 ms que costaba buscar entre
      * 50.000 vectores.
      */
-    public function leerTrozo(string $cual, int $ordinal, int $ancho): string
+    public function readChunk(string $cual, int $ordinal, int $ancho): string
     {
-        $fp = $this->descriptorLectura($cual);
+        $fp = $this->readHandleFor($cual);
         if ($fp === null) {
             return '';
         }
@@ -135,12 +135,12 @@ final class Files
      * Escribe en la posicion del ordinal. Si el archivo era mas corto, el hueco
      * queda a ceros, que es justo lo que significa "de baja".
      */
-    public function escribirEn(string $cual, int $ordinal, int $ancho, string $dato): void
+    public function writeAt(string $cual, int $ordinal, int $ancho, string $dato): void
     {
-        $fp = $this->descriptor($cual);
+        $fp = $this->handleFor($cual);
         \fseek($fp, $ordinal * $ancho);
         if (\fwrite($fp, $dato) !== \strlen($dato)) {
-            throw new Exception('Vector: incomplete write in ' . $this->ruta($cual) . '.');
+            throw new Exception('Vector: incomplete write in ' . $this->pathOf($cual) . '.');
         }
         \fflush($fp);
     }
@@ -166,22 +166,22 @@ final class Files
      *
      * @return resource|null
      */
-    private function descriptorLectura(string $cual)
+    private function readHandleFor(string $cual)
     {
         $clave = 'r:' . $cual;
         if (isset($this->abiertos[$clave]) && \is_resource($this->abiertos[$clave])) {
             return $this->abiertos[$clave];
         }
-        $fp = @\fopen($this->ruta($cual), 'rb');
+        $fp = @\fopen($this->pathOf($cual), 'rb');
         return $fp ? $this->abiertos[$clave] = $fp : null;
     }
 
-    private function descriptor(string $cual)
+    private function handleFor(string $cual)
     {
         if (isset($this->abiertos[$cual]) && \is_resource($this->abiertos[$cual])) {
             return $this->abiertos[$cual];
         }
-        $ruta = $this->ruta($cual);
+        $ruta = $this->pathOf($cual);
         $fp   = @\fopen($ruta, 'r+b') ?: @\fopen($ruta, 'w+b');
         if (!$fp) {
             throw new Exception("Vector: could not write to {$ruta}.");
@@ -193,10 +193,10 @@ final class Files
      * Temporal y renombrado. Con reintentos por lo mismo que en FsDriver: en
      * Windows, un lector con el archivo abierto hace fallar el renombrado.
      */
-    public function escribirAtomico(string $cual, string $contenido): void
+    public function writeAtomic(string $cual, string $contenido): void
     {
-        $this->cerrar($cual);               // no se renombra sobre un archivo abierto
-        $ruta = $this->ruta($cual);
+        $this->close($cual);               // no se renombra sobre un archivo abierto
+        $ruta = $this->pathOf($cual);
         $tmp  = $ruta . '.tmp.' . \bin2hex(\random_bytes(4));
         if (@\file_put_contents($tmp, $contenido) === false) {
             throw new Exception("Vector: could not write {$tmp}.");
@@ -215,7 +215,7 @@ final class Files
      * Ejecuta algo con el cerrojo del indice cogido. Un unico escritor, igual
      * que en el driver empaquetado.
      */
-    public function conCerrojo(callable $tarea): mixed
+    public function withLock(callable $tarea): mixed
     {
         $fp = @\fopen($this->dir . '/_vec.lock', 'c');
         if (!$fp) {
@@ -233,11 +233,11 @@ final class Files
     }
 
     /** Borra el indice entero. Para desactivar los vectores de una coleccion. */
-    public function borrar(): void
+    public function delete(): void
     {
-        $this->cerrar();
+        $this->close();
         foreach (\array_keys(self::NOMBRES) as $cual) {
-            @\unlink($this->ruta($cual));
+            @\unlink($this->pathOf($cual));
         }
         @\unlink($this->dir . '/_vec.lock');
         foreach (\glob($this->dir . '/*.tmp.*') ?: [] as $tmp) {

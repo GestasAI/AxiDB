@@ -77,7 +77,7 @@ final class Profile
         }
     }
 
-    public function tiene(string $funcion): bool
+    public function has(string $funcion): bool
     {
         return $this->activas === [] || \in_array($funcion, $this->activas, true);
     }
@@ -90,9 +90,9 @@ final class Profile
      * linea exacta que hay que cambiar. Un error que solo dice "no permitido"
      * obliga a una busqueda que se podia haber ahorrado.
      */
-    public function exigir(string $funcion, string $comoSeLlama): void
+    public function requireCapability(string $funcion, string $comoSeLlama): void
     {
-        if ($this->tiene($funcion)) {
+        if ($this->has($funcion)) {
             return;
         }
         $necesario = self::DONDE_ESTA[$funcion] ?? self::IA;

@@ -64,7 +64,7 @@ final class SchemaRules
             }
             if (\array_key_exists('defecto', $regla)) {
                 $limpia['defecto'] = $regla['defecto'];
-                if ($tipo !== null && !self::esDelTipo($regla['defecto'], $tipo)) {
+                if ($tipo !== null && !self::isOfType($regla['defecto'], $tipo)) {
                     throw new Exception(
                         "Schema: the default value of '{$campo}' no es un {$tipo}."
                     );
@@ -100,17 +100,17 @@ final class SchemaRules
                 }
                 continue;               // sin valor y no obligatorio: no hay tipo que comprobar
             }
-            if (isset($regla['tipo']) && !self::esDelTipo($valor, $regla['tipo'])) {
+            if (isset($regla['tipo']) && !self::isOfType($valor, $regla['tipo'])) {
                 throw new Exception(
                     "'{$coleccion}/{$id}': el campo '{$campo}' tiene que ser {$regla['tipo']} "
-                    . 'y llego ' . self::nombreDelTipo($valor) . '.'
+                    . 'y llego ' . self::typeName($valor) . '.'
                 );
             }
         }
         return $documento;
     }
 
-    public function vacio(): bool
+    public function isEmpty(): bool
     {
         return $this->reglas === [];
     }
@@ -120,7 +120,7 @@ final class SchemaRules
      * decimal no vale como entero. La asimetria es la de las matematicas, no un
      * descuido.
      */
-    private static function esDelTipo(mixed $valor, string $tipo): bool
+    private static function isOfType(mixed $valor, string $tipo): bool
     {
         return match ($tipo) {
             'texto'   => \is_string($valor),
@@ -134,7 +134,7 @@ final class SchemaRules
         };
     }
 
-    private static function nombreDelTipo(mixed $valor): string
+    private static function typeName(mixed $valor): string
     {
         return match (true) {
             \is_string($valor) => 'texto',

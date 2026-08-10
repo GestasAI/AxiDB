@@ -33,27 +33,27 @@ final class Executor
         $explicar = (bool) ($ast['explain'] ?? false);
 
         return match ($ast['type']) {
-            'select', 'count'   => (new Read($this->db))->ejecutar($ast, $explicar),
-            'insert', 'update', 'delete' => (new Write($this->db, $this->sesion))->ejecutar($ast, $explicar),
-            'create_collection' => $this->crearColeccion($ast, $explicar),
-            'drop_collection'   => $this->borrarColeccion($ast, $explicar),
-            'create_index'      => $this->crearIndice($ast, $explicar),
-            'drop_index'        => $this->borrarIndice($ast, $explicar),
+            'select', 'count'   => (new Read($this->db))->execute($ast, $explicar),
+            'insert', 'update', 'delete' => (new Write($this->db, $this->sesion))->execute($ast, $explicar),
+            'create_collection' => $this->createCollection($ast, $explicar),
+            'drop_collection'   => $this->deleteCollection($ast, $explicar),
+            'create_index'      => $this->createIndex($ast, $explicar),
+            'drop_index'        => $this->deleteIndex($ast, $explicar),
             'begin', 'commit', 'rollback' => $explicar
                 ? $this->plan($ast['type'], '', [])
-                : $this->sesion->ejecutar($ast['type']),
+                : $this->sesion->execute($ast['type']),
             'show_collections', 'show_indexes', 'describe', 'create_view',
             'alter_rename', 'alter_add_field', 'alter_drop_field', 'alter_rename_field'
                 => $explicar
                     ? $this->plan($ast['type'], $ast['collection'] ?? '', [])
-                    : (new Structure($this->db))->ejecutar($ast),
+                    : (new Structure($this->db))->execute($ast),
             default             => throw new Exception("AxiSQL: unsupported statement '{$ast['type']}'."),
         };
     }
 
     /* ─────────────────────────────── Estructura ─────────────────────────────── */
 
-    private function crearColeccion(array $ast, bool $explicar): mixed
+    private function createCollection(array $ast, bool $explicar): mixed
     {
         if ($explicar) {
             return $this->plan('create_collection', $ast['collection'], []);
@@ -63,7 +63,7 @@ final class Executor
         return ['created' => $ast['collection']];
     }
 
-    private function borrarColeccion(array $ast, bool $explicar): mixed
+    private function deleteCollection(array $ast, bool $explicar): mixed
     {
         if ($explicar) {
             return $this->plan('drop_collection', $ast['collection'], [
@@ -78,7 +78,7 @@ final class Executor
      * CREATE INDEX solo lo anotaba en un metadato y devolvia exito, asi que la
      * consulta siguiente seguia escaneando y nadie se enteraba.
      */
-    private function crearIndice(array $ast, bool $explicar): mixed
+    private function createIndex(array $ast, bool $explicar): mixed
     {
         if ($explicar) {
             return $this->plan('create_index', $ast['collection'], [
@@ -96,7 +96,7 @@ final class Executor
         ];
     }
 
-    private function borrarIndice(array $ast, bool $explicar): mixed
+    private function deleteIndex(array $ast, bool $explicar): mixed
     {
         if ($explicar) {
             return $this->plan('drop_index', $ast['collection'], ['campo' => $ast['field']]);

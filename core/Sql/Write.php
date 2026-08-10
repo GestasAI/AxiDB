@@ -23,7 +23,7 @@ final class Write
     {
     }
 
-    public function ejecutar(array $ast, bool $explicar): mixed
+    public function execute(array $ast, bool $explicar): mixed
     {
         return match ($ast['type']) {
             'insert' => $this->insert($ast, $explicar),
@@ -57,13 +57,13 @@ final class Write
         if ($explicar) {
             return $this->plan('insert', $ast['collection'], ['documentos' => \count($filas)]);
         }
-        $destino = $this->sesion->destino();
+        $destino = $this->sesion->target();
 
         // Una fila sola devuelve el documento, como hasta ahora. Varias devuelven
         // el recuento: encadenar cinco documentos enteros en la respuesta de un
         // INSERT masivo no le sirve a nadie.
         if (\count($filas) === 1 && empty($ast['upsert'])) {
-            return $this->unaFila($destino, $ast['collection'], $filas[0]);
+            return $this->oneRow($destino, $ast['collection'], $filas[0]);
         }
 
         $puestos = 0;
@@ -71,7 +71,7 @@ final class Write
             if (!empty($ast['upsert']) && isset($fila['id'])) {
                 $destino->put($ast['collection'], (string) $fila['id'], $fila);
             } else {
-                $this->unaFila($destino, $ast['collection'], $fila);
+                $this->oneRow($destino, $ast['collection'], $fila);
             }
             $puestos++;
         }
@@ -87,7 +87,7 @@ final class Write
      * ON DUPLICATE UPDATE si lo respetaba: el mismo SQL hacia dos cosas
      * distintas segun como acabara la frase.
      */
-    private function unaFila(Db|\Axi\Core\Tx\Transaction $destino, string $coleccion, array $fila): array
+    private function oneRow(Db|\Axi\Core\Tx\Transaction $destino, string $coleccion, array $fila): array
     {
         $id = isset($fila['id']) && $fila['id'] !== '' ? (string) $fila['id'] : null;
         unset($fila['id']);
@@ -97,7 +97,7 @@ final class Write
 
     private function update(array $ast, bool $explicar): mixed
     {
-        $afectados = $this->afectados($ast);
+        $afectados = $this->affected($ast);
         if ($explicar) {
             return $this->plan('update', $ast['collection'], [
                 'documentos' => \count($afectados),
@@ -105,7 +105,7 @@ final class Write
             ]);
         }
         $n = 0;
-        $destino = $this->sesion->destino();
+        $destino = $this->sesion->target();
         foreach ($afectados as $doc) {
             /*
              * Las expresiones se calculan sobre el documento QUE HAY, uno a uno.
@@ -115,7 +115,7 @@ final class Write
              */
             $cambios = $ast['set'];
             foreach ($ast['set_expr'] ?? [] as $campo => $expr) {
-                $cambios[$campo] = Value::de($expr, $doc);
+                $cambios[$campo] = Value::of($expr, $doc);
             }
             $destino->put($ast['collection'], (string) $doc['id'], $cambios);
             $n++;
@@ -125,12 +125,12 @@ final class Write
 
     private function delete(array $ast, bool $explicar): mixed
     {
-        $afectados = $this->afectados($ast);
+        $afectados = $this->affected($ast);
         if ($explicar) {
             return $this->plan('delete', $ast['collection'], ['documentos' => \count($afectados)]);
         }
         $n = 0;
-        $destino = $this->sesion->destino();
+        $destino = $this->sesion->target();
         foreach ($afectados as $doc) {
             if ($destino->delete($ast['collection'], (string) $doc['id'])) {
                 $n++;
@@ -143,7 +143,7 @@ final class Write
      * Documentos que toca un UPDATE o un DELETE. Se resuelven ANTES de escribir:
      * modificar mientras se recorre el listado deja resultados impredecibles.
      */
-    private function afectados(array $ast): array
+    private function affected(array $ast): array
     {
         $q = $this->db->find($ast['collection'])->whereExpr($ast['where_expr']);
 

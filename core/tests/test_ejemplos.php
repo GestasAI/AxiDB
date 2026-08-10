@@ -26,7 +26,7 @@ $raiz = \dirname(\dirname(__DIR__));
  *
  * @return array{0: string, 1: int}
  */
-function ejecutar(string $script): array
+function execute(string $script): array
 {
     $salida = [];
     $codigo = 0;
@@ -59,7 +59,7 @@ foreach ($carpetas as $c) {
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('B] Almacen: existencias, regla de unicidad y valor');
 
-[$salida, $codigo] = ejecutar($raiz . '/examples/01-almacen/index.php');
+[$salida, $codigo] = execute($raiz . '/examples/01-almacen/index.php');
 arranca('almacen', $salida, $codigo);
 
 ok('rechaza la referencia repetida',  \str_contains($salida, 'Referencia repetida rechazada'));
@@ -77,12 +77,12 @@ eq('un articulo sin salidas conserva su entrada', 1200, $db->get('articulos', 'T
 $valor = $db->sql('SELECT ROUND(SUM(stock * precio), 2) AS t FROM articulos')[0]['t'];
 ok(\sprintf('el valor del inventario cuadra con lo impreso: %.2f', $valor),
     \str_contains($salida, \number_format($valor, 2, '.', '')));
-$db->storage()->cerrar();
+$db->storage()->close();
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('C] Empleados: esquema, unicidad y agrupaciones');
 
-[$salida, $codigo] = ejecutar($raiz . '/examples/02-empleados/index.php');
+[$salida, $codigo] = execute($raiz . '/examples/02-empleados/index.php');
 arranca('empleados', $salida, $codigo);
 
 ok('el esquema para el alta incompleta', \str_contains($salida, 'Alta incompleta rechazada'));
@@ -102,12 +102,12 @@ $join = $db->sql('SELECT nombre, departamentos.centro AS centro FROM empleados
                   JOIN departamentos ON empleados.depto = departamentos.id');
 eq('el JOIN devuelve una fila por empleado', 6, \count($join));
 ok('y cada una trae su centro', \array_column($join, 'centro') === \array_filter(\array_column($join, 'centro')));
-$db->storage()->cerrar();
+$db->storage()->close();
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('D] Pedidos: la transaccion no deja medias tintas');
 
-[$salida, $codigo] = ejecutar($raiz . '/examples/03-pedidos/index.php');
+[$salida, $codigo] = execute($raiz . '/examples/03-pedidos/index.php');
 arranca('pedidos', $salida, $codigo);
 
 ok('el pedido imposible se aborta', \str_contains($salida, 'Pedido abortado a mitad'));
@@ -131,6 +131,6 @@ foreach ($db->all('pedidos') as $p) {
 $sinPedidos = $db->sql("SELECT nombre FROM clientes
                         WHERE id NOT IN (SELECT cliente FROM pedidos)");
 eq('el LEFT JOIN enseña al cliente sin pedidos', 'Obras Gil', $sinPedidos[0]['nombre'] ?? null);
-$db->storage()->cerrar();
+$db->storage()->close();
 
 summary();

@@ -35,7 +35,7 @@ final class Migration
      */
     public function mover(string $collection, Driver $origen, Driver $destino): int
     {
-        if ($origen->nombre() === $destino->nombre()) {
+        if ($origen->driverName() === $destino->driverName()) {
             return 0;
         }
 
@@ -44,11 +44,11 @@ final class Migration
         foreach ($documentos as $doc) {
             // copiar() y no put(): put le subiria la version y le pondria la
             // fecha de ahora. Cambiar de formato no debe notarse en el dato.
-            $destino->copiar($collection, (string) $doc['id'], $doc);
+            $destino->copyDocument($collection, (string) $doc['id'], $doc);
         }
 
-        $this->ajustes->fijar($collection, ['driver' => $destino->nombre()]);
-        $this->retirarRestosDe($origen->nombre(), $collection);
+        $this->ajustes->set($collection, ['driver' => $destino->driverName()]);
+        $this->cleanLeftoversOf($origen->driverName(), $collection);
 
         return \count($documentos);
     }
@@ -57,7 +57,7 @@ final class Migration
      * Borra los archivos del driver que ya no se usa. Los indices no se tocan:
      * son independientes del formato y siguen siendo validos.
      */
-    private function retirarRestosDe(string $origen, string $collection): void
+    private function cleanLeftoversOf(string $origen, string $collection): void
     {
         $dir = $this->colecciones->path($collection);
 

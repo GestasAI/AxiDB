@@ -26,7 +26,7 @@ final class Audit
     {
     }
 
-    public function anotar(
+    public function record(
         string $actor,
         string $operacion,
         ?string $coleccion,
@@ -45,7 +45,7 @@ final class Audit
         if ($error !== null) {
             $linea['error'] = $error;
         }
-        $this->escribir((string) \json_encode($linea, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        $this->writeTo((string) \json_encode($linea, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
     }
 
     /**
@@ -54,7 +54,7 @@ final class Audit
      * @param string|null $actor filtra por actor exacto
      * @return list<array>
      */
-    public function leer(?string $actor = null, int $limite = 100): array
+    public function readAt(?string $actor = null, int $limite = 100): array
     {
         if (!\is_file($this->archivo)) {
             return [];
@@ -76,10 +76,10 @@ final class Audit
     }
 
     /** Cuantas operaciones de un actor fallaron por falta de permiso. */
-    public function rechazos(string $actor, int $limite = 1000): int
+    public function rejections(string $actor, int $limite = 1000): int
     {
         $n = 0;
-        foreach ($this->leer($actor, $limite) as $fila) {
+        foreach ($this->readAt($actor, $limite) as $fila) {
             if (($fila['ok'] ?? true) === false) {
                 $n++;
             }
@@ -87,7 +87,7 @@ final class Audit
         return $n;
     }
 
-    public function archivo(): string
+    public function fileOf(): string
     {
         return $this->archivo;
     }
@@ -100,7 +100,7 @@ final class Audit
      * propio archivo. Un renglon partido por la mitad haria ilegible el rastro
      * justo el dia que haga falta leerlo.
      */
-    private function escribir(string $linea): void
+    private function writeTo(string $linea): void
     {
         $dir = \dirname($this->archivo);
         if (!\is_dir($dir) && !@\mkdir($dir, 0755, true) && !\is_dir($dir)) {

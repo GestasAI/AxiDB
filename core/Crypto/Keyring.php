@@ -43,18 +43,18 @@ final class Keyring
     }
 
     /** La caja lista para cerrar y abrir documentos. */
-    public function caja(): Box
+    public function box(): Box
     {
-        return $this->caja ??= $this->abrirOCrear();
+        return $this->caja ??= $this->openOrCreate();
     }
 
     /** Si esta base ya tiene un llavero creado. */
-    public static function existe(string $base): bool
+    public static function hasIndex(string $base): bool
     {
         return \is_file($base . '/' . self::ARCHIVO);
     }
 
-    private function abrirOCrear(): Box
+    private function openOrCreate(): Box
     {
         $path = $this->base . '/' . self::ARCHIVO;
 
@@ -64,11 +64,11 @@ final class Keyring
                 throw new Exception("Crypto: {$path} is damaged or is not an AxiDB keyring.");
             }
             $sal  = (string) \base64_decode((string) $conf['sal'], true);
-            $caja = new Box($this->derivar($sal, (int) $conf['iteraciones']));
+            $caja = new Box($this->derive($sal, (int) $conf['iteraciones']));
 
             // Aqui se cae pronto y con el motivo correcto si la clave no es esa.
             try {
-                $visto = $caja->abrir((string) $conf['comprobante'], self::CONTEXTO);
+                $visto = $caja->open((string) $conf['comprobante'], self::CONTEXTO);
             } catch (Exception) {
                 throw new Exception(
                     'Crypto: the password does not open this database. '
@@ -82,14 +82,14 @@ final class Keyring
         }
 
         $sal  = \random_bytes(16);
-        $caja = new Box($this->derivar($sal, self::ITERACIONES));
+        $caja = new Box($this->derive($sal, self::ITERACIONES));
 
         $conf = [
             'version'     => 1,
             'kdf'         => 'pbkdf2-sha256',
             'iteraciones' => self::ITERACIONES,
             'sal'         => \base64_encode($sal),
-            'comprobante' => $caja->cerrar(self::TESTIGO, self::CONTEXTO),
+            'comprobante' => $caja->seal(self::TESTIGO, self::CONTEXTO),
         ];
         $tmp = $path . '.tmp.' . \bin2hex(\random_bytes(4));
         if (@\file_put_contents($tmp, \json_encode($conf, JSON_PRETTY_PRINT) . "\n") === false
@@ -101,7 +101,7 @@ final class Keyring
         return $caja;
     }
 
-    private function derivar(string $sal, int $iteraciones): string
+    private function derive(string $sal, int $iteraciones): string
     {
         if ($sal === '' || $iteraciones < 1000) {
             throw new Exception('Crypto: the keyring has invalid parameters.');

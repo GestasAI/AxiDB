@@ -31,14 +31,14 @@ final class VectorIndex
     ) {
     }
 
-    public function activo(): bool
+    public function isEnabled(): bool
     {
-        return $this->almacen->existe();
+        return $this->almacen->hasIndex();
     }
 
-    public function manifiesto(): Manifest
+    public function manifest(): Manifest
     {
-        return $this->almacen->manifiesto();
+        return $this->almacen->manifest();
     }
 
     /**
@@ -46,29 +46,29 @@ final class VectorIndex
      *
      * @param array $opciones campo, dims, auto
      */
-    public function activar(array $opciones = []): Manifest
+    public function enable(array $opciones = []): Manifest
     {
         $dims = (int) ($opciones['dims'] ?? $this->embedder->dims());
         if ($dims !== $this->embedder->dims()) {
             throw new Exception(
-                "Vector: {$dims} dimensions requested but '{$this->embedder->nombre()}' "
+                "Vector: {$dims} dimensions requested but '{$this->embedder->driverName()}' "
                 . 'devuelve ' . $this->embedder->dims() . '. Enterarse ahora es mejor que al buscar.'
             );
         }
         $m = Manifest::nuevo(
             (string) ($opciones['campo'] ?? 'embedding'),
             $dims,
-            $this->embedder->nombre(),
+            $this->embedder->driverName(),
             \array_map('strval', (array) ($opciones['auto'] ?? [])),
             (string) ($opciones['precision'] ?? Precision::POR_DEFECTO)
         );
-        $this->almacen->activar($m);
+        $this->almacen->enable($m);
         return $m;
     }
 
-    public function desactivar(): void
+    public function disable(): void
     {
-        $this->almacen->desactivar();
+        $this->almacen->disable();
         $this->buscador = null;
     }
 
@@ -80,27 +80,27 @@ final class VectorIndex
      *   2. el campo declarado trae texto
      *   3. hay campos en `auto` y se juntan
      */
-    public function indexar(string $id, array $documento): bool
+    public function indexDocument(string $id, array $documento): bool
     {
-        $m     = $this->almacen->manifiesto();
+        $m     = $this->almacen->manifest();
         $valor = $documento[$m->campo] ?? null;
 
         if (\is_array($valor)) {
-            $this->almacen->poner($id, Quantizer::normalizar(Quantizer::validar($valor, $m->dims)));
+            $this->almacen->put($id, Quantizer::normalizar(Quantizer::validar($valor, $m->dims)));
             return true;
         }
 
-        $texto = \is_string($valor) && $valor !== '' ? $valor : $this->textoAuto($m, $documento);
+        $texto = \is_string($valor) && $valor !== '' ? $valor : $this->autoText($m, $documento);
         if ($texto === '') {
             return false;
         }
-        $this->almacen->poner($id, $this->vectorDeTexto($texto, $m));
+        $this->almacen->put($id, $this->vectorOfText($texto, $m));
         return true;
     }
 
-    public function quitar(string $id): bool
+    public function remove(string $id): bool
     {
-        return $this->almacen->quitar($id);
+        return $this->almacen->remove($id);
     }
 
     /**
@@ -110,37 +110,37 @@ final class VectorIndex
      * @param array<string,true> $soloEstos ids permitidos; vacio significa todos
      * @return list<array{id: string, score: float}>
      */
-    public function buscar(
+    public function search(
         string|array $consulta,
         int $k = 10,
         array $soloEstos = [],
         ?string $precision = null
     ): array {
-        $m      = $this->almacen->manifiesto();
+        $m      = $this->almacen->manifest();
         $vector = \is_string($consulta)
-            ? $this->vectorDeTexto($consulta, $m)
+            ? $this->vectorOfText($consulta, $m)
             : Quantizer::normalizar(Quantizer::validar($consulta, $m->dims));
 
         $this->buscador ??= new Searcher($this->almacen);
-        return $this->buscador->buscar($vector, $k, $soloEstos, $precision);
+        return $this->buscador->search($vector, $k, $soloEstos, $precision);
     }
 
     /** Retira las bajas. Devuelve cuantas. */
-    public function compactar(): int
+    public function compact(): int
     {
-        return $this->almacen->compactar();
+        return $this->almacen->compact();
     }
 
     /** True si conviene compactar: mas de una quinta parte son bajas. */
-    public function convieneCompactar(): bool
+    public function shouldCompact(): bool
     {
-        return $this->almacen->manifiesto()->convieneCompactar();
+        return $this->almacen->manifest()->shouldCompact();
     }
 
     /* ─────────────────────────────── Interno ─────────────────────────────── */
 
     /** @return list<float> normalizado */
-    private function vectorDeTexto(string $texto, Manifest $m): array
+    private function vectorOfText(string $texto, Manifest $m): array
     {
         $vector = $this->embedder->vector($texto);
         if (\count($vector) !== $m->dims) {
@@ -153,7 +153,7 @@ final class VectorIndex
     }
 
     /** Junta los campos de texto declarados en `auto`. */
-    private function textoAuto(Manifest $m, array $documento): string
+    private function autoText(Manifest $m, array $documento): string
     {
         $partes = [];
         foreach ($m->auto as $campo) {

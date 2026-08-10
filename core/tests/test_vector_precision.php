@@ -36,17 +36,17 @@ $almacen  = almacenNuevo($dir . '/duro', DIMS);
 $muestras = sembrarVectores($almacen, CUANTOS, DIMS, false);
 $buscador = new Searcher($almacen);
 
-eq('estan todos', CUANTOS, $almacen->manifiesto()->vivos());
+eq('estan todos', CUANTOS, $almacen->manifest()->alive());
 
 $medido = [];
 foreach (Precision::MODOS as $modo) {
     $recalls = [];
     $ms      = [];
     foreach ($muestras as $indice) {
-        $consulta = $almacen->vectorDe($indice);
+        $consulta = $almacen->vectorOf($indice);
 
         $t         = \microtime(true);
-        $resultado = $buscador->buscar($consulta, 10, [], $modo);
+        $resultado = $buscador->search($consulta, 10, [], $modo);
         $ms[]      = (\microtime(true) - $t) * 1000;
 
         $recalls[] = recall($resultado, fuerzaBruta($almacen, $consulta, 10));
@@ -82,8 +82,8 @@ section('B] exacta es identica a la fuerza bruta, no parecida');
  */
 $iguales = 0;
 foreach ($muestras as $indice) {
-    $consulta = $almacen->vectorDe($indice);
-    $rapido   = $buscador->buscar($consulta, 10, [], Precision::EXACTA);
+    $consulta = $almacen->vectorOf($indice);
+    $rapido   = $buscador->search($consulta, 10, [], Precision::EXACTA);
     $bruto    = fuerzaBruta($almacen, $consulta, 10);
 
     if (\array_column($rapido, 'id') === \array_keys($bruto)) {
@@ -103,17 +103,17 @@ eq('activar devuelve el modo elegido', 'equilibrada', $m['precision']);
 
 $db->insert('articulos', ['texto' => 'pan de masa madre'], 'a1');
 $db->insert('articulos', ['texto' => 'cerveza artesana'], 'a2');
-$db->storage()->cerrar();
+$db->storage()->close();
 
 $otro = new Db($dir2, ['durable' => false]);
 eq('el modo se recuerda tras cerrar y reabrir',
-    'equilibrada', $otro->vectorIndex('articulos')->manifiesto()->precision);
+    'equilibrada', $otro->vectorIndex('articulos')->manifest()->precision);
 eq('y la busqueda sigue funcionando', 'a1',
     $otro->similar('articulos', 'pan de masa madre', 1)[0]['id'] ?? null);
 
 eq('se puede pedir otro modo solo para una consulta', 'a1',
     $otro->similar('articulos', 'pan de masa madre', 1, null, Precision::EXACTA)[0]['id'] ?? null);
-$otro->storage()->cerrar();
+$otro->storage()->close();
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('D] Lo que se rechaza y lo que se respeta');
@@ -122,7 +122,7 @@ throws('un modo que no existe se rechaza al activar',
     static fn () => (new Db(tmpdir('vp_malo'), ['durable' => false]))->enableVectors('x', ['precision' => 'turbo']));
 
 throws('y tambien al pedirlo en una consulta',
-    static fn () => $buscador->buscar($almacen->vectorDe(0), 5, [], 'ultra'));
+    static fn () => $buscador->search($almacen->vectorOf(0), 5, [], 'ultra'));
 
 eq('el modo por defecto es el de siempre', 'rapida', Precision::POR_DEFECTO);
 
@@ -140,10 +140,10 @@ eq('un manifiesto anterior a los modos se lee como rapida', 'rapida', $viejo->pr
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('E] Candidatos por modo');
 
-eq('rapida: veinte por resultado, nunca menos de 200', 200, Precision::candidatos('rapida', 5));
-eq('y sube con k', 400, Precision::candidatos('rapida', 20));
-eq('equilibrada: diez veces mas suelo', 2000, Precision::candidatos('equilibrada', 5));
-eq('exacta no tiene candidatos porque no hay criba', null, Precision::candidatos('exacta', 5));
+eq('rapida: veinte por resultado, nunca menos de 200', 200, Precision::candidates('rapida', 5));
+eq('y sube con k', 400, Precision::candidates('rapida', 20));
+eq('equilibrada: diez veces mas suelo', 2000, Precision::candidates('equilibrada', 5));
+eq('exacta no tiene candidatos porque no hay criba', null, Precision::candidates('exacta', 5));
 
 rmrf($dir);
 rmrf($dir2);

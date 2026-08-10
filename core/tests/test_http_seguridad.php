@@ -37,7 +37,7 @@ eq('y no se escribio nada', 1, $db->count('cosas'));
 // que cuenta es la que ve el servidor.
 $server = ['REQUEST_METHOD' => 'POST', 'REMOTE_ADDR' => FUERA,
     'HTTP_X_FORWARDED_FOR' => '127.0.0.1', 'HTTP_CLIENT_IP' => '127.0.0.1'];
-$r = $s->responder($server, (string) \json_encode(['accion' => 'get', 'coleccion' => 'cosas', 'id' => 'c1']));
+$r = $s->respond($server, (string) \json_encode(['accion' => 'get', 'coleccion' => 'cosas', 'id' => 'c1']));
 respuesta('fingir ser localhost con X-Forwarded-For no cuela', $r, 401, false);
 
 /* ─────────────────────────────────────────────────────────────────────────── */
@@ -158,13 +158,13 @@ section('G] El token no se acepta por la URL');
 $server = ['REQUEST_METHOD' => 'POST', 'REMOTE_ADDR' => FUERA,
     'QUERY_STRING' => 'token=' . TOKEN_PEDIDOS];
 $_GET['token'] = TOKEN_PEDIDOS;
-$r = $s->responder($server, (string) \json_encode(['accion' => 'get', 'coleccion' => 'p', 'id' => 'x']));
+$r = $s->respond($server, (string) \json_encode(['accion' => 'get', 'coleccion' => 'p', 'id' => 'x']));
 respuesta('un token en la URL no vale', $r, 401, false);
 unset($_GET['token']);
 
 $server = ['REQUEST_METHOD' => 'POST', 'REMOTE_ADDR' => FUERA,
     'HTTP_AUTHORIZATION' => 'Basic ' . \base64_encode('u:' . TOKEN_PEDIDOS)];
-$r = $s->responder($server, (string) \json_encode(['accion' => 'get', 'coleccion' => 'p', 'id' => 'x']));
+$r = $s->respond($server, (string) \json_encode(['accion' => 'get', 'coleccion' => 'p', 'id' => 'x']));
 respuesta('ni en un Basic', $r, 401, false);
 
 summary();

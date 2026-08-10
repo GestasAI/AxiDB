@@ -30,7 +30,7 @@ final class Grouping
      * @param list<array>  $agregados   nodos 'agg' que hay que calcular
      * @return list<array{clave:array, documentos:list<array>, valores:array<string,mixed>}>
      */
-    public static function hacer(array $documentos, array $porCampos, array $agregados): array
+    public static function build(array $documentos, array $porCampos, array $agregados): array
     {
         $grupos = [];
 
@@ -39,7 +39,7 @@ final class Grouping
             foreach ($porCampos as $campo) {
                 $clave[$campo] = $doc[$campo] ?? null;
             }
-            $id = $porCampos === [] ? '' : self::identidad($clave);
+            $id = $porCampos === [] ? '' : self::identity($clave);
             $grupos[$id] ??= ['clave' => $clave, 'documentos' => []];
             $grupos[$id]['documentos'][] = $doc;
         }
@@ -52,7 +52,7 @@ final class Grouping
 
         $fuera = [];
         foreach ($grupos as $grupo) {
-            $grupo['valores'] = self::calcular($grupo['documentos'], $agregados);
+            $grupo['valores'] = self::compute($grupo['documentos'], $agregados);
             $fuera[] = $grupo;
         }
         return $fuera;
@@ -63,17 +63,17 @@ final class Grouping
      * @param list<array> $agregados
      * @return array<string, mixed> por clave de agregado
      */
-    private static function calcular(array $documentos, array $agregados): array
+    private static function compute(array $documentos, array $agregados): array
     {
         $valores = [];
         foreach ($agregados as $agg) {
-            $valores[Value::claveAgregado($agg)] = self::uno($documentos, $agg);
+            $valores[Value::aggregateKey($agg)] = self::single($documentos, $agg);
         }
         return $valores;
     }
 
     /** @param list<array> $documentos */
-    private static function uno(array $documentos, array $agg): mixed
+    private static function single(array $documentos, array $agg): mixed
     {
         $fn = (string) $agg['fn'];
 
@@ -83,7 +83,7 @@ final class Grouping
 
         $vistos = [];
         foreach ($documentos as $doc) {
-            $v = Value::de($agg['arg'], $doc);
+            $v = Value::of($agg['arg'], $doc);
             if ($v !== null) {
                 $vistos[] = $v;
             }
@@ -91,11 +91,11 @@ final class Grouping
 
         return match ($fn) {
             'COUNT' => \count($vistos),
-            'SUM'   => self::sumar($vistos),
+            'SUM'   => self::addUp($vistos),
             // Siempre float. En PHP 10/2 da un entero, asi que una media salia
             // unas veces 5 y otras 5.5 segun los datos: el mismo campo con dos
             // tipos distintos rompe a quien lo recibe en JSON o lo compara.
-            'AVG'   => $vistos === [] ? null : (float) self::sumar($vistos) / \count($vistos),
+            'AVG'   => $vistos === [] ? null : (float) self::addUp($vistos) / \count($vistos),
             'MIN'   => $vistos === [] ? null : \min($vistos),
             'MAX'   => $vistos === [] ? null : \max($vistos),
             default => null,
@@ -108,7 +108,7 @@ final class Grouping
      *
      * @param list<mixed> $valores
      */
-    private static function sumar(array $valores): int|float|null
+    private static function addUp(array $valores): int|float|null
     {
         $suma  = 0;
         $hubo  = false;
@@ -128,7 +128,7 @@ final class Grouping
      * cadena al pegarlos con un separador, y dos grupos distintos acabarian
      * siendo el mismo sin que nadie se enterara.
      */
-    private static function identidad(array $clave): string
+    private static function identity(array $clave): string
     {
         return (string) \json_encode($clave, JSON_UNESCAPED_UNICODE);
     }
@@ -143,30 +143,30 @@ final class Grouping
     {
         $fuera = [];
         foreach ($expresiones as $expr) {
-            self::buscar($expr, $fuera);
+            self::search($expr, $fuera);
         }
         return \array_values($fuera);
     }
 
     /** @param array<string, array> $fuera */
-    private static function buscar(?array $expr, array &$fuera): void
+    private static function search(?array $expr, array &$fuera): void
     {
         if ($expr === null) {
             return;
         }
         if (($expr['t'] ?? '') === 'agg') {
-            $fuera[Value::claveAgregado($expr)] = $expr;
+            $fuera[Value::aggregateKey($expr)] = $expr;
             return;                             // no hay agregados dentro de agregados
         }
         // izq/der son de las expresiones de valor; left/right/expr son de los
         // arboles de condicion, que es lo que llega desde HAVING.
         foreach (['izq', 'der', 'left', 'right', 'expr'] as $rama) {
             if (isset($expr[$rama]) && \is_array($expr[$rama])) {
-                self::buscar($expr[$rama], $fuera);
+                self::search($expr[$rama], $fuera);
             }
         }
         foreach ($expr['args'] ?? [] as $arg) {
-            self::buscar($arg, $fuera);
+            self::search($arg, $fuera);
         }
     }
 }

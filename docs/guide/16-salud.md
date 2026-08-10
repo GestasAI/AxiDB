@@ -53,7 +53,7 @@ $db->stats('socios');
 
 `proporcionMuerta` es cuanto del archivo es espacio que ya no sirve. Solo pasa
 con el formato empaquetado, que escribe añadiendo; se limpia con
-`$db->storage()->compactar()`.
+`$db->storage()->compact()`.
 
 ## Una revision de todo
 

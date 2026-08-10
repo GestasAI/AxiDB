@@ -65,17 +65,17 @@ trait WithIndexes
      */
     public function unique(string $collection, string $field): int
     {
-        $this->profile()->exigir('uniqueness', 'unique() y CREATE UNIQUE INDEX');
+        $this->profile()->requireCapability('uniqueness', 'unique() y CREATE UNIQUE INDEX');
         Uniqueness::exigirSinRepetidos($this->storage, $collection, $field);
         $valores = $this->index->build($collection, $field);
-        $this->storage->declararUnico($collection, $field);
+        $this->storage->declareUnique($collection, $field);
         return $valores;
     }
 
     /** @return list<string> campos declarados unicos */
     public function uniques(string $collection): array
     {
-        return $this->storage->unicosDe($collection);
+        return $this->storage->uniquesOf($collection);
     }
 
 
@@ -86,7 +86,7 @@ trait WithIndexes
      */
     public function dropIndex(string $collection, string $field): bool
     {
-        $this->storage->declararUnico($collection, $field, false);
+        $this->storage->declareUnique($collection, $field, false);
         return $this->index->drop($collection, $field);
     }
 
@@ -125,7 +125,7 @@ trait WithIndexes
          * que campo mirar en cada documento— y callarlo seria repetir el fallo
          * que se acaba de corregir. Se arregla borrandolo y creandolo de nuevo.
          */
-        foreach ($this->index->camposIlegibles($collection) as $directorio) {
+        foreach ($this->index->unreadableFields($collection) as $directorio) {
             $out[$directorio] = [
                 'ilegible' => true,
                 'aviso'    => "El indice '{$directorio}' es de una version anterior y no dice que "

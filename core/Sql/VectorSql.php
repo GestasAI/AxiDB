@@ -37,7 +37,7 @@ final class VectorSql
     }
 
     /** @return list<array>|array el resultado, o el plan si se pidio EXPLAIN */
-    public function ejecutar(array $ast, bool $explicar): array
+    public function execute(array $ast, bool $explicar): array
     {
         $k = (int) ($ast['limit'] ?? 10);
 
@@ -65,7 +65,7 @@ final class VectorSql
             if ($umbral !== null && !Threshold::pasa($fila['score'], $umbral)) {
                 continue;                       // los resultados vienen ordenados
             }
-            $salida[] = $this->proyectar($fila['doc'], $fila['score'], $campos);
+            $salida[] = $this->project($fila['doc'], $fila['score'], $campos);
         }
         return $salida;
     }
@@ -83,7 +83,7 @@ final class VectorSql
      * El orden lo pone la distancia, asi que aqui no se ordena ni se corta: eso
      * ya viene decidido por el buscador.
      */
-    private function proyectar(array $doc, float $score, array $campos): array
+    private function project(array $doc, float $score, array $campos): array
     {
         if ($campos === ['*']) {
             $doc['_score'] = $score;

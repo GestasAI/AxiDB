@@ -38,9 +38,9 @@ final class CifradoDriver implements Driver
     ) {
     }
 
-    public function nombre(): string
+    public function driverName(): string
     {
-        return $this->dentro->nombre() . '+cifrado';
+        return $this->dentro->driverName() . '+cifrado';
     }
 
     /**
@@ -56,44 +56,44 @@ final class CifradoDriver implements Driver
      */
     public function put(string $collection, string $id, array $data, bool $replace = false): array
     {
-        $carga = self::carga($data);
+        $carga = self::payload($data);
 
         if (!$replace) {
             $anterior = $this->get($collection, $id);
             if ($anterior !== null) {
-                $carga = \array_merge(self::carga($anterior), $carga);
+                $carga = \array_merge(self::payload($anterior), $carga);
             }
         }
 
         $guardado = $this->dentro->put(
             $collection,
             $id,
-            [self::CAMPO => $this->cerrar($collection, $id, $carga)],
+            [self::CAMPO => $this->seal($collection, $id, $carga)],
             true
         );
         return self::meta($guardado) + $carga;
     }
 
-    public function copiar(string $collection, string $id, array $doc): void
+    public function copyDocument(string $collection, string $id, array $doc): void
     {
-        $this->dentro->copiar(
+        $this->dentro->copyDocument(
             $collection,
             $id,
-            self::meta($doc) + [self::CAMPO => $this->cerrar($collection, $id, self::carga($doc))]
+            self::meta($doc) + [self::CAMPO => $this->seal($collection, $id, self::payload($doc))]
         );
     }
 
     public function get(string $collection, string $id): ?array
     {
         $doc = $this->dentro->get($collection, $id);
-        return $doc === null ? null : $this->abrir($collection, $doc);
+        return $doc === null ? null : $this->open($collection, $doc);
     }
 
     public function all(string $collection): array
     {
         $fuera = [];
         foreach ($this->dentro->all($collection) as $clave => $doc) {
-            $fuera[$clave] = $this->abrir($collection, $doc);
+            $fuera[$clave] = $this->open($collection, $doc);
         }
         return $fuera;
     }
@@ -117,13 +117,13 @@ final class CifradoDriver implements Driver
 
     /* ─────────────────────────────── Interno ─────────────────────────────── */
 
-    private function cerrar(string $collection, string $id, array $carga): string
+    private function seal(string $collection, string $id, array $carga): string
     {
         $json = \json_encode($carga, JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION);
         if ($json === false) {
             throw new Exception('Crypto: could not serialise the document: ' . \json_last_error_msg());
         }
-        return $this->caja->cerrar($json, self::contexto($collection, $id));
+        return $this->caja->seal($json, self::contextOf($collection, $id));
     }
 
     /**
@@ -131,13 +131,13 @@ final class CifradoDriver implements Driver
      * activa el cifrado sobre una coleccion que ya tenia datos: los viejos
      * siguen leyendose en claro hasta que se reescriben, en vez de reventar.
      */
-    private function abrir(string $collection, array $doc): array
+    private function open(string $collection, array $doc): array
     {
         if (!isset($doc[self::CAMPO]) || !Box::esBloque($doc[self::CAMPO])) {
             return $doc;
         }
         $id    = (string) ($doc['id'] ?? '');
-        $json  = $this->caja->abrir((string) $doc[self::CAMPO], self::contexto($collection, $id));
+        $json  = $this->caja->open((string) $doc[self::CAMPO], self::contextOf($collection, $id));
         $carga = \json_decode($json, true);
         if (!\is_array($carga)) {
             throw new Exception("Crypto: the contents of '{$collection}/{$id}' no es un documento valido.");
@@ -146,7 +146,7 @@ final class CifradoDriver implements Driver
     }
 
     /** Ata el bloque a su sitio: no abre en otra coleccion ni con otro id. */
-    private static function contexto(string $collection, string $id): string
+    private static function contextOf(string $collection, string $id): string
     {
         return 'axidb:doc:v1:' . $collection . "\0" . $id;
     }
@@ -158,7 +158,7 @@ final class CifradoDriver implements Driver
     }
 
     /** @return array<string,mixed> lo que se cifra */
-    private static function carga(array $doc): array
+    private static function payload(array $doc): array
     {
         return \array_diff_key($doc, \array_flip([...self::EN_CLARO, self::CAMPO]));
     }

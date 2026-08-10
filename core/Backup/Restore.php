@@ -31,9 +31,9 @@ final class Restore
      * @param string $carpeta donde buscar las copias de las que dependa
      * @return array{id:string, archivos:int, borrados:int, cadena:list<string>}
      */
-    public static function hacer(string $copia, string $destino, ?string $carpeta = null): array
+    public static function build(string $copia, string $destino, ?string $carpeta = null): array
     {
-        $cadena = self::cadena($copia, $carpeta ?? \dirname($copia));
+        $cadena = self::stringToken($copia, $carpeta ?? \dirname($copia));
         $ultima = Container::cabecera($copia);
 
         /*
@@ -43,7 +43,7 @@ final class Restore
          */
         $archivos = [];
         foreach ($cadena as $eslabon) {
-            Container::recorrer($eslabon, static function (string $ruta, string $bytes) use (&$archivos): void {
+            Container::each($eslabon, static function (string $ruta, string $bytes) use (&$archivos): void {
                 $archivos[$ruta] = $bytes;
             });
         }
@@ -61,10 +61,10 @@ final class Restore
 
         $escritos = 0;
         foreach ($esperados as $ruta) {
-            self::escribir($destino . '/' . $ruta, $archivos[$ruta]);
+            self::writeTo($destino . '/' . $ruta, $archivos[$ruta]);
             $escritos++;
         }
-        $borrados = self::quitarLosQueSobran($destino, $esperados);
+        $borrados = self::dropExtras($destino, $esperados);
 
         return [
             'id'       => (string) ($ultima['id'] ?? ''),
@@ -80,7 +80,7 @@ final class Restore
      *
      * @return list<string> rutas de archivo, de la mas antigua a la mas nueva
      */
-    private static function cadena(string $copia, string $carpeta): array
+    private static function stringToken(string $copia, string $carpeta): array
     {
         $cadena = [];
         $actual = $copia;
@@ -103,12 +103,12 @@ final class Restore
             if ($base === null) {
                 break;                              // llegamos a la completa
             }
-            $actual = Catalog::buscar($carpeta, (string) $base);
+            $actual = Catalog::search($carpeta, (string) $base);
         }
         return \array_reverse($cadena);
     }
 
-    private static function escribir(string $ruta, string $bytes): void
+    private static function writeTo(string $ruta, string $bytes): void
     {
         $dir = \dirname($ruta);
         if (!\is_dir($dir) && !@\mkdir($dir, 0755, true) && !\is_dir($dir)) {
@@ -130,7 +130,7 @@ final class Restore
      *
      * @param list<string> $esperados
      */
-    private static function quitarLosQueSobran(string $destino, array $esperados): int
+    private static function dropExtras(string $destino, array $esperados): int
     {
         if (!\is_dir($destino)) {
             return 0;
@@ -138,7 +138,7 @@ final class Restore
         $mapa     = \array_flip($esperados);
         $borrados = 0;
 
-        foreach (Inventory::de($destino) as $ruta => $entrada) {
+        foreach (Inventory::of($destino) as $ruta => $entrada) {
             if (!isset($mapa[$ruta]) && @\unlink($entrada['absoluta'])) {
                 $borrados++;
             }

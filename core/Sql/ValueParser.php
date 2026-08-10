@@ -34,12 +34,12 @@ final class ValueParser
 
     public function parse(): array
     {
-        return $this->parseSuma();
+        return $this->parseSum();
     }
 
-    private function parseSuma(): array
+    private function parseSum(): array
     {
-        $izq = $this->parseProducto();
+        $izq = $this->parseProduct();
 
         while (true) {
             $tk = $this->ts->peek();
@@ -48,7 +48,7 @@ final class ValueParser
             }
             $this->ts->advance();
             $izq = ['t' => 'op', 'op' => (string) $tk->value,
-                    'izq' => $izq, 'der' => $this->parseProducto()];
+                    'izq' => $izq, 'der' => $this->parseProduct()];
         }
     }
 
@@ -58,9 +58,9 @@ final class ValueParser
      * aparece: aqui ya se ha leido un valor a la izquierda, asi que solo puede
      * ser multiplicar.
      */
-    private function parseProducto(): array
+    private function parseProduct(): array
     {
-        $izq = $this->parseUnario();
+        $izq = $this->parseUnary();
 
         while (true) {
             $tk  = $this->ts->peek();
@@ -71,22 +71,22 @@ final class ValueParser
             }
             $this->ts->advance();
             $izq = ['t' => 'op', 'op' => $mul ? '*' : (string) $tk->value,
-                    'izq' => $izq, 'der' => $this->parseUnario()];
+                    'izq' => $izq, 'der' => $this->parseUnary()];
         }
     }
 
-    private function parseUnario(): array
+    private function parseUnary(): array
     {
         $tk = $this->ts->peek();
         if ($tk->type === Token::OP && $tk->value === '-') {
             $this->ts->advance();
             return ['t' => 'op', 'op' => '-', 'izq' => ['t' => 'lit', 'v' => 0],
-                    'der' => $this->parseUnario()];
+                    'der' => $this->parseUnary()];
         }
-        return $this->parseAtomo();
+        return $this->parseAtom();
     }
 
-    private function parseAtomo(): array
+    private function parseAtom(): array
     {
         if ($this->ts->matchPunct('(')) {
             $dentro = $this->parse();
@@ -99,15 +99,15 @@ final class ValueParser
         // COUNT es palabra reservada del lexer; las demas funciones son identificadores.
         if ($tk->type === Token::KW && \strtoupper((string) $tk->value) === 'COUNT') {
             $this->ts->advance();
-            return $this->parseAgregado('COUNT');
+            return $this->parseAggregate('COUNT');
         }
         if ($tk->type === Token::IDENT && $this->ts->peek(1)->isPunct('(')) {
             $nombre = (string) $this->ts->advance()->value;
             $mayus  = \strtoupper($nombre);
 
             return \in_array($mayus, self::AGREGADOS, true)
-                ? $this->parseAgregado($mayus)
-                : $this->parseFuncion($nombre);
+                ? $this->parseAggregate($mayus)
+                : $this->parseFunction($nombre);
         }
         if ($tk->type === Token::IDENT) {
             return ['t' => 'campo', 'nombre' => (string) $this->ts->advance()->value];
@@ -123,7 +123,7 @@ final class ValueParser
     }
 
     /** SUM(campo), COUNT(*), COUNT(campo)... */
-    private function parseAgregado(string $fn): array
+    private function parseAggregate(string $fn): array
     {
         $this->ts->consumePunct('(');
 
@@ -140,7 +140,7 @@ final class ValueParser
         return ['t' => 'agg', 'fn' => $fn, 'arg' => $arg];
     }
 
-    private function parseFuncion(string $nombre): array
+    private function parseFunction(string $nombre): array
     {
         $this->ts->consumePunct('(');
         $args = [];

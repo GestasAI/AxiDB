@@ -54,7 +54,7 @@ final class Journal
      *
      * @param list<array{coleccion:string, id:string, accion:string, datos?:array}> $operaciones
      */
-    public function anotar(array $operaciones): void
+    public function record(array $operaciones): void
     {
         if (!\is_dir($this->dir) && !@\mkdir($this->dir, 0755, true) && !\is_dir($this->dir)) {
             throw new Exception("Tx: could not create the journal in {$this->dir}.");
@@ -96,7 +96,7 @@ final class Journal
         \fclose($fp);
     }
 
-    public function estaConfirmado(): bool
+    public function isCommitted(): bool
     {
         return \is_file($this->dir . '/' . self::HECHO);
     }
@@ -115,7 +115,7 @@ final class Journal
     }
 
     /** Se llama cuando ya no hace falta: aplicado del todo, o descartado. */
-    public function borrar(): void
+    public function delete(): void
     {
         foreach (\glob($this->dir . '/*') ?: [] as $f) {
             @\unlink($f);

@@ -95,7 +95,7 @@ final class DdlParser
             $campo = $this->ts->consumeIdent();
 
             // El valor con el que se rellena en los documentos que ya hay.
-            $defecto = $this->ts->peek()->isOp('=') ? $this->tomarDefecto() : null;
+            $defecto = $this->ts->peek()->isOp('=') ? $this->takeDefault() : null;
             return ['type' => 'alter_add_field', 'collection' => $coleccion,
                     'field' => $campo, 'default' => $defecto];
         }
@@ -112,7 +112,7 @@ final class DdlParser
         );
     }
 
-    private function tomarDefecto(): mixed
+    private function takeDefault(): mixed
     {
         $this->ts->advance();
         return $this->ts->consumeLiteral();
@@ -123,7 +123,7 @@ final class DdlParser
         $unico = $this->ts->matchKw('UNIQUE');
 
         if ($this->ts->matchKw('INDEX')) {
-            [$coleccion, $campo] = $this->parseDestinoIndice();
+            [$coleccion, $campo] = $this->parseIndexTarget();
             return [
                 'type'       => 'create_index',
                 'collection' => $coleccion,
@@ -149,7 +149,7 @@ final class DdlParser
     private function parseDrop(): array
     {
         if ($this->ts->matchKw('INDEX')) {
-            [$coleccion, $campo] = $this->parseDestinoIndice();
+            [$coleccion, $campo] = $this->parseIndexTarget();
             return ['type' => 'drop_index', 'collection' => $coleccion, 'field' => $campo];
         }
 
@@ -163,7 +163,7 @@ final class DdlParser
     }
 
     /** ON <coleccion> (<campo>) — comun a CREATE INDEX y DROP INDEX. */
-    private function parseDestinoIndice(): array
+    private function parseIndexTarget(): array
     {
         $this->ts->consumeKw('ON');
         $coleccion = $this->ts->consumeIdent();

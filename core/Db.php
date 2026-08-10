@@ -82,8 +82,8 @@ final class Db
     public function put(string $collection, string $id, array $data, bool $replace = false): array
     {
         $fields  = $this->index->fields($collection);
-        $unicos  = $this->storage->unicosDe($collection);
-        $esquema = $this->storage->esquemaDe($collection);
+        $unicos  = $this->storage->uniquesOf($collection);
+        $esquema = $this->storage->schemaOf($collection);
 
         $before = $fields === [] && $unicos === [] && $esquema === []
             ? null
@@ -91,26 +91,26 @@ final class Db
 
         // El esquema, lo primero: si el documento no vale, mejor enterarse
         // antes de reservar nada y antes de tocar el disco.
-        [$data, $replace] = $this->aplicarEsquema($collection, $id, $data, $before, $replace);
+        [$data, $replace] = $this->applySchema($collection, $id, $data, $before, $replace);
 
         // Reservar antes de escribir, y soltar si la escritura no sale. Ver
         // Unicidad: hacerlo al reves obligaria a deshacer un documento guardado.
         $reserva = new Uniqueness($this->index, $collection, $id);
         if ($unicos !== []) {
-            $reserva->reservar($unicos, $replace || $before === null ? $data : $data + $before, $before);
+            $reserva->reserve($unicos, $replace || $before === null ? $data : $data + $before, $before);
         }
 
         try {
             $after = $this->storage->put($collection, $id, $data, $replace);
         } catch (\Throwable $e) {
-            $reserva->soltar();
+            $reserva->release();
             throw $e;
         }
 
         if ($fields !== []) {
             $this->index->sync($collection, $fields, $before, $after);
         }
-        $this->vectores->alGuardar($collection, $id, $after);
+        $this->vectores->onSave($collection, $id, $after);
         return $after;
     }
 
@@ -125,7 +125,7 @@ final class Db
             $this->index->sync($collection, $fields, $before, null);
         }
         if ($ok) {
-            $this->vectores->alBorrar($collection, $id);
+            $this->vectores->onDelete($collection, $id);
         }
         return $ok;
     }

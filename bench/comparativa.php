@@ -111,7 +111,7 @@ foreach (\glob($base . '/fs/p/*.json') ?: [] as $f) {
 /* ───────────────────────── AxiDB, driver packed ───────────────────────── */
 
 $dbPk = new Db($base . '/packed', ['durable' => false]);
-$dbPk->storage()->declararDriver('p', 'packed');
+$dbPk->storage()->declareDriver('p', 'packed');
 $resultados['packed']['alta_masiva'] = cronometrar(static function () use ($dbPk, $documentos) {
     foreach ($documentos as $d) {
         $dbPk->put('p', $d['id'], $d, true);

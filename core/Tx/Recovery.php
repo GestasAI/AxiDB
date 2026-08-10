@@ -39,12 +39,12 @@ final class Recovery
             $aplicadas = $descartadas = 0;
 
             foreach (Journal::pendientes($base) as $diario) {
-                if ($diario->estaConfirmado()) {
+                if ($diario->isCommitted()) {
                     $aplicadas += Applier::aplicar($db, $diario->operaciones());
                 } else {
                     $descartadas++;
                 }
-                $diario->borrar();
+                $diario->delete();
             }
             return ['aplicadas' => $aplicadas, 'descartadas' => $descartadas];
         });

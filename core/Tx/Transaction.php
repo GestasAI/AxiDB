@@ -38,7 +38,7 @@ final class Transaction
 
     public function get(string $coleccion, string $id): ?array
     {
-        $clave    = self::clave($coleccion, $id);
+        $clave    = self::keyOf($coleccion, $id);
         $guardado = $this->db->get($coleccion, $id);
         $this->vistos[$clave] ??= $guardado === null ? null : (int) ($guardado['_version'] ?? 0);
 
@@ -67,7 +67,7 @@ final class Transaction
         $fuera = [];
         foreach ($this->db->all($coleccion) as $doc) {
             $id    = (string) ($doc['id'] ?? '');
-            $clave = self::clave($coleccion, $id);
+            $clave = self::keyOf($coleccion, $id);
             if (isset($this->pendiente[$clave])) {
                 continue;                       // se añade abajo, o esta borrado
             }
@@ -126,19 +126,19 @@ final class Transaction
         $carga    = $datos;
 
         if (!$replace && $anterior !== null) {
-            $carga = $datos + self::sinMeta($anterior);
+            $carga = $datos + self::withoutMeta($anterior);
         }
-        if (isset($this->pendiente[self::clave($coleccion, $id)]) && !$replace) {
-            $carga = $datos + $this->pendiente[self::clave($coleccion, $id)]['datos'];
+        if (isset($this->pendiente[self::keyOf($coleccion, $id)]) && !$replace) {
+            $carga = $datos + $this->pendiente[self::keyOf($coleccion, $id)]['datos'];
         }
 
-        $this->pendiente[self::clave($coleccion, $id)] = [
+        $this->pendiente[self::keyOf($coleccion, $id)] = [
             'coleccion' => $coleccion,
             'id'        => $id,
             'accion'    => 'poner',
-            'datos'     => self::sinMeta($carga),
+            'datos'     => self::withoutMeta($carga),
         ];
-        return ['id' => $id] + self::sinMeta($carga);
+        return ['id' => $id] + self::withoutMeta($carga);
     }
 
     public function delete(string $coleccion, string $id): bool
@@ -146,7 +146,7 @@ final class Transaction
         if (!$this->exists($coleccion, $id)) {
             return false;
         }
-        $this->pendiente[self::clave($coleccion, $id)] = [
+        $this->pendiente[self::keyOf($coleccion, $id)] = [
             'coleccion' => $coleccion,
             'id'        => $id,
             'accion'    => 'borrar',
@@ -169,13 +169,13 @@ final class Transaction
         return $this->vistos;
     }
 
-    public function vacia(): bool
+    public function isEmpty(): bool
     {
         return $this->pendiente === [];
     }
 
     /** Si esta coleccion tiene cambios sin confirmar. Lo consulta AxiSQL. */
-    public function tienePendiente(string $coleccion): bool
+    public function hasPending(string $coleccion): bool
     {
         foreach ($this->pendiente as $op) {
             if ($op['coleccion'] === $coleccion) {
@@ -185,13 +185,13 @@ final class Transaction
         return false;
     }
 
-    public static function clave(string $coleccion, string $id): string
+    public static function keyOf(string $coleccion, string $id): string
     {
         return $coleccion . "\0" . $id;
     }
 
     /** Los metadatos los pone el motor al escribir; no viajan en el plan. */
-    private static function sinMeta(array $doc): array
+    private static function withoutMeta(array $doc): array
     {
         unset($doc['id'], $doc['_version'], $doc['_createdAt'], $doc['_updatedAt']);
         return $doc;

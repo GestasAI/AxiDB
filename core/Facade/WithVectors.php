@@ -26,8 +26,8 @@ trait WithVectors
      */
     public function enableVectors(string $collection, array $opciones = []): array
     {
-        $this->profile()->exigir('vectors', 'la busqueda por significado');
-        return $this->vectores->activar($collection, $opciones)->aArray();
+        $this->profile()->requireCapability('vectors', 'la busqueda por significado');
+        return $this->vectores->enable($collection, $opciones)->toArray();
     }
 
     /**
@@ -58,11 +58,11 @@ trait WithVectors
      */
     public function hybrid(string $collection, string $texto, int $k = 10): array
     {
-        $this->profile()->exigir('vectors', 'la busqueda hibrida');
+        $this->profile()->requireCapability('vectors', 'la busqueda hibrida');
 
         $porSignificado = $this->similar($collection, $texto, $k * 2);
 
-        $campos = $this->vectorIndex($collection)->manifiesto()->auto;
+        $campos = $this->vectorIndex($collection)->manifest()->auto;
         $porPalabra = [];
         foreach ($this->all($collection) as $doc) {
             foreach ($campos as $campo) {
@@ -90,7 +90,7 @@ trait WithVectors
         ?Query $donde = null,
         ?string $precision = null
     ): array {
-        $this->profile()->exigir('vectors', 'la busqueda por significado');
+        $this->profile()->requireCapability('vectors', 'la busqueda por significado');
 
         return $this->vectores->similar($collection, $consulta, $k, $donde, $precision);
     }
@@ -98,7 +98,7 @@ trait WithVectors
     /** Acceso al indice vectorial de una coleccion, para lo que no cubre la fachada. */
     public function vectorIndex(string $collection): Vector\VectorIndex
     {
-        $this->profile()->exigir('vectors', 'el acceso al indice vectorial');
-        return $this->vectores->indice($collection);
+        $this->profile()->requireCapability('vectors', 'el acceso al indice vectorial');
+        return $this->vectores->indexOf($collection);
     }
 }

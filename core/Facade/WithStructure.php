@@ -34,9 +34,9 @@ trait WithStructure
     /**
      * Añade, quita o renombra un campo en TODOS los documentos.
      *
-     *   $db->campo('clientes', 'añadir',    'activo', true);
-     *   $db->campo('clientes', 'quitar',    'fax');
-     *   $db->campo('clientes', 'renombrar', 'tlf', 'telefono');
+     *   $db->fieldOp('clientes', 'añadir',    'activo', true);
+     *   $db->fieldOp('clientes', 'quitar',    'fax');
+     *   $db->fieldOp('clientes', 'renombrar', 'tlf', 'telefono');
      *
      * Reescribe documento a documento y pasa por `put`, asi que los indices, la
      * unicidad y el esquema se mantienen al dia. Eso lo hace mas lento que un
@@ -44,13 +44,13 @@ trait WithStructure
      *
      * @return int documentos que cambiaron
      */
-    public function campo(string $collection, string $accion, string $campo, mixed $extra = null): int
+    public function fieldOp(string $collection, string $accion, string $campo, mixed $extra = null): int
     {
         $cambiados = 0;
 
         foreach ($this->all($collection) as $doc) {
             $id     = (string) ($doc['id'] ?? '');
-            $nuevo  = self::aplicarA($doc, $accion, $campo, $extra);
+            $nuevo  = self::applyTo($doc, $accion, $campo, $extra);
 
             if ($nuevo === null) {
                 continue;                       // este documento no cambia
@@ -64,7 +64,7 @@ trait WithStructure
     }
 
     /** El documento resultante, o null si esta accion no le afecta. */
-    private static function aplicarA(array $doc, string $accion, string $campo, mixed $extra): ?array
+    private static function applyTo(array $doc, string $accion, string $campo, mixed $extra): ?array
     {
         $meta = ['id', '_version', '_createdAt', '_updatedAt'];
 

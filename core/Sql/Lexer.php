@@ -59,7 +59,7 @@ final class Lexer
             }
 
             if ($c === "'" || $c === '"') {
-                [$tokens[], $i] = $this->leerCadena($input, $i, $len);
+                [$tokens[], $i] = $this->readString($input, $i, $len);
                 continue;
             }
 
@@ -73,8 +73,8 @@ final class Lexer
              * parentesis que cierra), entonces el guion es una resta.
              */
             if (\ctype_digit($c) || ($c === '-' && \ctype_digit($input[$i + 1] ?? '')
-                    && !self::cierraExpresion($tokens[\count($tokens) - 1] ?? null))) {
-                [$tokens[], $i] = $this->leerNumero($input, $i, $len);
+                    && !self::closesExpression($tokens[\count($tokens) - 1] ?? null))) {
+                [$tokens[], $i] = $this->readNumber($input, $i, $len);
                 continue;
             }
 
@@ -147,7 +147,7 @@ final class Lexer
      * numero. Un campo, un numero, un texto o un ')' cierran expresion; un
      * operador o un '(' no.
      */
-    private static function cierraExpresion(?Token $anterior): bool
+    private static function closesExpression(?Token $anterior): bool
     {
         if ($anterior === null) {
             return false;
@@ -159,7 +159,7 @@ final class Lexer
     }
 
     /** Cadena entre comillas. La comilla doblada ('') escapa una comilla. */
-    private function leerCadena(string $input, int $i, int $len): array
+    private function readString(string $input, int $i, int $len): array
     {
         $comilla = $input[$i];
         $inicio  = $i;
@@ -180,7 +180,7 @@ final class Lexer
         throw new Exception("AxiSQL: unterminated string starting at position {$inicio}.");
     }
 
-    private function leerNumero(string $input, int $i, int $len): array
+    private function readNumber(string $input, int $i, int $len): array
     {
         $inicio = $i;
         if ($input[$i] === '-') {

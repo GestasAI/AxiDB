@@ -106,7 +106,7 @@ final class Query
      */
     public function join(string $coleccion, string $campoAqui, string $campoAlla, bool $izquierdo = false): self
     {
-        $this->perfil?->exigir('relations', 'join() y JOIN');
+        $this->perfil?->requireCapability('relations', 'join() y JOIN');
 
         $this->uniones[] = [
             'coleccion' => $coleccion,
@@ -120,7 +120,7 @@ final class Query
 
     public function get(): array
     {
-        [$docs, $this->plan] = Candidates::de(
+        [$docs, $this->plan] = Candidates::of(
             $this->storage, $this->index, $this->collection,
             $this->where, $this->expr, $this->fuente
         );
@@ -155,7 +155,7 @@ final class Query
         $docs = \array_values($docs);
 
         if ($this->orderBy !== []) {
-            $docs = $this->ordenar($docs);
+            $docs = $this->sortRows($docs);
         }
         if ($this->limit !== null) {
             $docs = \array_slice($docs, $this->offset, $this->limit);
@@ -192,7 +192,7 @@ final class Query
         return $this->plan;
     }
 
-    private function ordenar(array $docs): array
+    private function sortRows(array $docs): array
     {
         $clausulas = $this->orderBy;
         \usort($docs, static function ($a, $b) use ($clausulas) {

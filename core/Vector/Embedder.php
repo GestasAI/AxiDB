@@ -33,8 +33,8 @@ interface Embedder
      * Como se llama, para dejarlo escrito en el manifiesto. Formato
      * `proveedor:modelo`, por ejemplo `ollama:nomic-embed-text`.
      */
-    public function nombre(): string;
+    public function driverName(): string;
 
     /** True si funciona sin salir a internet. */
-    public function esLocal(): bool;
+    public function isLocal(): bool;
 }

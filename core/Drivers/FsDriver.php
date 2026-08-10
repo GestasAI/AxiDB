@@ -34,7 +34,7 @@ final class FsDriver implements Driver
     ) {
     }
 
-    public function nombre(): string
+    public function driverName(): string
     {
         return 'fs';
     }
@@ -55,9 +55,9 @@ final class FsDriver implements Driver
             if (!\flock($lock, LOCK_EX)) {
                 throw new Exception("Exclusive lock failed on {$path}.");
             }
-            $data = Meta::aplicar($data, $id, $this->leer($path), $replace);
-            $durable = $this->ajustes->esDurable($collection);
-            $this->escribirAtomico($path, $data, $durable);
+            $data = Meta::aplicar($data, $id, $this->readAt($path), $replace);
+            $durable = $this->ajustes->isDurable($collection);
+            $this->writeAtomic($path, $data, $durable);
         } finally {
             \flock($lock, LOCK_UN);
             \fclose($lock);
@@ -69,21 +69,21 @@ final class FsDriver implements Driver
      * Sin lock: el rename ya es atomico y esto solo lo usa la migracion, que es
      * escritor unico sobre una coleccion que aun no se lee desde este driver.
      */
-    public function copiar(string $collection, string $id, array $doc): void
+    public function copyDocument(string $collection, string $id, array $doc): void
     {
         Names::check($id, 'id');
         $this->colecciones->ensure($collection);
-        $this->escribirAtomico(
+        $this->writeAtomic(
             $this->docPath($collection, $id),
             $doc,
-            $this->ajustes->esDurable($collection)
+            $this->ajustes->isDurable($collection)
         );
     }
 
     public function get(string $collection, string $id): ?array
     {
         Names::check($id, 'id');
-        return $this->leer($this->docPath($collection, $id));
+        return $this->readAt($this->docPath($collection, $id));
     }
 
     public function delete(string $collection, string $id): bool
@@ -101,8 +101,8 @@ final class FsDriver implements Driver
     public function all(string $collection): array
     {
         $out = [];
-        foreach ($this->archivos($collection) as $file) {
-            $doc = $this->leer($file);
+        foreach ($this->filesIn($collection) as $file) {
+            $doc = $this->readAt($file);
             if ($doc !== null) {
                 $out[] = $doc;
             }
@@ -112,7 +112,7 @@ final class FsDriver implements Driver
 
     public function count(string $collection): int
     {
-        return \count($this->archivos($collection));
+        return \count($this->filesIn($collection));
     }
 
     /** Retira temporales huerfanos. Devuelve cuantos. */
@@ -125,7 +125,7 @@ final class FsDriver implements Driver
     /* ─────────────────────────────── Interno ─────────────────────────────── */
 
     /** Rutas de los documentos. Ignora internos (prefijo _) y temporales. */
-    private function archivos(string $collection): array
+    private function filesIn(string $collection): array
     {
         $dir = $this->colecciones->path($collection);
         if (!\is_dir($dir)) {
@@ -149,7 +149,7 @@ final class FsDriver implements Driver
         return $this->colecciones->path($collection) . '/' . Names::toPath($id) . '.json';
     }
 
-    private function leer(string $path): ?array
+    private function readAt(string $path): ?array
     {
         if (!\is_file($path)) {
             return null;
@@ -166,7 +166,7 @@ final class FsDriver implements Driver
      * Temporal, fsync opcional y rename sobre el destino. Un lector ve el
      * contenido viejo o el nuevo, nunca uno a medias.
      */
-    private function escribirAtomico(string $path, array $data, bool $durable): void
+    private function writeAtomic(string $path, array $data, bool $durable): void
     {
         $tmp = $path . '.tmp.' . \bin2hex(\random_bytes(4));
         $fp  = @\fopen($tmp, 'wb');
@@ -184,7 +184,7 @@ final class FsDriver implements Driver
         } finally {
             \fclose($fp);
         }
-        if (!self::renombrar($tmp, $path)) {
+        if (!self::renameTo($tmp, $path)) {
             @\unlink($tmp);
             throw new Exception("Rename atomico fallido: {$path}.");
         }
@@ -207,7 +207,7 @@ final class FsDriver implements Driver
      * para que un lector termine, y sigue fallando rapido si el problema es otro
      * —permisos, disco lleno— en vez de quedarse colgado.
      */
-    private static function renombrar(string $tmp, string $path): bool
+    private static function renameTo(string $tmp, string $path): bool
     {
         for ($intento = 0; $intento < 10; $intento++) {
             if (@\rename($tmp, $path)) {

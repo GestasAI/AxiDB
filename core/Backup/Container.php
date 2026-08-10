@@ -46,7 +46,7 @@ final class Container
     }
 
     /** Abre un archivo nuevo y deja escrita la cabecera. */
-    public static function crear(string $destino, array $cabecera): self
+    public static function create(string $destino, array $cabecera): self
     {
         $dir = \dirname($destino);
         if (!\is_dir($dir) && !@\mkdir($dir, 0755, true) && !\is_dir($dir)) {
@@ -57,31 +57,31 @@ final class Container
             throw new Exception("Backup: could not write to {$destino}.");
         }
         $propio = new self($fp);
-        $propio->linea(self::MARCA);
-        $propio->linea(self::json($cabecera));
+        $propio->lineOf(self::MARCA);
+        $propio->lineOf(self::json($cabecera));
         return $propio;
     }
 
     /** Mete un archivo del disco dentro de la copia. */
-    public function añadir(string $ruta, string $origen): void
+    public function append(string $ruta, string $origen): void
     {
         $bytes = @\file_get_contents($origen);
         if ($bytes === false) {
             throw new Exception("Backup: could not read {$origen}.");
         }
-        $this->linea(self::json([
+        $this->lineOf(self::json([
             'ruta'  => $ruta,
             'bytes' => \strlen($bytes),
             'sha1'  => \sha1($bytes),
         ]));
-        $this->escribir($bytes . "\n");
+        $this->writeTo($bytes . "\n");
     }
 
     /**
      * Cierra con fsync. Una copia que se queda en la cache del sistema no es una
      * copia: justo el corte del que protege se la llevaria por delante.
      */
-    public function cerrar(): void
+    public function close(): void
     {
         \fflush($this->fp);
         @\fsync($this->fp);
@@ -117,7 +117,7 @@ final class Container
      *
      * @return int entradas leidas
      */
-    public static function recorrer(string $archivo, callable $porEntrada): int
+    public static function each(string $archivo, callable $porEntrada): int
     {
         $fp = @\fopen($archivo, 'rb');
         if (!$fp) {
@@ -155,12 +155,12 @@ final class Container
         }
     }
 
-    private function linea(string $texto): void
+    private function lineOf(string $texto): void
     {
-        $this->escribir($texto . "\n");
+        $this->writeTo($texto . "\n");
     }
 
-    private function escribir(string $bytes): void
+    private function writeTo(string $bytes): void
     {
         if (\fwrite($this->fp, $bytes) !== \strlen($bytes)) {
             throw new Exception('Backup: incomplete write. Did the disk fill up?');

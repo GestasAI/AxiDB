@@ -38,24 +38,24 @@ final class Searcher
      * @param string|null        $precision sobreescribe la de la coleccion
      * @return list<array{id: string, score: float}> de mas a menos parecido
      */
-    public function buscar(array $consulta, int $k = 10, array $soloEstos = [], ?string $precision = null): array
+    public function search(array $consulta, int $k = 10, array $soloEstos = [], ?string $precision = null): array
     {
-        $m = $this->almacen->manifiesto();
-        if ($k < 1 || $m->vivos() === 0) {
+        $m = $this->almacen->manifest();
+        if ($k < 1 || $m->alive() === 0) {
             return [];
         }
 
-        $vivos = $this->ordinalesAdmitidos($m, $soloEstos);
+        $vivos = $this->allowedOrdinals($m, $soloEstos);
         if ($vivos === null) {
             return [];                              // el filtro no deja pasar a nadie
         }
 
-        $cuantos = Precision::candidatos(
+        $cuantos = Precision::candidates(
             $precision === null ? $m->precision : Precision::valida($precision),
             $k
         );
 
-        return $this->afinar($this->candidatos($consulta, $cuantos, $vivos), $consulta, $k);
+        return $this->refine($this->candidates($consulta, $cuantos, $vivos), $consulta, $k);
     }
 
     /**
@@ -69,7 +69,7 @@ final class Searcher
      * @param array<int,true> $vivos
      * @return list<int>
      */
-    private function candidatos(array $consulta, ?int $cuantos, array $vivos): array
+    private function candidates(array $consulta, ?int $cuantos, array $vivos): array
     {
         /*
          * Si caben todos, no se criba.
@@ -81,14 +81,14 @@ final class Searcher
          *
          * Por eso una coleccion pequeña sale exacta sin que haya que pensarlo.
          */
-        $vivosTotal = $this->almacen->manifiesto()->vivos();
+        $vivosTotal = $this->almacen->manifest()->alive();
         if ($cuantos !== null && $cuantos >= $vivosTotal) {
             $cuantos = null;
         }
 
         if ($cuantos !== null) {
             return Codes::masCercanos(
-                $this->almacen->codigos(),
+                $this->almacen->codes(),
                 Quantizer::aBinario($consulta),
                 $cuantos,
                 $vivos
@@ -99,7 +99,7 @@ final class Searcher
         }
         // Sin bajas ni filtro, los ordinales son 0..cuenta-1 y no hace falta
         // construir el mapa de vivos para saberlo.
-        return \range(0, $this->almacen->manifiesto()->cuenta - 1);
+        return \range(0, $this->almacen->manifest()->cuenta - 1);
     }
 
     /**
@@ -109,11 +109,11 @@ final class Searcher
      * @param list<float> $consulta
      * @return list<array{id: string, score: float}>
      */
-    private function afinar(array $candidatos, array $consulta, int $k): array
+    private function refine(array $candidatos, array $consulta, int $k): array
     {
         $puntuados = [];
         foreach ($candidatos as $ordinal) {
-            $vector = $this->almacen->vectorDe($ordinal);
+            $vector = $this->almacen->vectorOf($ordinal);
             if ($vector === null) {
                 continue;
             }
@@ -123,7 +123,7 @@ final class Searcher
 
         $salida = [];
         foreach ($puntuados as $ordinal => $score) {
-            $id = $this->almacen->idDe($ordinal);
+            $id = $this->almacen->idOf($ordinal);
             if ($id === null) {
                 continue;                           // se dio de baja por el camino
             }
@@ -149,14 +149,14 @@ final class Searcher
      * @param array<string,true> $soloEstos
      * @return array<int,true>|null
      */
-    private function ordinalesAdmitidos(Manifest $m, array $soloEstos): ?array
+    private function allowedOrdinals(Manifest $m, array $soloEstos): ?array
     {
         if ($soloEstos === []) {
-            return $m->bajas > 0 ? $this->almacen->vivos() : [];
+            return $m->bajas > 0 ? $this->almacen->alive() : [];
         }
 
         // Una sola pasada por el archivo de ids, no una por cada id buscado.
-        $mapa      = $this->almacen->mapaIds();
+        $mapa      = $this->almacen->idMap();
         $admitidos = [];
         foreach (\array_keys($soloEstos) as $id) {
             $ordinal = $mapa[(string) $id] ?? null;

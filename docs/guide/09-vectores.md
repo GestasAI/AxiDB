@@ -231,8 +231,8 @@ Cuando los huecos pasan de una quinta parte, conviene recogerlos:
 ```php
 $indice = $db->vectorIndex('articulos');
 
-if ($indice->convieneCompactar()) {
-    $indice->compactar();
+if ($indice->shouldCompact()) {
+    $indice->compact();
 }
 ```
 
@@ -300,11 +300,11 @@ asi que un agente de solo lectura no borra una coleccion con un `DELETE`.
 interesantes—:
 
 ```php
-foreach ($db->audit()->leer('agent:recomendador', 20) as $linea) {
+foreach ($db->audit()->readAt('agent:recomendador', 20) as $linea) {
     echo $linea['ts'], ' ', $linea['op'], ' ', $linea['ok'] ? 'ok' : $linea['error'], "\n";
 }
 
-$db->audit()->rechazos('agent:recomendador');   // cuantas veces se paso de la raya
+$db->audit()->rejections('agent:recomendador');   // cuantas veces se paso de la raya
 ```
 
 ### El interruptor de parada
@@ -312,9 +312,9 @@ $db->audit()->rechazos('agent:recomendador');   // cuantas veces se paso de la r
 ```php
 $agente = $db->agent('recomendador', ['get'], ['articulos']);
 
-$agente->detener('estaba pidiendo cosas raras');
-$agente->detenido();      // true, tambien desde otro proceso
-$agente->reanudar();
+$agente->stop('estaba pidiendo cosas raras');
+$agente->isStopped();      // true, tambien desde otro proceso
+$agente->resume();
 ```
 
 Vive en un archivo, no en memoria: un agente de verdad suele estar corriendo en

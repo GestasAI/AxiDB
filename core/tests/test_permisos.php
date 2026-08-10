@@ -235,9 +235,9 @@ eq('y la consulta por indice los encuentra a los dos', 2, \count($db->by('p', 'n
 section('D] Lo mismo con el formato empaquetado');
 
 $db2 = new Db($dir . '/db2', ['durable' => false]);
-$db2->storage()->declararDriver('q', 'packed');
+$db2->storage()->declareDriver('q', 'packed');
 $db2->insert('q', ['texto' => 'ORIGINAL'], 'y1');
-$db2->storage()->cerrar();
+$db2->storage()->close();
 
 $datos = $dir . '/db2/q/data.axi';
 ok('el archivo empaquetado existe', \is_file($datos));
@@ -248,7 +248,7 @@ $antes = (string) \file_get_contents($datos);
 $db3 = new Db($dir . '/db2', ['durable' => false]);
 throws('escribir sobre el log bloqueado lanza',
     static fn() => $db3->insert('q', ['texto' => 'NUEVO'], 'y2'));
-$db3->storage()->cerrar();
+$db3->storage()->close();
 
 eq('y el archivo no cambio ni un byte', $antes, (string) \file_get_contents($datos));
 
@@ -258,7 +258,7 @@ $db4 = new Db($dir . '/db2', ['durable' => false]);
 eq('con el permiso devuelto, el documento de antes sigue ahi',
     'ORIGINAL', $db4->get('q', 'y1')['texto'] ?? null);
 eq('y se puede volver a escribir', 'NUEVO', $db4->insert('q', ['texto' => 'NUEVO'], 'y2')['texto']);
-$db4->storage()->cerrar();
+$db4->storage()->close();
 
 }   // fin del bloque que exige permisos de archivo efectivos
 

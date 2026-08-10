@@ -36,7 +36,7 @@ $lector = $db->agent('lector', ['get', 'find', 'count'], ['articulos']);
 eq('lee lo suyo',        'Uno', $lector->get('articulos', 'a1')['titulo']);
 eq('cuenta lo suyo',         2, $lector->count('articulos'));
 eq('y consulta lo suyo',     1, \count($lector->find('articulos')->where('visitas', '>', 15)->get()));
-eq('se identifica', 'agent:lector', $lector->actor());
+eq('se identifica', 'agent:lector', $lector->actorName());
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('B] Lo que no puede');
@@ -81,7 +81,7 @@ eq('pero leer lo suyo por SQL si', 2, \count($filas));
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('D] Todo queda anotado, tambien lo rechazado');
 
-$rastro = $db->audit()->leer('agent:lector', 100);
+$rastro = $db->audit()->readAt('agent:lector', 100);
 ok('hay rastro',                    $rastro !== []);
 ok('con el actor delante',          ($rastro[0]['actor'] ?? '') === 'agent:lector');
 ok('y la hora',                     !empty($rastro[0]['ts']));
@@ -90,12 +90,12 @@ $rechazos = \array_filter($rastro, static fn($f) => ($f['ok'] ?? true) === false
 ok('los intentos rechazados tambien se anotan', \count($rechazos) >= 7);
 ok('con el motivo dentro',
     \str_contains((string) (\reset($rechazos)['error'] ?? ''), 'This agent'));
-eq('y el contador de rechazos lo cuenta', \count($rechazos), $db->audit()->rechazos('agent:lector'));
+eq('y el contador de rechazos lo cuenta', \count($rechazos), $db->audit()->rejections('agent:lector'));
 
 $correctas = \array_filter($rastro, static fn($f) => ($f['ok'] ?? false) === true);
 ok('y las que salieron bien tambien', \count($correctas) >= 4);
 
-$otros = $db->audit()->leer('agent:nadie');
+$otros = $db->audit()->readAt('agent:nadie');
 eq('filtrar por un actor que no existe no devuelve nada', [], $otros);
 
 /* ─────────────────────────────────────────────────────────────────────────── */
@@ -115,11 +115,11 @@ eq('que sigue con uno solo', 1, $db->count('clientes'));
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('F] El interruptor de parada');
 
-ok('arranca en marcha', !$editor->detenido());
+ok('arranca en marcha', !$editor->isStopped());
 
-$editor->detener('se estaba pasando de listo');
+$editor->stop('se estaba pasando de listo');
 
-ok('queda detenido', $editor->detenido());
+ok('queda detenido', $editor->isStopped());
 throws('y ya no hace nada, aunque lo tuviera permitido',
     static fn() => $editor->insert('articulos', ['titulo' => 'Cuatro']));
 throws('ni siquiera leer',
@@ -139,14 +139,14 @@ ok('y dice por que se paro', \str_contains($motivo, 'pasando de listo'));
  * corriendo en otro proceso —una cola, un cron— y un booleano no lo alcanzaria.
  */
 $mismoAgente = $db->agent('editor', ['get'], ['articulos']);
-ok('otra instancia del mismo agente tambien esta detenida', $mismoAgente->detenido());
+ok('otra instancia del mismo agente tambien esta detenida', $mismoAgente->isStopped());
 
 $otroAgente = $db->agent('lector', ['get'], ['articulos']);
-ok('pero los demas siguen funcionando', !$otroAgente->detenido());
+ok('pero los demas siguen funcionando', !$otroAgente->isStopped());
 eq('y leyendo', 'Uno', $otroAgente->get('articulos', 'a1')['titulo']);
 
-$editor->reanudar();
-ok('se puede reanudar', !$editor->detenido());
+$editor->resume();
+ok('se puede reanudar', !$editor->isStopped());
 eq('y vuelve a trabajar', 'Cuatro', $editor->insert('articulos', ['titulo' => 'Cuatro'], 'a4')['titulo']);
 
 /* ─────────────────────────────────────────────────────────────────────────── */
@@ -156,18 +156,18 @@ throws('una operacion inventada se rechaza al declararla',
     static fn() => new Sandbox(['volar']));
 
 $vacio = new Sandbox([]);
-throws('una lista vacia no significa "todo"', static fn() => $vacio->exigir('get', 'x'));
+throws('una lista vacia no significa "todo"', static fn() => $vacio->requireOp('get', 'x'));
 
 $todo = new Sandbox(['get'], null);
-$todo->exigir('get', 'la_que_sea');
+$todo->requireOp('get', 'la_que_sea');
 ok('sin lista de colecciones, alcanza a todas', true);
 
 $soloLectura = Sandbox::soloLectura(['articulos']);
-$soloLectura->exigir('find', 'articulos');
+$soloLectura->requireOp('find', 'articulos');
 throws('el atajo de solo lectura no deja escribir',
-    static fn() => $soloLectura->exigir('insert', 'articulos'));
+    static fn() => $soloLectura->requireOp('insert', 'articulos'));
 
-ok('sabe que operaciones escriben',  $soloLectura->escribe('delete'));
-ok('y cuales no',                   !$soloLectura->escribe('get'));
+ok('sabe que operaciones escriben',  $soloLectura->isWrite('delete'));
+ok('y cuales no',                   !$soloLectura->isWrite('get'));
 
 summary();

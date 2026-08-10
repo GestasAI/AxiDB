@@ -23,7 +23,7 @@ namespace Axi\Core\Drivers;
 interface Driver
 {
     /** Nombre corto del driver, tal y como se guarda en la coleccion. */
-    public function nombre(): string;
+    public function driverName(): string;
 
     /**
      * Crea o actualiza. Fusiona con lo existente salvo que $replace sea true.
@@ -38,7 +38,7 @@ interface Driver
      * la version y le pondria la fecha de ahora, con lo que cambiar de formato
      * —que no deberia notarse en el dato— dejaria huella en cada documento.
      */
-    public function copiar(string $collection, string $id, array $doc): void;
+    public function copyDocument(string $collection, string $id, array $doc): void;
 
     /** Devuelve el documento o null si no existe. */
     public function get(string $collection, string $id): ?array;

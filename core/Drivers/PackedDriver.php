@@ -38,7 +38,7 @@ final class PackedDriver implements Driver
         $this->archivos = new Descriptores($colecciones, $ajustes);
     }
 
-    public function nombre(): string
+    public function driverName(): string
     {
         return 'packed';
     }
@@ -48,71 +48,71 @@ final class PackedDriver implements Driver
         Names::check($id, 'id');
         $this->colecciones->ensure($collection);
 
-        $lock = $this->archivos->bloquear($collection);
+        $lock = $this->archivos->lock($collection);
         try {
-            ['log' => $log, 'off' => $off] = $this->archivos->de($collection);
+            ['log' => $log, 'off' => $off] = $this->archivos->of($collection);
 
             $existente = null;
-            $donde     = $off->de($id);
+            $donde     = $off->of($id);
             if ($donde !== null) {
-                $existente = $log->leer($donde[0], $donde[1]);
+                $existente = $log->readAt($donde[0], $donde[1]);
             }
             $data = Meta::aplicar($data, $id, $existente, $replace);
 
-            [$desplazamiento, $longitud] = $log->añadir($data);
-            $off->anotar($id, $desplazamiento, $longitud);
+            [$desplazamiento, $longitud] = $log->append($data);
+            $off->record($id, $desplazamiento, $longitud);
         } finally {
-            $this->archivos->desbloquear($lock);
+            $this->archivos->unlock($lock);
         }
         return $data;
     }
 
     /** Copia literal: el mismo añadido que put, pero sin pasar por Meta. */
-    public function copiar(string $collection, string $id, array $doc): void
+    public function copyDocument(string $collection, string $id, array $doc): void
     {
         Names::check($id, 'id');
-        $lock = $this->archivos->bloquear($collection);
+        $lock = $this->archivos->lock($collection);
         try {
-            ['log' => $log, 'off' => $off] = $this->archivos->de($collection);
-            [$desplazamiento, $longitud] = $log->añadir($doc);
-            $off->anotar($id, $desplazamiento, $longitud);
+            ['log' => $log, 'off' => $off] = $this->archivos->of($collection);
+            [$desplazamiento, $longitud] = $log->append($doc);
+            $off->record($id, $desplazamiento, $longitud);
         } finally {
-            $this->archivos->desbloquear($lock);
+            $this->archivos->unlock($lock);
         }
     }
 
     public function get(string $collection, string $id): ?array
     {
         Names::check($id, 'id');
-        ['log' => $log, 'off' => $off] = $this->archivos->de($collection);
+        ['log' => $log, 'off' => $off] = $this->archivos->of($collection);
 
-        $donde = $off->de($id);
-        return $donde === null ? null : $log->leer($donde[0], $donde[1]);
+        $donde = $off->of($id);
+        return $donde === null ? null : $log->readAt($donde[0], $donde[1]);
     }
 
     public function delete(string $collection, string $id): bool
     {
         Names::check($id, 'id');
-        $lock = $this->archivos->bloquear($collection);
+        $lock = $this->archivos->lock($collection);
         try {
-            ['off' => $off] = $this->archivos->de($collection);
-            if ($off->de($id) === null) {
+            ['off' => $off] = $this->archivos->of($collection);
+            if ($off->of($id) === null) {
                 return false;
             }
-            $off->marcarBorrado($id);
+            $off->markDeleted($id);
         } finally {
-            $this->archivos->desbloquear($lock);
+            $this->archivos->unlock($lock);
         }
         return true;
     }
 
     public function all(string $collection): array
     {
-        ['log' => $log, 'off' => $off] = $this->archivos->de($collection);
+        ['log' => $log, 'off' => $off] = $this->archivos->of($collection);
 
         $out = [];
-        foreach ($off->mapa() as [$desplazamiento, $longitud]) {
-            $doc = $log->leer($desplazamiento, $longitud);
+        foreach ($off->map() as [$desplazamiento, $longitud]) {
+            $doc = $log->readAt($desplazamiento, $longitud);
             if ($doc !== null) {
                 $out[] = $doc;
             }
@@ -122,8 +122,8 @@ final class PackedDriver implements Driver
 
     public function count(string $collection): int
     {
-        ['off' => $off] = $this->archivos->de($collection);
-        return $off->cuantos();
+        ['off' => $off] = $this->archivos->of($collection);
+        return $off->howMany();
     }
 
     /**
@@ -132,8 +132,8 @@ final class PackedDriver implements Driver
      */
     public function sweep(string $collection, int $minAgeSeconds = 300): int
     {
-        return $this->conCompactador($collection, function (Compactador $c) use ($collection) {
-            $recuperados = $c->haceFalta() ? $c->compactar() : 0;
+        return $this->withCompactor($collection, function (Compactador $c) use ($collection) {
+            $recuperados = $c->isNeeded() ? $c->compact() : 0;
             foreach (\glob($this->colecciones->path($collection) . '/*.tmp.*') ?: [] as $tmp) {
                 @\unlink($tmp);
             }
@@ -145,38 +145,38 @@ final class PackedDriver implements Driver
      * Compacta ahora, pase lo que pase el umbral. sweep() es oportunista; esto
      * es para mantenimiento deliberado, como tras una purga grande.
      */
-    public function compactar(string $collection): int
+    public function compact(string $collection): int
     {
-        return $this->conCompactador($collection, fn (Compactador $c) => $c->compactar());
+        return $this->withCompactor($collection, fn (Compactador $c) => $c->compact());
     }
 
     /** Cuanto del archivo es espacio muerto, entre 0 y 1. Para diagnostico. */
-    public function proporcionMuerta(string $collection): float
+    public function deadRatio(string $collection): float
     {
-        ['log' => $log, 'off' => $off] = $this->archivos->de($collection);
-        return (new Compactador($log, $off))->proporcionMuerta();
+        ['log' => $log, 'off' => $off] = $this->archivos->of($collection);
+        return (new Compactador($log, $off))->deadRatio();
     }
 
     /** Suelta los descriptores. Obligatorio antes de borrar la coleccion. */
-    public function olvidar(?string $collection = null): void
+    public function forget(?string $collection = null): void
     {
-        $this->archivos->olvidar($collection);
+        $this->archivos->forget($collection);
     }
 
     /* ─────────────────────────────── Interno ─────────────────────────────── */
 
     /** Un Compactador bajo lock exclusivo. Devuelve 0 si la coleccion no existe. */
-    private function conCompactador(string $collection, callable $fn): int
+    private function withCompactor(string $collection, callable $fn): int
     {
         if (!$this->colecciones->exists($collection)) {
             return 0;
         }
-        $lock = $this->archivos->bloquear($collection);
+        $lock = $this->archivos->lock($collection);
         try {
-            ['log' => $log, 'off' => $off] = $this->archivos->de($collection);
+            ['log' => $log, 'off' => $off] = $this->archivos->of($collection);
             return $fn(new Compactador($log, $off));
         } finally {
-            $this->archivos->desbloquear($lock);
+            $this->archivos->unlock($lock);
         }
     }
 }

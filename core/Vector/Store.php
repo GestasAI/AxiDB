@@ -38,32 +38,32 @@ final class Store
         $this->ids      = new Ids($this->archivos);
     }
 
-    public function existe(): bool
+    public function hasIndex(): bool
     {
-        return $this->archivos->hay('manifiesto');
+        return $this->archivos->exists('manifiesto');
     }
 
-    public function activar(Manifest $m): void
+    public function enable(Manifest $m): void
     {
-        $this->archivos->crearDirectorio();
-        $this->guardar($m);
+        $this->archivos->makeDir();
+        $this->persist($m);
     }
 
-    public function desactivar(): void
+    public function disable(): void
     {
         $this->manifiesto = null;
-        $this->archivos->borrar();
+        $this->archivos->delete();
     }
 
-    public function manifiesto(): Manifest
+    public function manifest(): Manifest
     {
         if ($this->manifiesto !== null) {
             return $this->manifiesto;
         }
-        if (!$this->archivos->hay('manifiesto')) {
+        if (!$this->archivos->exists('manifiesto')) {
             throw new Exception('Vector: this collection does not have vectors enabled.');
         }
-        $datos = \json_decode($this->archivos->leerTodo('manifiesto'), true);
+        $datos = \json_decode($this->archivos->readAll('manifiesto'), true);
         if (!\is_array($datos)) {
             throw new Exception('Vector: the manifest is unreadable.');
         }
@@ -78,12 +78,12 @@ final class Store
          * de un archivo que solo cambiaba en un numero. Indexar bajo de 19,7 ms
          * por vector a menos de 1.
          */
-        $m->cuenta = \intdiv($this->archivos->tamaño('ids'), Manifest::ANCHO_ID);
+        $m->cuenta = \intdiv($this->archivos->size('ids'), Manifest::ANCHO_ID);
 
         return $this->manifiesto = $m;
     }
 
-    public function olvidar(): void
+    public function forget(): void
     {
         $this->manifiesto = null;
     }
@@ -94,7 +94,7 @@ final class Store
      *
      * @param list<float> $vector ya normalizado
      */
-    public function poner(string $id, array $vector): int
+    public function put(string $id, array $vector): int
     {
         /*
          * La dimension se comprueba aqui aunque quien llama ya lo haga: todo el
@@ -102,60 +102,60 @@ final class Store
          * descolocaria TODOS los de detras, y no se notaria hasta la siguiente
          * busqueda.
          */
-        $vector = Quantizer::validar($vector, $this->manifiesto()->dims);
+        $vector = Quantizer::validar($vector, $this->manifest()->dims);
         $codigo = Quantizer::aBinario($vector);
         $floats = Quantizer::aFloat32($vector);
 
-        return (int) $this->archivos->conCerrojo(function () use ($id, $codigo, $floats) {
-            $this->olvidar();                       // releer dentro del cerrojo
-            $m = $this->manifiesto();
+        return (int) $this->archivos->withLock(function () use ($id, $codigo, $floats) {
+            $this->forget();                       // releer dentro del cerrojo
+            $m = $this->manifest();
 
-            $anterior = $this->ordinalDe($id);
+            $anterior = $this->ordinalOf($id);
             if ($anterior !== null) {
-                $this->marcarBaja($anterior, $m);
+                $this->markDead($anterior, $m);
             }
 
             $ordinal = $m->cuenta;
-            $this->archivos->escribirEn('codigos', $ordinal, $m->anchoCodigo(), $codigo);
-            $this->archivos->escribirEn('vectores', $ordinal, $m->anchoFloat(), $floats);
-            $this->ids->escribir($ordinal, $id);
+            $this->archivos->writeAt('codigos', $ordinal, $m->codeWidth(), $codigo);
+            $this->archivos->writeAt('vectores', $ordinal, $m->floatWidth(), $floats);
+            $this->ids->writeTo($ordinal, $id);
 
             // El manifiesto solo se reescribe si cambiaron las bajas: la cuenta
             // se deduce del tamaño del archivo de ids.
             $m->cuenta++;
             if ($anterior !== null) {
-                $this->guardar($m);
+                $this->persist($m);
             }
             return $ordinal;
         });
     }
 
     /** True si habia algo que quitar. */
-    public function quitar(string $id): bool
+    public function remove(string $id): bool
     {
-        return (bool) $this->archivos->conCerrojo(function () use ($id) {
-            $this->olvidar();
-            $m       = $this->manifiesto();
-            $ordinal = $this->ordinalDe($id);
+        return (bool) $this->archivos->withLock(function () use ($id) {
+            $this->forget();
+            $m       = $this->manifest();
+            $ordinal = $this->ordinalOf($id);
             if ($ordinal === null) {
                 return false;
             }
-            $this->marcarBaja($ordinal, $m);
-            $this->guardar($m);
+            $this->markDead($ordinal, $m);
+            $this->persist($m);
             return true;
         });
     }
 
     /** Todos los codigos binarios pegados, tal y como los quiere la criba. */
-    public function codigos(): string
+    public function codes(): string
     {
-        return $this->archivos->leerTodo('codigos');
+        return $this->archivos->readAll('codigos');
     }
 
     /** @return list<float>|null */
-    public function vectorDe(int $ordinal): ?array
+    public function vectorOf(int $ordinal): ?array
     {
-        $bytes = $this->archivos->leerTrozo('vectores', $ordinal, $this->manifiesto()->anchoFloat());
+        $bytes = $this->archivos->readChunk('vectores', $ordinal, $this->manifest()->floatWidth());
         return $bytes === '' ? null : Quantizer::desdeFloat32($bytes);
     }
 
@@ -168,11 +168,11 @@ final class Store
      *
      * @param callable(int, list<float>): void $fn recibe ordinal y vector
      */
-    public function recorrerVectores(callable $fn): void
+    public function eachVector(callable $fn): void
     {
-        $m     = $this->manifiesto();
-        $ancho = $m->anchoFloat();
-        $fp    = @\fopen($this->archivos->ruta('vectores'), 'rb');
+        $m     = $this->manifest();
+        $ancho = $m->floatWidth();
+        $fp    = @\fopen($this->archivos->pathOf('vectores'), 'rb');
         if (!$fp) {
             return;
         }
@@ -190,40 +190,40 @@ final class Store
     }
 
     /** El id de un ordinal, o null si esa posicion esta de baja. */
-    public function idDe(int $ordinal): ?string
+    public function idOf(int $ordinal): ?string
     {
-        return $this->ids->de($ordinal);
+        return $this->ids->of($ordinal);
     }
 
     /** @return array<int,true> ordinales vivos */
-    public function vivos(): array
+    public function alive(): array
     {
-        return $this->ids->vivos();
+        return $this->ids->alive();
     }
 
     /** @return array<string,int> id => ordinal, sin las bajas */
-    public function mapaIds(): array
+    public function idMap(): array
     {
-        return $this->ids->mapa();
+        return $this->ids->map();
     }
 
-    public function ordinalDe(string $id): ?int
+    public function ordinalOf(string $id): ?int
     {
-        return $this->ids->ordinalDe($id);
+        return $this->ids->ordinalOf($id);
     }
 
     /**
      * Retira las bajas reescribiendo los archivos. Devuelve cuantas eran.
      * El trabajo esta en Compactacion; aqui solo se le da el cerrojo.
      */
-    public function compactar(): int
+    public function compact(): int
     {
-        return (int) $this->archivos->conCerrojo(function () {
-            $this->olvidar();
-            $m = $this->manifiesto();
-            $retiradas = (new Compaction($this->archivos, $this->ids))->ejecutar($m);
+        return (int) $this->archivos->withLock(function () {
+            $this->forget();
+            $m = $this->manifest();
+            $retiradas = (new Compaction($this->archivos, $this->ids))->execute($m);
             if ($retiradas > 0) {
-                $this->guardar($m);
+                $this->persist($m);
             }
             return $retiradas;
         });
@@ -231,17 +231,17 @@ final class Store
 
     /* ─────────────────────────────── Interno ─────────────────────────────── */
 
-    private function marcarBaja(int $ordinal, Manifest $m): void
+    private function markDead(int $ordinal, Manifest $m): void
     {
-        $this->ids->darDeBaja($ordinal);
+        $this->ids->markDeleted($ordinal);
         $m->bajas++;
     }
 
-    private function guardar(Manifest $m): void
+    private function persist(Manifest $m): void
     {
-        $this->archivos->escribirAtomico(
+        $this->archivos->writeAtomic(
             'manifiesto',
-            (string) \json_encode($m->aArray(), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)
+            (string) \json_encode($m->toArray(), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)
         );
         $this->manifiesto = $m;
     }

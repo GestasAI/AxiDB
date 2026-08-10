@@ -31,7 +31,7 @@ trait WithInspection
      * 8.2, asi que compilaba sin decir nada; lo caza la CI, que corre las
      * cuatro versiones. Es exactamente para esto que existe.
      */
-    private static function nombreDelArchivoDeCampo(): string
+    private static function fieldNameFile(): string
     {
         return '_campo.json';
     }
@@ -54,7 +54,7 @@ trait WithInspection
      */
     public function fields(string $collection): array
     {
-        return $this->recorrerCampos($collection)['legibles'];
+        return $this->eachField($collection)['legibles'];
     }
 
     /**
@@ -63,13 +63,13 @@ trait WithInspection
      *
      * @return list<string>
      */
-    public function camposIlegibles(string $collection): array
+    public function unreadableFields(string $collection): array
     {
-        return $this->recorrerCampos($collection)['ilegibles'];
+        return $this->eachField($collection)['ilegibles'];
     }
 
     /** @return array{legibles: list<string>, ilegibles: list<string>} */
-    private function recorrerCampos(string $collection): array
+    private function eachField(string $collection): array
     {
         $root = $this->storage->dir($collection) . '/_idx';
         if (!\is_dir($root)) {
@@ -81,7 +81,7 @@ trait WithInspection
             if ($entrada === '.' || $entrada === '..' || !\is_dir($root . '/' . $entrada)) {
                 continue;
             }
-            $nombre = self::leerNombre($root . '/' . $entrada);
+            $nombre = self::readName($root . '/' . $entrada);
             if ($nombre !== null) {
                 $legibles[] = $nombre;
             } elseif (\str_contains($entrada, '~')) {
@@ -93,9 +93,9 @@ trait WithInspection
         return ['legibles' => $legibles, 'ilegibles' => $ilegibles];
     }
 
-    private static function leerNombre(string $dir): ?string
+    private static function readName(string $dir): ?string
     {
-        $path = $dir . '/' . self::nombreDelArchivoDeCampo();
+        $path = $dir . '/' . self::fieldNameFile();
         if (!\is_file($path)) {
             return null;
         }
@@ -105,10 +105,10 @@ trait WithInspection
     }
 
     /** Deja escrito el nombre real del campo al construir su indice. */
-    private function anotarCampo(string $dir, string $field): void
+    private function recordField(string $dir, string $field): void
     {
         @\file_put_contents(
-            $dir . '/' . self::nombreDelArchivoDeCampo(),
+            $dir . '/' . self::fieldNameFile(),
             \json_encode(['campo' => $field], JSON_UNESCAPED_UNICODE) . "\n"
         );
     }
@@ -131,7 +131,7 @@ trait WithInspection
         $fuera = [];
         foreach (\glob($dir . '/*.json') ?: [] as $archivo) {
             $nombre = \basename($archivo, '.json');
-            if ($nombre === \basename(self::nombreDelArchivoDeCampo(), '.json')) {
+            if ($nombre === \basename(self::fieldNameFile(), '.json')) {
                 continue;                       // la anotacion del campo no es un valor
             }
             $ids = \json_decode((string) @\file_get_contents($archivo), true);
@@ -141,7 +141,7 @@ trait WithInspection
     }
 
     /** El nombre de archivo que le corresponde a un valor en esta coleccion. */
-    public function nombreDeBucket(string $collection, string $field, string $value): string
+    public function bucketNameOf(string $collection, string $field, string $value): string
     {
         return \basename($this->path($collection, $field, $value), '.json');
     }

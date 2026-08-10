@@ -109,13 +109,13 @@ final class Remote implements Embedder
         $cuerpo = \json_encode($this->plantilla($this->config['cuerpo'], $texto));
         $opciones = ['http' => [
             'method'        => 'POST',
-            'header'        => $this->cabeceras(),
+            'header'        => $this->headersFor(),
             'content'       => $cuerpo,
             'timeout'       => (float) ($this->opciones['timeout'] ?? 20),
             'ignore_errors' => true,
         ]];
 
-        $url      = $this->sustituir($this->config['url'], '');
+        $url      = $this->substitute($this->config['url'], '');
         $respuesta = @\file_get_contents($url, false, \stream_context_create($opciones));
         if ($respuesta === false) {
             throw new Exception("Embedder: could not reach {$this->proveedor} at {$url}.");
@@ -125,7 +125,7 @@ final class Remote implements Embedder
         if (!\is_array($datos)) {
             throw new Exception("Embedder: {$this->proveedor} replied with something that is not JSON.");
         }
-        $vector = $this->extraer($datos, $this->config['respuesta']);
+        $vector = $this->extract($datos, $this->config['respuesta']);
         if (!\is_array($vector) || $vector === []) {
             $error = $datos['error']['message'] ?? \substr($respuesta, 0, 200);
             throw new Exception("Embedder: {$this->proveedor} did not return a vector. It said: {$error}");
@@ -138,23 +138,23 @@ final class Remote implements Embedder
         return (int) $this->config['dims'];
     }
 
-    public function nombre(): string
+    public function driverName(): string
     {
         return $this->proveedor . ':' . $this->config['modelo'];
     }
 
-    public function esLocal(): bool
+    public function isLocal(): bool
     {
         return (bool) $this->config['local'];
     }
 
     /* ─────────────────────────────── Interno ─────────────────────────────── */
 
-    private function cabeceras(): string
+    private function headersFor(): string
     {
         $lineas = ['Content-Type: application/json'];
         if ($this->config['cabecera'] !== null) {
-            $lineas[] = $this->sustituir($this->config['cabecera'], '');
+            $lineas[] = $this->substitute($this->config['cabecera'], '');
         }
         return \implode("\r\n", $lineas) . "\r\n";
     }
@@ -166,12 +166,12 @@ final class Remote implements Embedder
         foreach ($plantilla as $clave => $valor) {
             $salida[$clave] = \is_array($valor)
                 ? $this->plantilla($valor, $texto)
-                : $this->sustituir((string) $valor, $texto);
+                : $this->substitute((string) $valor, $texto);
         }
         return $salida;
     }
 
-    private function sustituir(string $texto, string $contenido): string
+    private function substitute(string $texto, string $contenido): string
     {
         return \strtr($texto, [
             '%modelo%' => (string) $this->config['modelo'],
@@ -181,7 +181,7 @@ final class Remote implements Embedder
     }
 
     /** Saca un valor anidado con una ruta tipo 'data.0.embedding'. */
-    private function extraer(array $datos, string $ruta): mixed
+    private function extract(array $datos, string $ruta): mixed
     {
         $actual = $datos;
         foreach (\explode('.', $ruta) as $paso) {

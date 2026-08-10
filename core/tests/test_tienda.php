@@ -221,7 +221,7 @@ ok('cifrado',     \method_exists(Db::class, 'encrypt'));
 ok('caducidad',   \method_exists(Db::class, 'defineTtl'));
 ok('observabilidad', \method_exists(Db::class, 'checkup'));
 
-$tras->storage()->cerrar();
+$tras->storage()->close();
 rmrf($copias);
 rmrf($dir);
 summary();

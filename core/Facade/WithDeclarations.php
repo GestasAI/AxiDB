@@ -51,14 +51,14 @@ trait WithDeclarations
      */
     public function defineSchema(string $collection, array $reglas): void
     {
-        $this->profile()->exigir('schema', 'defineSchema()');
+        $this->profile()->requireCapability('schema', 'defineSchema()');
         $this->storage->defineSchema($collection, $reglas);
     }
 
     /** @return array<string, array> las reglas declaradas. Vacio si no hay */
     public function schema(string $collection): array
     {
-        return $this->storage->esquemaDe($collection);
+        return $this->storage->schemaOf($collection);
     }
 
     /**
@@ -71,7 +71,7 @@ trait WithDeclarations
      */
     public function defineTtl(string $collection, int $segundos): void
     {
-        $this->profile()->exigir('ttl', 'defineTtl()');
+        $this->profile()->requireCapability('ttl', 'defineTtl()');
         $this->storage->defineTtl($collection, $segundos);
     }
 
@@ -89,7 +89,7 @@ trait WithDeclarations
      */
     public function encrypt(string $collection): int
     {
-        $this->profile()->exigir('encryption', 'encrypt()');
+        $this->profile()->requireCapability('encryption', 'encrypt()');
         return $this->storage->encrypt($collection);
     }
 
@@ -110,15 +110,15 @@ trait WithDeclarations
      *
      * @return array{0: array, 1: bool} [documento, ya_fusionado]
      */
-    private function aplicarEsquema(
+    private function applySchema(
         string $collection,
         string $id,
         array $data,
         ?array $before,
         bool $replace
     ): array {
-        $esquema = new SchemaRules($this->storage->esquemaDe($collection));
-        if ($esquema->vacio()) {
+        $esquema = new SchemaRules($this->storage->schemaOf($collection));
+        if ($esquema->isEmpty()) {
             return [$data, $replace];
         }
         $entero = $replace || $before === null

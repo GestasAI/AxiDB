@@ -51,7 +51,7 @@ $antes = normalizados($db, 'p');
 eq('cincuenta documentos', 50, \count($antes));
 ok('hay archivos sueltos', \count(\glob($db->path() . '/p/*.json') ?: []) >= 50);
 
-$migrados = $db->storage()->migrarA('p', 'packed');
+$migrados = $db->storage()->migrateTo('p', 'packed');
 
 eq('informa de los cincuenta migrados', 50, $migrados);
 eq('ahora es packed',             'packed', $db->storage()->driverDe('p'));
@@ -97,7 +97,7 @@ while (\date('c') === $marca) {
     \usleep(20000);
 }
 
-$dbMeta->storage()->migrarA('m', 'packed');
+$dbMeta->storage()->migrateTo('m', 'packed');
 $tras = $dbMeta->get('m', 'x');
 
 eq('la version no se reinicia',        $original['_version'],   $tras['_version']);
@@ -109,14 +109,14 @@ $marca = \date('c');
 while (\date('c') === $marca) {
     \usleep(20000);
 }
-$dbMeta->storage()->migrarA('m', 'fs');
+$dbMeta->storage()->migrateTo('m', 'fs');
 eq('y a la vuelta tampoco', $original, $dbMeta->get('m', 'x'));
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('C] De packed a fs, la vuelta');
 
 $antesVuelta = normalizados($db, 'p');
-$vueltos = $db->storage()->migrarA('p', 'fs');
+$vueltos = $db->storage()->migrateTo('p', 'fs');
 
 eq('vuelven los cincuenta', 50, $vueltos);
 eq('otra vez en fs',      'fs', $db->storage()->driverDe('p'));
@@ -142,29 +142,29 @@ $db2->index('p', 'grupo');
 
 eq('el indice funciona en fs', 10, \count($db2->by('p', 'grupo', 'g1')));
 
-$db2->storage()->migrarA('p', 'packed');
+$db2->storage()->migrateTo('p', 'packed');
 eq('y sigue funcionando en packed', 10, \count($db2->by('p', 'grupo', 'g1')));
 eq('sin huecos',                     0, $db2->verifyIndexes('p')['grupo']['faltan']);
 
 $db2->insert('p', ['grupo' => 'g1', 'n' => 999], 'nuevo');
 eq('las altas posteriores tambien entran', 11, \count($db2->by('p', 'grupo', 'g1')));
 
-$db2->storage()->migrarA('p', 'fs');
+$db2->storage()->migrateTo('p', 'fs');
 eq('y al volver a fs siguen', 11, \count($db2->by('p', 'grupo', 'g1')));
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('E] Casos de borde');
 
-eq('migrar al mismo driver no hace nada', 0, $db2->storage()->migrarA('p', 'fs'));
+eq('migrar al mismo driver no hace nada', 0, $db2->storage()->migrateTo('p', 'fs'));
 eq('y no toca los documentos',           41, $db2->count('p'));
 
 throws('un driver desconocido se rechaza',
-    static fn() => $db2->storage()->migrarA('p', 'inventado'));
+    static fn() => $db2->storage()->migrateTo('p', 'inventado'));
 eq('sin tocar nada', 41, $db2->count('p'));
 
 $db3 = new Db(tmpdir('migracion_vacia'), ['durable' => false]);
 $db3->storage()->ensureCollection('vacia');
-eq('migrar una coleccion vacia funciona', 0, $db3->storage()->migrarA('vacia', 'packed'));
+eq('migrar una coleccion vacia funciona', 0, $db3->storage()->migrateTo('vacia', 'packed'));
 eq('y queda declarada',            'packed', $db3->storage()->driverDe('vacia'));
 $db3->insert('vacia', ['n' => 1], 'x');
 eq('y se puede escribir en ella', 1, $db3->count('vacia'));
@@ -178,29 +178,29 @@ $db5 = new Db(tmpdir('migracion_declarar'), ['durable' => false]);
 sembrar($db5, 'p', 5);
 
 throws('declarar otro driver con documentos dentro se rechaza',
-    static fn() => $db5->storage()->declararDriver('p', 'packed'));
+    static fn() => $db5->storage()->declareDriver('p', 'packed'));
 eq('la coleccion se queda como estaba', 'fs', $db5->storage()->driverDe('p'));
 eq('y sus documentos siguen visibles',     5, $db5->count('p'));
 
-$db5->storage()->declararDriver('p', 'fs');
+$db5->storage()->declareDriver('p', 'fs');
 eq('declarar el que ya tiene no molesta', 'fs', $db5->storage()->driverDe('p'));
 
-$db5->storage()->declararDriver('otra', 'packed');
+$db5->storage()->declareDriver('otra', 'packed');
 eq('sobre una coleccion sin nada, si vale', 'packed', $db5->storage()->driverDe('otra'));
 
-eq('y migrarA sigue siendo el camino bueno', 5, $db5->storage()->migrarA('p', 'packed'));
+eq('y migrarA sigue siendo el camino bueno', 5, $db5->storage()->migrateTo('p', 'packed'));
 eq('con sus documentos intactos',            5, $db5->count('p'));
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('F] Durabilidad por coleccion');
 
 $db4 = new Db(tmpdir('migracion_durab'), ['durable' => false]);
-eq('el defecto viene del constructor', 'fast', $db4->storage()->durabilidadDe('c'));
+eq('el defecto viene del constructor', 'fast', $db4->storage()->durabilityOf('c'));
 
-$db4->storage()->declararDurabilidad('segura', 'safe');
-$db4->storage()->declararDurabilidad('rapida', 'fast');
-eq('una coleccion puede pedir safe', 'safe', $db4->storage()->durabilidadDe('segura'));
-eq('y otra fast al mismo tiempo',    'fast', $db4->storage()->durabilidadDe('rapida'));
+$db4->storage()->declareDurability('segura', 'safe');
+$db4->storage()->declareDurability('rapida', 'fast');
+eq('una coleccion puede pedir safe', 'safe', $db4->storage()->durabilityOf('segura'));
+eq('y otra fast al mismo tiempo',    'fast', $db4->storage()->durabilityOf('rapida'));
 
 $db4->insert('segura', ['n' => 1], 'x');
 $db4->insert('rapida', ['n' => 1], 'x');
@@ -208,14 +208,14 @@ eq('las dos guardan igual de bien', 1, $db4->get('segura', 'x')['n']);
 eq('y la otra tambien',             1, $db4->get('rapida', 'x')['n']);
 
 throws('una durabilidad inventada se rechaza',
-    static fn() => $db4->storage()->declararDurabilidad('c', 'medio_pensionista'));
+    static fn() => $db4->storage()->declareDurability('c', 'medio_pensionista'));
 
 // Los ajustes viajan con la carpeta: al reabrir se recuerdan.
 $ruta = $db4->path();
-$db4->storage()->cerrar();
+$db4->storage()->close();
 unset($db4);
 $db5 = new Db($ruta, ['durable' => false]);
-eq('la durabilidad se recuerda tras reabrir', 'safe', $db5->storage()->durabilidadDe('segura'));
+eq('la durabilidad se recuerda tras reabrir', 'safe', $db5->storage()->durabilityOf('segura'));
 
 $ajustes = \json_decode((string) \file_get_contents($ruta . '/segura/_axidb.json'), true);
 eq('y esta escrita en la propia coleccion',
@@ -225,7 +225,7 @@ eq('y esta escrita en la propia coleccion',
 // El orden de las claves es estable pase lo que pase: este archivo se lee a ojo
 // y se versiona, y un diff tiene que enseñar el cambio, no la baraja.
 $db5->storage()->defineTtl('segura', 60);
-$db5->storage()->declararDriver('segura', 'fs');
+$db5->storage()->declareDriver('segura', 'fs');
 eq('y el orden de las claves no baila al tocar un ajuste',
     ['driver', 'durability', 'encrypted', 'uniques', 'schema', 'ttl'],
     \array_keys((array) \json_decode(
@@ -260,7 +260,7 @@ $antiguo = new Db($viejo, ['durable' => false]);
 eq('lee la unicidad declarada a la antigua', ['correo'], $antiguo->uniques('clientes'));
 eq('y el esquema',      ['nombre' => ['obligatorio' => true]], $antiguo->schema('clientes'));
 eq('y la caducidad',    120,    $antiguo->ttl('clientes'));
-eq('y la durabilidad', 'fast',  $antiguo->storage()->durabilidadDe('clientes'));
+eq('y la durabilidad', 'fast',  $antiguo->storage()->durabilityOf('clientes'));
 
 $antiguo->insert('clientes', ['nombre' => 'Ana', 'correo' => 'ana@ejemplo.es'], 'c1');
 throws('y la restriccion se sigue cumpliendo, que es lo que importa',

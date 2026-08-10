@@ -45,22 +45,22 @@ final class Settings
 
     public function driver(string $collection): string
     {
-        return $this->de($collection)['driver'];
+        return $this->of($collection)['driver'];
     }
 
-    public function durabilidad(string $collection): string
+    public function durability(string $collection): string
     {
-        return $this->de($collection)['durability'];
+        return $this->of($collection)['durability'];
     }
 
-    public function esDurable(string $collection): bool
+    public function isDurable(string $collection): bool
     {
-        return $this->durabilidad($collection) === 'safe';
+        return $this->durability($collection) === 'safe';
     }
 
     public function isEncrypted(string $collection): bool
     {
-        return $this->de($collection)['encrypted'];
+        return $this->of($collection)['encrypted'];
     }
 
     /**
@@ -75,11 +75,11 @@ final class Settings
      */
     public function uniques(string $collection): array
     {
-        return $this->de($collection)['uniques'];
+        return $this->of($collection)['uniques'];
     }
 
     /** Los ajustes de una coleccion que no dice nada, y la lista de los que hay. */
-    private static function porDefecto(string $driver, string $durabilidad): array
+    private static function defaults(string $driver, string $durabilidad): array
     {
         return [
             'driver'     => $driver,
@@ -94,13 +94,13 @@ final class Settings
     /** Campos con reglas declaradas. Vacio si la coleccion no tiene esquema. */
     public function schema(string $collection): array
     {
-        return $this->de($collection)['schema'];
+        return $this->of($collection)['schema'];
     }
 
     /** Segundos de vida de un documento. Cero significa que no caduca. */
     public function ttl(string $collection): int
     {
-        return $this->de($collection)['ttl'];
+        return $this->of($collection)['ttl'];
     }
 
     /**
@@ -122,14 +122,14 @@ final class Settings
     ];
 
     /** @return array{driver:string, durability:string, encrypted:bool, uniques:list<string>, schema:array, ttl:int} */
-    public function de(string $collection): array
+    public function of(string $collection): array
     {
         if (isset($this->cache[$collection])) {
             return $this->cache[$collection];
         }
-        $ajustes = self::porDefecto($this->driverPorDefecto, $this->durabilidadPorDefecto);
+        $ajustes = self::defaults($this->driverPorDefecto, $this->durabilidadPorDefecto);
 
-        $path = $this->ruta($collection);
+        $path = $this->pathOf($collection);
         if (\is_file($path)) {
             $json = \json_decode((string) @\file_get_contents($path), true);
             if (\is_array($json)) {
@@ -143,7 +143,7 @@ final class Settings
                     $ajustes['durability'] = $leer('durability');
                 }
                 $ajustes['encrypted'] = (bool) ($leer('encrypted') ?? false);
-                $ajustes['uniques']   = self::limpiarUnicos($leer('uniques') ?? []);
+                $ajustes['uniques']   = self::cleanUniques($leer('uniques') ?? []);
                 $ajustes['schema']    = \is_array($leer('schema')) ? $leer('schema') : [];
                 $ajustes['ttl']       = \max(0, (int) ($leer('ttl') ?? 0));
             }
@@ -154,7 +154,7 @@ final class Settings
     /**
      * Cambia los ajustes que se le pasen. Los demas se conservan.
      *
-     *   $ajustes->fijar('clientes', ['driver' => 'packed', 'ttl' => 3600]);
+     *   $ajustes->set('clientes', ['driver' => 'packed', 'ttl' => 3600]);
      *
      * Recibe un array y no seis parametros opcionales porque son seis y
      * creciendo: con posicionales, añadir el septimo obligaba a escribir cinco
@@ -162,9 +162,9 @@ final class Settings
      *
      * Ojo: cambiar el driver aqui NO mueve los datos; para eso, Storage::migrarA.
      */
-    public function fijar(string $collection, array $cambios): void
+    public function set(string $collection, array $cambios): void
     {
-        $desconocidos = \array_diff(\array_keys($cambios), \array_keys(self::porDefecto('fs', 'safe')));
+        $desconocidos = \array_diff(\array_keys($cambios), \array_keys(self::defaults('fs', 'safe')));
         if ($desconocidos !== []) {
             throw new Exception('Settings: there is no setting named ' . \implode(', ', $desconocidos) . '.');
         }
@@ -185,18 +185,18 @@ final class Settings
         // entonces el orden del _axidb.json baila segun lo que hayas tocado.
         // Este archivo se lee a ojo y se versiona; el orden tiene que ser
         // siempre el mismo para que un diff enseñe el cambio y no la baraja.
-        $nuevo = \array_merge($this->de($collection), $cambios);
-        $nuevo['uniques'] = self::limpiarUnicos($nuevo['uniques']);
+        $nuevo = \array_merge($this->of($collection), $cambios);
+        $nuevo['uniques'] = self::cleanUniques($nuevo['uniques']);
 
         $this->colecciones->ensure($collection);
         @\file_put_contents(
-            $this->ruta($collection),
+            $this->pathOf($collection),
             \json_encode($nuevo, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) . "\n"
         );
         $this->cache[$collection] = $nuevo;
     }
 
-    public function olvidar(?string $collection = null): void
+    public function forget(?string $collection = null): void
     {
         if ($collection === null) {
             $this->cache = [];
@@ -206,7 +206,7 @@ final class Settings
     }
 
     /** @return list<string> nombres de campo, sin repetidos y en orden estable */
-    private static function limpiarUnicos(mixed $lista): array
+    private static function cleanUniques(mixed $lista): array
     {
         if (!\is_array($lista)) {
             return [];
@@ -217,7 +217,7 @@ final class Settings
         return $campos;
     }
 
-    private function ruta(string $collection): string
+    private function pathOf(string $collection): string
     {
         return $this->colecciones->path($collection) . '/' . self::ARCHIVO;
     }

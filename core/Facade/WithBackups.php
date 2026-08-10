@@ -36,11 +36,11 @@ trait WithBackups
     public function backup(string $carpeta, bool $incremental = false): array
     {
         $this->recover();
-        $this->storage->cerrar();           // suelta los descriptores del formato empaquetado
+        $this->storage->close();           // suelta los descriptores del formato empaquetado
 
         $anterior = $incremental ? Catalog::ultima($carpeta) : null;
 
-        return Maker::hacer(
+        return Maker::build(
             $this->storage->basePath(),
             $carpeta,
             $anterior === null ? null : $anterior['archivo']
@@ -54,7 +54,7 @@ trait WithBackups
      */
     public function backups(string $carpeta): array
     {
-        return Catalog::de($carpeta);
+        return Catalog::of($carpeta);
     }
 
     /**
@@ -75,13 +75,13 @@ trait WithBackups
         if (!\is_file($copia)) {
             throw new Exception("Backup: the file {$copia} does not exist.");
         }
-        $this->storage->cerrar();
+        $this->storage->close();
 
-        $hecho = Restore::hacer($copia, $this->storage->basePath());
+        $hecho = Restore::build($copia, $this->storage->basePath());
 
         // Lo que hay en memoria ya no vale: los ajustes, los indices y los
         // descriptores abiertos son de los datos de antes de restaurar.
-        $this->storage->olvidar();
+        $this->storage->forget();
         return $hecho;
     }
 
@@ -102,7 +102,7 @@ trait WithBackups
     {
         $documentos = $this->all($collection);
 
-        return match (self::formatoDe($destino, $formato)) {
+        return match (self::formatOf($destino, $formato)) {
             'csv'   => Exchange::aCsv($documentos, $destino),
             default => Exchange::aJson($documentos, $destino),
         };
@@ -122,7 +122,7 @@ trait WithBackups
      */
     public function import(string $collection, string $origen, ?string $formato = null): int
     {
-        $documentos = match (self::formatoDe($origen, $formato)) {
+        $documentos = match (self::formatOf($origen, $formato)) {
             'csv'   => Exchange::desdeCsv($origen),
             default => Exchange::desdeJson($origen),
         };
@@ -138,7 +138,7 @@ trait WithBackups
         return $n;
     }
 
-    private static function formatoDe(string $archivo, ?string $formato): string
+    private static function formatOf(string $archivo, ?string $formato): string
     {
         $elegido = \strtolower($formato ?? \pathinfo($archivo, PATHINFO_EXTENSION));
         if (!\in_array($elegido, ['json', 'csv'], true)) {

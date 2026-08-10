@@ -39,7 +39,7 @@ final class Hash implements Embedder
     {
         $vector = \array_fill(0, $this->dims, 0.0);
 
-        foreach ($this->trozos($texto) as $trozo => $veces) {
+        foreach ($this->chunksOf($texto) as $trozo => $veces) {
             // Dos hashes distintos por trozo: uno elige la dimension y otro el
             // signo. Sin el signo, todos los trozos sumarian en positivo y
             // cualquier par de textos largos acabaria pareciendose.
@@ -59,12 +59,12 @@ final class Hash implements Embedder
         return $this->dims;
     }
 
-    public function nombre(): string
+    public function driverName(): string
     {
         return 'hash:' . $this->dims;
     }
 
-    public function esLocal(): bool
+    public function isLocal(): bool
     {
         return true;
     }
@@ -79,9 +79,9 @@ final class Hash implements Embedder
      *
      * @return array<string,int> trozo => cuantas veces aparece
      */
-    private function trozos(string $texto): array
+    private function chunksOf(string $texto): array
     {
-        $texto = self::aMinusculas(\trim($texto));
+        $texto = self::toLowerCase(\trim($texto));
         if ($texto === '') {
             return [];
         }
@@ -116,7 +116,7 @@ final class Hash implements Embedder
      * latinos de al lado; lo que no este se queda igual y como mucho pierde una
      * coincidencia.
      */
-    private static function aMinusculas(string $texto): string
+    private static function toLowerCase(string $texto): string
     {
         static $tabla = [
             'Á' => 'a', 'É' => 'e', 'Í' => 'i', 'Ó' => 'o', 'Ú' => 'u', 'Ü' => 'u', 'Ñ' => 'n',

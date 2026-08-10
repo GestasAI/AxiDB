@@ -39,7 +39,7 @@ $semilla = (int) ($argv[4] ?? 0);
 
 $db = new Axi\Core\Db($path, ['durable' => false]);
 if ($driver !== 'fs' && $db->storage()->driverDe('docs') !== $driver) {
-    $db->storage()->declararDriver('docs', $driver);
+    $db->storage()->declareDriver('docs', $driver);
 }
 
 $hasta = \microtime(true) + MAX_SEGUNDOS;

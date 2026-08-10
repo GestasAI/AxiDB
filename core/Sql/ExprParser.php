@@ -56,10 +56,10 @@ final class ExprParser
         if ($this->ts->matchKw('NOT')) {
             return ['type' => 'not', 'expr' => $this->parseNot()];
         }
-        return $this->parseCmp();
+        return $this->parseComparison();
     }
 
-    private function parseCmp(): array
+    private function parseComparison(): array
     {
         // EXISTS (SELECT ...) y NOT EXISTS (SELECT ...)
         if ($this->ts->peek()->isKw('EXISTS')) {
@@ -67,7 +67,7 @@ final class ExprParser
             return ['type' => 'subquery', 'negado' => false, 'sql' => Slice::subconsulta($this->ts)];
         }
 
-        if ($this->ts->peek()->isPunct('(') && $this->pareceCondicion()) {
+        if ($this->ts->peek()->isPunct('(') && $this->looksLikeCondition()) {
             $this->ts->advance();
             $dentro = $this->parseOr();
             $this->ts->consumePunct(')');
@@ -85,13 +85,13 @@ final class ExprParser
         $negado = $this->ts->matchKw('NOT');
 
         if ($this->ts->matchKw('IN')) {
-            return $this->cmp($izq, $negado ? 'NOT IN' : 'IN', $this->parseLista());
+            return $this->cmp($izq, $negado ? 'NOT IN' : 'IN', $this->parseList());
         }
         if ($this->ts->matchKw('LIKE')) {
             return $this->cmp($izq, $negado ? 'NOT LIKE' : 'LIKE', $this->ts->consumeLiteral());
         }
         if ($this->ts->matchKw('BETWEEN')) {
-            return $this->cmp($izq, $negado ? 'NOT BETWEEN' : 'BETWEEN', $this->parseRango());
+            return $this->cmp($izq, $negado ? 'NOT BETWEEN' : 'BETWEEN', $this->parseRange());
         }
         if ($this->ts->matchKw('CONTAINS')) {
             return $this->cmp($izq, $negado ? 'NOT CONTAINS' : 'CONTAINS', $this->ts->consumeLiteral());
@@ -122,7 +122,7 @@ final class ExprParser
      * condicion. Sin esto, `(precio + 1) > 5` intentaria leerse como un WHERE
      * dentro de otro y no cuadraria.
      */
-    private function pareceCondicion(): bool
+    private function looksLikeCondition(): bool
     {
         $nivel = 0;
         for ($i = 0; $i < 200; $i++) {
@@ -161,7 +161,7 @@ final class ExprParser
      *   IN ('a', 'b')
      *   IN (SELECT id FROM clientes WHERE ciudad = 'Murcia')
      */
-    private function parseLista(): array
+    private function parseList(): array
     {
         if ($this->ts->peek(1)->isKw('SELECT')) {
             return ['subquery' => Slice::subconsulta($this->ts)];
@@ -182,7 +182,7 @@ final class ExprParser
      *
      * @return array{0: mixed, 1: mixed}
      */
-    private function parseRango(): array
+    private function parseRange(): array
     {
         $desde = $this->ts->consumeLiteral();
         $this->ts->consumeKw('AND');

@@ -76,7 +76,7 @@ final class Box
      * lo mismo da dos bloques distintos: sin eso se veria desde fuera que dos
      * documentos tienen el mismo contenido.
      */
-    public function cerrar(string $texto, string $contexto): string
+    public function seal(string $texto, string $contexto): string
     {
         $iv  = \random_bytes(self::IV_BYTES);
         $tag = '';
@@ -102,7 +102,7 @@ final class Box
      * cuadra o si alguien toco los bytes: los tres casos son indistinguibles
      * desde fuera, y asi debe ser.
      */
-    public function abrir(string $bloque, string $contexto): string
+    public function open(string $bloque, string $contexto): string
     {
         if (!\str_starts_with($bloque, self::MARCA)) {
             throw new Exception('Crypto: the block does not have the expected format.');
