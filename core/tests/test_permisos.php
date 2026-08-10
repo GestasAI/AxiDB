@@ -206,7 +206,7 @@ ok('y que hacer a continuacion',               \str_contains($falloIndice, 'rein
  */
 if (\function_exists('posix_geteuid')) {
     ok('y en sistemas POSIX, quien es el dueño y quien corre el proceso',
-        \str_contains($falloIndice, 'pertenece a') && \str_contains($falloIndice, 'corre como'));
+        \str_contains($falloIndice, 'is owned by') && \str_contains($falloIndice, 'runs as'));
 } else {
     ok('(sin posix_*, el mensaje generico; comprobado en ejecucion)',
         \str_contains($falloIndice, 'Check the directory permissions'));
