@@ -83,7 +83,27 @@ final class Request
         if (\array_is_list($datos)) {
             throw new BadRequest('The body must be a JSON object, not a list.', 400);
         }
+        // Un numero como 1e999 es JSON valido y json_decode lo convierte en INF;
+        // 0/0 daria NAN. Ninguno de los dos se puede volver a serializar: la
+        // escritura fallaba DESPUES de crear el temporal, que se quedaba huerfano
+        // en el disco —una peticion, un archivo basura— y contestaba 500 con una
+        // entrada de cliente perfectamente valida. Lo que no se puede escribir no
+        // entra: se rechaza aqui, en la puerta.
+        self::requireFinite($datos);
         return $datos;
+    }
+
+    /** Rechaza INF/NAN en cualquier nivel del cuerpo. */
+    private static function requireFinite(array $datos): void
+    {
+        foreach ($datos as $v) {
+            if (\is_float($v) && !\is_finite($v)) {
+                throw new BadRequest('The body contains a number out of range (infinite or NaN).', 400);
+            }
+            if (\is_array($v)) {
+                self::requireFinite($v);
+            }
+        }
     }
 
     /**

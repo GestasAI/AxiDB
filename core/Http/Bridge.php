@@ -49,9 +49,17 @@ final class Bridge
             return Response::mal(400, "Falta 'coleccion'.");
         }
 
-        [$vale, $codigo, $motivo] = $this->permisos->decide($escribe, $coleccion, $p->token, $p->esLocal);
-        if (!$vale) {
-            return Response::mal($codigo, $motivo);
+        // Se decide el permiso sobre TODAS las colecciones que toca la sentencia,
+        // no solo la del FROM. Antes se miraba unicamente $ast['collection']: un
+        // token con acceso a 'pedidos' leia 'usuarios' con un JOIN, y un anonimo
+        // sobre una coleccion publica interrogaba cualquier otra con una
+        // subconsulta. El FROM era una puerta con el cerrojo puesto y la ventana
+        // de al lado abierta.
+        foreach (self::collectionsOf($ast, $coleccion) as $c) {
+            [$vale, $codigo, $motivo] = $this->permisos->decide($escribe, $c, $p->token, $p->esLocal);
+            if (!$vale) {
+                return Response::mal($codigo, $motivo);
+            }
         }
 
         return Response::bien($this->execute($accion, $coleccion, $p, $ast));
@@ -89,6 +97,21 @@ final class Bridge
         return !\in_array($ast['type'] ?? '', self::SQL_LECTURA, true);
     }
 
+    /**
+     * TODAS las colecciones que toca una sentencia: FROM, JOINs y subconsultas.
+     * Para una accion que no es SQL, solo la coleccion pedida. La recoleccion
+     * vive en Sql\Reach, que la comparte con el sandbox de los agentes.
+     *
+     * @return list<string>
+     */
+    private static function collectionsOf(?array $ast, string $coleccionSimple): array
+    {
+        if ($ast === null) {
+            return $coleccionSimple === '' ? [] : [$coleccionSimple];
+        }
+        return \Axi\Core\Sql\Reach::collections($ast);
+    }
+
     private function execute(string $accion, string $coleccion, Request $p, ?array $ast): mixed
     {
         return match ($accion) {
@@ -115,12 +138,20 @@ final class Bridge
             if (!\is_array($condicion) || \count($condicion) < 2) {
                 throw new BadRequest("Each condition of 'donde' es [campo, operador, valor].");
             }
-            $q->where((string) $condicion[0], (string) $condicion[1], $condicion[2] ?? null);
+            // El campo y el operador tienen que ser texto. Antes se hacia
+            // `(string) $condicion[0]` a ciegas: un array ahi disparaba un
+            // "Array to string conversion" que PHP imprime ANTES del JSON, con la
+            // ruta y la linea del archivo —un mapa para quien esta hurgando— y
+            // ademas rompia la respuesta para todo cliente. Se comprueba el tipo
+            // y se contesta 400 explicando la forma correcta.
+            $campo = self::asField($condicion[0], "el campo de una condicion de 'donde'");
+            $op    = self::asField($condicion[1], "el operador de una condicion de 'donde'");
+            $q->where($campo, $op, $condicion[2] ?? null);
         }
 
         $orden = $p->cuerpo['orden'] ?? null;
         if (\is_array($orden) && isset($orden[0])) {
-            $q->orderBy((string) $orden[0], (string) ($orden[1] ?? 'asc'));
+            $q->orderBy(self::asField($orden[0], "el campo de 'orden'"), (string) ($orden[1] ?? 'asc'));
         }
         if (isset($p->cuerpo['limite'])) {
             $q->limit((int) $p->cuerpo['limite']);
@@ -129,9 +160,25 @@ final class Bridge
             $q->offset((int) $p->cuerpo['salto']);
         }
         if (isset($p->cuerpo['campos']) && \is_array($p->cuerpo['campos'])) {
-            $q->select(\array_map('strval', $p->cuerpo['campos']));
+            $q->select(\array_map(
+                static fn($c): string => self::asField($c, "un nombre de campo de 'campos'"),
+                $p->cuerpo['campos']
+            ));
         }
         return $q;
+    }
+
+    /**
+     * Un valor que va a usarse como nombre de campo u operador: tiene que ser
+     * texto o entero. Cualquier otra cosa —un array, un objeto— se rechaza con un
+     * 400 claro, en vez de dejar que `(string)` genere un aviso de PHP.
+     */
+    private static function asField(mixed $v, string $que): string
+    {
+        if (!\is_string($v) && !\is_int($v)) {
+            throw new BadRequest("AxiDB: {$que} debe ser texto, no " . \get_debug_type($v) . '.');
+        }
+        return (string) $v;
     }
 
     private function id(Request $p): string

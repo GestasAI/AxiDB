@@ -168,13 +168,20 @@ final class FsDriver implements Driver
      */
     private function writeAtomic(string $path, array $data, bool $durable): void
     {
+        // Codificar ANTES de crear el temporal. Si el documento no se puede
+        // serializar —un INF, un NAN, un recurso colado—, la excepcion salta aqui
+        // y no queda ningun archivo a medias. Antes se creaba el temporal primero
+        // y se codificaba dentro: un documento invalido dejaba un .tmp huerfano
+        // por cada intento, y el disco crecia sin que nadie lo barriera.
+        $bytes = Meta::codificar($data);
+
         $tmp = $path . '.tmp.' . \bin2hex(\random_bytes(4));
         $fp  = @\fopen($tmp, 'wb');
         if (!$fp) {
             throw new Exception("Could not create the temporary file of {$path}.");
         }
         try {
-            if (\fwrite($fp, Meta::codificar($data)) === false) {
+            if (\fwrite($fp, $bytes) === false) {
                 throw new Exception("Write failed in {$tmp}.");
             }
             \fflush($fp);
