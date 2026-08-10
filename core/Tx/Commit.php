@@ -50,6 +50,12 @@ final class Commit
         return Lock::con($base, function () use ($tx, $base): int {
             $this->requireVersionsIntact($tx->vistos());
 
+            // El esquema, antes de la frontera. Aplicarlo despues —al confirmar—
+            // dejaba el diario marcado como bueno con un dato que nunca se puede
+            // escribir: la recuperacion lo reintentaba en cada apertura y la base
+            // no volvia a abrir. Se valida aqui, donde todavia se puede abortar.
+            $this->requireSchema($tx->operaciones());
+
             $reservas = $this->reserve($tx->operaciones());
             $diario   = new Journal($base, 'tx' . \bin2hex(\random_bytes(8)));
 
@@ -92,6 +98,25 @@ final class Commit
                     . '(version ' . self::render($version) . ' -> ' . self::render($actual) . '). '
                     . 'Nothing was written; read again and retry.'
                 );
+            }
+        }
+    }
+
+    /**
+     * Valida el esquema de cada operacion antes de tocar el disco.
+     *
+     * Es el gemelo de `reserve`: las dos comprobaciones que pueden fallar por
+     * culpa de los datos —el esquema y la unicidad— tienen que rebotar antes de
+     * la marca de confirmacion. Despues ya es tarde: la transaccion cuenta como
+     * ocurrida y no hay forma de deshacerla.
+     *
+     * @param list<array{coleccion:string, id:string, accion:string, datos:array}> $operaciones
+     */
+    private function requireSchema(array $operaciones): void
+    {
+        foreach ($operaciones as $op) {
+            if ($op['accion'] === 'poner') {
+                $this->db->checkSchema($op['coleccion'], $op['id'], $op['datos']);
             }
         }
     }

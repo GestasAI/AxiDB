@@ -80,6 +80,19 @@ final class CaducidadDriver implements Driver
 
     public function put(string $collection, string $id, array $data, bool $replace = false): array
     {
+        // Si el archivo que hay debajo esta vencido, se borra antes de escribir.
+        //
+        // Sin esto, el driver de abajo leia el archivo crudo del vencido —que el
+        // filtro de caducidad no le esconde— y fusionaba sus campos: un `put`
+        // sobre el id de un documento caducado devolvia los datos viejos, con el
+        // `_version` heredado. Un secreto que la caducidad daba por ido volvia a
+        // la vida, y quien creia estar creando estaba desenterrando. Borrarlo
+        // primero hace que la escritura sea un alta limpia: version 1, sin
+        // rastro del contenido anterior.
+        $viejo = $this->dentro->get($collection, $id);
+        if ($viejo !== null && $this->isExpired($viejo)) {
+            $this->dentro->delete($collection, $id);
+        }
         return $this->dentro->put($collection, $id, $data, $replace);
     }
 

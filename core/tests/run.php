@@ -10,7 +10,24 @@
 
 declare(strict_types=1);
 
-$tests = \glob(__DIR__ . '/test_*.php') ?: [];
+/*
+ * Los tests de ataque (test_sec_*) NO entran en el gate de regresion mientras la
+ * hoja de endurecimiento (claude/planes/axidb-seguridad.md) este abierta.
+ *
+ * No es esconder rojos: es separar dos cosas distintas. Este runner vigila que
+ * un cambio nuevo no rompa lo que ya funcionaba, y para eso tiene que poder estar
+ * verde. Los test_sec_* estan rojos A PROPOSITO —cada uno es un ataque que
+ * todavia funciona— y su progreso se mide aparte, con run_sec.php. Meterlos aqui
+ * dejaria el gate en rojo hasta cerrar las 28 vulnerabilidades, y un gate que
+ * nunca esta verde deja de avisar de las regresiones de verdad.
+ *
+ * Cuando run_sec.php quede entero en verde, se borra esta exclusion y los ataques
+ * pasan a ser parte del gate permanente, como red de no-regresion.
+ */
+$tests = \array_values(\array_filter(
+    \glob(__DIR__ . '/test_*.php') ?: [],
+    static fn(string $f) => !\str_starts_with(\basename($f), 'test_sec_')
+));
 \sort($tests);
 
 echo "=== AxiDB core — suite del nucleo ===\n";

@@ -125,6 +125,25 @@ final class Journal
     }
 
     /**
+     * Aparta un diario que no se ha podido aplicar, en vez de borrarlo.
+     *
+     * La recuperacion lo usa cuando un diario confirmado revienta al aplicarse:
+     * moverlo a `_tx/fallidos/` deja la base abrirse en vez de quedar tapiada, y
+     * conserva el plan para poder mirar que paso. Si se borrara sin mas, se
+     * perderia la unica pista de una transaccion que se dio por buena y no se
+     * pudo completar.
+     */
+    public function quarantine(): void
+    {
+        $fallidos = $this->base . '/' . self::CARPETA . '/fallidos';
+        @\mkdir($fallidos, 0755, true);
+        $destino = $fallidos . '/' . $this->id;
+        if (!@\rename($this->dir, $destino)) {
+            $this->delete();                // si no se puede apartar, al menos no bloquea
+        }
+    }
+
+    /**
      * Los diarios que hay sin terminar. Cada uno es una transaccion que se
      * quedo a medias porque el proceso murio.
      *
@@ -138,7 +157,13 @@ final class Journal
         }
         $fuera = [];
         foreach (\scandir($raiz) ?: [] as $entrada) {
-            if ($entrada !== '.' && $entrada !== '..' && \is_dir($raiz . '/' . $entrada)) {
+            // 'fallidos' guarda los diarios apartados por la recuperacion: no es
+            // una transaccion pendiente, y volver a intentarlo seria el bucle que
+            // este cambio existe para romper.
+            if ($entrada === '.' || $entrada === '..' || $entrada === 'fallidos') {
+                continue;
+            }
+            if (\is_dir($raiz . '/' . $entrada)) {
                 $fuera[] = new self($base, $entrada);
             }
         }

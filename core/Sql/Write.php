@@ -145,7 +145,14 @@ final class Write
      */
     private function affected(array $ast): array
     {
-        $q = $this->db->find($ast['collection'])->whereExpr($ast['where_expr']);
+        // Resolver las subconsultas del WHERE, igual que hace la lectura en
+        // Read::buildQuery. Sin esto, un `DELETE ... WHERE id NOT IN (SELECT ...)`
+        // llegaba al evaluador con la subconsulta todavia como un array: para
+        // `NOT IN` eso es siempre cierto, asi que "borra lo que no este archivado"
+        // borraba la coleccion entera, sin error. Una escritura que evalua la
+        // condicion de otra forma que la lectura es una bomba en el uso normal.
+        $donde = (new Subqueries($this->db))->resolve($ast['where_expr']);
+        $q = $this->db->find($ast['collection'])->whereExpr($donde);
 
         // `UPDATE ... LIMIT 10` y `DELETE ... LIMIT 10`: tocar unos pocos y no
         // la coleccion entera. Sirve para ir por tandas sin bloquearlo todo.

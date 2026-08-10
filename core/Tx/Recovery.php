@@ -39,12 +39,24 @@ final class Recovery
             $aplicadas = $descartadas = 0;
 
             foreach (Journal::pendientes($base) as $diario) {
-                if ($diario->isCommitted()) {
+                if (!$diario->isCommitted()) {
+                    $descartadas++;
+                    $diario->delete();
+                    continue;
+                }
+                // Un diario confirmado deberia poder aplicarse siempre: lo que
+                // podia fallar —esquema, unicidad— ya se comprobo antes de la
+                // marca. Pero un diario de una version anterior a esa comprobacion,
+                // o un archivo corrupto, podria reventar aqui. Si lo hace, se
+                // aparta y la base sigue abriendo, en vez de quedar tapiada para
+                // siempre reintentando lo imposible en cada arranque.
+                try {
                     $aplicadas += Applier::aplicar($db, $diario->operaciones());
-                } else {
+                    $diario->delete();
+                } catch (\Throwable $e) {
+                    $diario->quarantine();
                     $descartadas++;
                 }
-                $diario->delete();
             }
             return ['aplicadas' => $aplicadas, 'descartadas' => $descartadas];
         });

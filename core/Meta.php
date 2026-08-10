@@ -26,15 +26,26 @@ final class Meta
      */
     public static function aplicar(array $data, string $id, ?array $existente, bool $replace): array
     {
+        // Los cuatro campos del motor se quitan de lo que llega antes de nada.
+        // Sin esto, un cuerpo con `_createdAt` propio lo colaba: en un update
+        // parcial ganaba en el array_merge, y en un alta el `empty()` lo dejaba
+        // pasar. Se podia falsificar la antiguedad de un documento —y con ella
+        // el orden cronologico y cualquier peritaje— sin que saltara nada. La
+        // identidad y las fechas las pone el motor, nunca quien escribe.
+        //
+        // Las escrituras internas que SI preservan estos campos (migrar de
+        // driver, restaurar una copia) no pasan por aqui: escriben el documento
+        // crudo con copyDocument/writeTo. Este es el camino del usuario.
+        unset($data['id'], $data['_version'], $data['_updatedAt'], $data['_createdAt']);
+
         if (\is_array($existente) && !$replace) {
             $data = \array_merge($existente, $data);
+            unset($data['_version'], $data['_updatedAt']);   // los de $existente tampoco mandan
         }
         $data['id']         = $id;
         $data['_updatedAt'] = \date('c');
         $data['_version']   = (int) ($existente['_version'] ?? 0) + 1;
-        if (empty($data['_createdAt'])) {
-            $data['_createdAt'] = $existente['_createdAt'] ?? $data['_updatedAt'];
-        }
+        $data['_createdAt'] = $existente['_createdAt'] ?? $data['_updatedAt'];
         return $data;
     }
 

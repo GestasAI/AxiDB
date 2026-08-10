@@ -127,4 +127,30 @@ trait WithDeclarations
 
         return [$esquema->aplicar($collection, $id, $entero), true];
     }
+
+    /**
+     * Comprueba que un documento cumpliria el esquema, sin escribir nada.
+     *
+     * Existe para que una transaccion pueda validar TODAS sus operaciones antes
+     * de cruzar la marca de confirmacion. Sin esto, un valor invalido se
+     * detectaba al aplicar —despues de la frontera— y dejaba el diario marcado
+     * como bueno: la recuperacion lo reintentaba en cada apertura y volvia a
+     * lanzar, con la base tapiada para siempre. Un dato malo no puede inutilizar
+     * la base; tiene que rebotar mientras aun se puede abortar limpiamente, igual
+     * que ya hace la reserva de unicidad.
+     *
+     * El documento se valida entero (como si fuera un `put` con replace), que es
+     * exactamente como lo aplica Tx\Applier: el plan de la transaccion ya trae el
+     * documento fusionado.
+     *
+     * @param array $data el documento completo que se va a escribir
+     */
+    public function checkSchema(string $collection, string $id, array $data): void
+    {
+        $esquema = new SchemaRules($this->storage->schemaOf($collection));
+        if ($esquema->isEmpty()) {
+            return;
+        }
+        $esquema->aplicar($collection, $id, $data);   // lanza si no cumple
+    }
 }
