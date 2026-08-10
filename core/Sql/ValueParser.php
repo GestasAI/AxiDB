@@ -89,7 +89,12 @@ final class ValueParser
     private function parseAtom(): array
     {
         if ($this->ts->matchPunct('(')) {
-            $dentro = $this->parse();
+            $this->ts->descend();
+            try {
+                $dentro = $this->parse();
+            } finally {
+                $this->ts->ascend();
+            }
             $this->ts->consumePunct(')');
             return $dentro;
         }

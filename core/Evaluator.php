@@ -112,9 +112,20 @@ final class Evaluator
     }
 
     /**
-     * Igualdad con coercion numerica: el 5 entero y el "5" de texto son el
-     * mismo precio. Sin ella, un valor que ha pasado por un formulario HTML
-     * nunca casaria con el numero guardado.
+     * Igualdad con coercion numerica, pero solo cuando de verdad hace falta.
+     *
+     * El 5 entero y el "5" de texto son el mismo precio: un valor que llega de un
+     * formulario HTML es una cadena y tiene que casar con el numero guardado. Por
+     * eso se coacciona cuando UN lado es un numero de verdad (int o float) y el
+     * otro parece un numero.
+     *
+     * Lo que NO se hace es coaccionar dos CADENAS entre si. Ahi vivia un agujero:
+     * `"0e123..."` y `"0e456..."` son las dos `is_numeric` y las dos valen 0.0 en
+     * float, asi que se declaraban iguales —el "magic hash" de PHP—. Quien guarde
+     * un token, una firma o un hash como texto y lo compare en un WHERE podia
+     * acertar sin conocerlo. Dos cadenas se comparan con `===`, sin magia. Y ese
+     * es tambien el motivo de comparar strings a mano en vez de con `==`: el `==`
+     * de PHP entre dos cadenas numericas TAMBIEN las trata como numeros.
      */
     private static function areEqual(mixed $a, mixed $b): bool
     {
@@ -124,8 +135,31 @@ final class Evaluator
         if (\is_bool($a) || \is_bool($b)) {
             return $a === $b;
         }
-        if (\is_numeric($a) && \is_numeric($b)) {
+        // Un numero de verdad contra un texto solo casa si el texto es una forma
+        // DECIMAL SIMPLE de ese numero: digitos, un punto opcional, un signo
+        // opcional. "5" casa con 5; "3.14" con 3.14. Lo que NO casa es un texto
+        // en notacion cientifica ni en hex: `t = 0` sobre el token "0e123..." no
+        // debe encontrarlo, porque ese token vale 0.0 en float pero no es el
+        // numero cero. Es el criterio de una base con tipos —el texto y el numero
+        // solo se cruzan si el texto ES el numero escrito de la forma normal.
+        $decimal = static fn(mixed $v): bool
+            => \is_string($v) && \preg_match('/^-?\d+(\.\d+)?$/', $v) === 1;
+
+        $aNum = \is_int($a) || \is_float($a);
+        $bNum = \is_int($b) || \is_float($b);
+        if (($aNum && $decimal($b)) || ($bNum && $decimal($a))
+            || ($aNum && $bNum)) {
             return (float) $a === (float) $b;
+        }
+        if ($aNum || $bNum) {
+            // Un numero contra un texto que NO es un decimal simple: distintos.
+            // Sin este corte, el `==` de mas abajo trataria "0e123..." == 0 como
+            // numeros (PHP 8 sigue coaccionando dos operandos numericos) y el
+            // token colisionaria con el cero.
+            return false;
+        }
+        if (\is_string($a) && \is_string($b)) {
+            return $a === $b;                       // sin magic hash
         }
         return $a == $b;
     }

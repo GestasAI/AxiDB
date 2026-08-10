@@ -123,6 +123,7 @@ final class Container
         if (!$fp) {
             throw new Exception("Backup: could not open {$archivo}.");
         }
+        $tamano = (int) @\filesize($archivo);
         try {
             \fgets($fp);                    // marca
             \fgets($fp);                    // cabecera
@@ -137,7 +138,22 @@ final class Container
                 if (!\is_array($meta) || !isset($meta['ruta'], $meta['bytes'], $meta['sha1'])) {
                     throw new Exception("Backup: unreadable entry in {$archivo}.");
                 }
-                $bytes = (int) $meta['bytes'] > 0 ? (string) \fread($fp, (int) $meta['bytes']) : '';
+                // El tamaño lo declara la cabecera de la entrada, que viaja dentro
+                // del archivo. Antes se pasaba tal cual a fread, que pre-reserva el
+                // buffer entero: una entrada de 90 bytes que dijera 'bytes:3e8'
+                // hacia reservar 300 MB antes de comprobar nada. Se contrasta con
+                // lo que de verdad queda en el archivo: nadie puede leer mas bytes
+                // de los que hay, asi que una cifra mayor es mentira y se rechaza
+                // sin reservar memoria.
+                $declarados = (int) $meta['bytes'];
+                $restantes  = \max(0, (int) $tamano - (int) \ftell($fp));
+                if ($declarados < 0 || $declarados > $restantes) {
+                    throw new Exception(
+                        "Backup: la entrada '{$meta['ruta']}' declara {$declarados} bytes y solo "
+                        . "quedan {$restantes} en el archivo. Copia dañada o manipulada."
+                    );
+                }
+                $bytes = $declarados > 0 ? (string) \fread($fp, $declarados) : '';
                 \fgets($fp);                // el salto de linea que la cierra
 
                 if (\strlen($bytes) !== (int) $meta['bytes'] || \sha1($bytes) !== $meta['sha1']) {

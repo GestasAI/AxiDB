@@ -18,8 +18,22 @@ final class Parser
     private TokenStream $ts;
     private string $sql = '';
 
+    /**
+     * Tope de tamaño de una sentencia. 256 KB es el mismo limite que el cuerpo
+     * HTTP, y deja sitio de sobra para cualquier consulta que escriba una
+     * persona. Una sentencia mayor no es una consulta: es un intento de agotar
+     * la memoria tokenizandola. Se corta antes de tocar el lexer.
+     */
+    private const MAX_SQL_BYTES = 262144;
+
     public function parse(string $sql): array
     {
+        if (\strlen($sql) > self::MAX_SQL_BYTES) {
+            throw new Exception(
+                'AxiSQL: la sentencia pasa de ' . self::MAX_SQL_BYTES . ' bytes ('
+                . \strlen($sql) . '). Demasiado grande para ser una consulta.'
+            );
+        }
         $this->ts  = new TokenStream((new Lexer())->tokenize($sql), $sql);
         $this->sql = $sql;
 
@@ -186,7 +200,7 @@ final class Parser
                 $ast['limit']  = null;
 
                 if ($this->ts->matchKw('LIMIT')) {
-                    $ast['limit'] = $this->ts->consumeInt();
+                    $ast['limit'] = $this->ts->consumeUnsignedInt();
                 }
                 return $ast;
             }
@@ -204,10 +218,10 @@ final class Parser
         }
 
         if ($this->ts->matchKw('LIMIT')) {
-            $ast['limit'] = $this->ts->consumeInt();
+            $ast['limit'] = $this->ts->consumeUnsignedInt();
         }
         if ($this->ts->matchKw('OFFSET')) {
-            $ast['offset'] = $this->ts->consumeInt();
+            $ast['offset'] = $this->ts->consumeUnsignedInt();
         }
 
         return $ast;

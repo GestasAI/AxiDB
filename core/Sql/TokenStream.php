@@ -124,6 +124,54 @@ final class TokenStream
         return $tk->value;
     }
 
+    /**
+     * Profundidad de anidamiento de expresiones, para cortar el descenso
+     * recursivo antes de que agote la pila.
+     *
+     * `WHERE ((((...))))` con unos miles de parentesis —apenas 50 KB de SQL, por
+     * debajo del limite de tamaño— mataba el proceso: cada nivel es una llamada
+     * recursiva mas. 200 niveles es mas de lo que anida cualquier consulta que
+     * escriba una persona; pasar de ahi es un ataque, no una consulta.
+     */
+    private int $profundidad = 0;
+
+    private const MAX_PROFUNDIDAD = 200;
+
+    public function descend(): void
+    {
+        if (++$this->profundidad > self::MAX_PROFUNDIDAD) {
+            throw new Exception(
+                'AxiSQL: expresion demasiado anidada (tope ' . self::MAX_PROFUNDIDAD . ' niveles).'
+            );
+        }
+    }
+
+    public function ascend(): void
+    {
+        $this->profundidad--;
+    }
+
+    /**
+     * Un entero que no puede ser negativo. Para LIMIT y OFFSET.
+     *
+     * `LIMIT -1` no daba error: se colaba hasta array_slice, que interpreta el
+     * negativo como "cuenta desde el otro extremo". `LIMIT -1` sobre cinco
+     * documentos devolvia cuatro, y `OFFSET -4` paginaba desde el final. Si el
+     * numero viene de una paginacion externa, el resultado deja de ser el pedido
+     * sin que nadie lo note. Un limite negativo no significa nada: se rechaza.
+     */
+    public function consumeUnsignedInt(): int
+    {
+        $tk = $this->peek();
+        $n  = $this->consumeInt();
+        if ($n < 0) {
+            throw new Exception(
+                "AxiSQL: LIMIT y OFFSET no pueden ser negativos; llego {$n} en la posicion {$tk->pos}."
+            );
+        }
+        return $n;
+    }
+
     /** Literal: texto, numero, TRUE, FALSE o NULL. */
     public function consumeLiteral(): mixed
     {

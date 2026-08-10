@@ -79,6 +79,14 @@ trait WithBackups
 
         $hecho = Restore::build($copia, $this->storage->basePath());
 
+        // Reponer el blindaje. Restaurar reescribe el directorio segun la copia,
+        // y una copia puede no incluir el .htaccess ni el index.html que impiden
+        // que los datos se sirvan y se listen por HTTP. Sin esto, restaurar
+        // dejaba el directorio de datos expuesto justo despues de una operacion
+        // que se hace cuando ya ha pasado algo malo. El blindaje no depende de lo
+        // que traiga la copia: es del motor, y se vuelve a poner siempre.
+        \Axi\Core\Shield::aplicar($this->storage->basePath());
+
         // Lo que hay en memoria ya no vale: los ajustes, los indices y los
         // descriptores abiertos son de los datos de antes de restaurar.
         $this->storage->forget();

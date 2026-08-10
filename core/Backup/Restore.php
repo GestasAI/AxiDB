@@ -44,6 +44,14 @@ final class Restore
         $archivos = [];
         foreach ($cadena as $eslabon) {
             Container::each($eslabon, static function (string $ruta, string $bytes) use (&$archivos): void {
+                // La ruta viaja DENTRO del archivo de copia, asi que la elige
+                // quien fabrico la copia. Se valida aqui, en el paso de lectura,
+                // antes de escribir un solo byte. Sin esto, una copia con la
+                // entrada '../../shell.php' escribia fuera del directorio de
+                // datos: con el directorio dentro del docroot, eso es ejecucion
+                // remota. Restaurar una copia recibida no puede ser una via para
+                // escribir donde el atacante quiera.
+                self::requireSafePath($ruta);
                 $archivos[$ruta] = $bytes;
             });
         }
@@ -51,6 +59,9 @@ final class Restore
         // Lo que la ultima copia dice que tiene que haber. Un archivo que este
         // en la cadena pero no aqui es uno que se borro entre copia y copia.
         $esperados = \array_keys((array) ($ultima['huellas'] ?? []));
+        foreach ($esperados as $ruta) {
+            self::requireSafePath($ruta);           // tambien las claves de la cabecera
+        }
         $faltan    = \array_diff($esperados, \array_keys($archivos));
         if ($faltan !== []) {
             throw new Exception(
@@ -106,6 +117,34 @@ final class Restore
             $actual = Catalog::search($carpeta, (string) $base);
         }
         return \array_reverse($cadena);
+    }
+
+    /**
+     * Una ruta de entrada de copia solo puede apuntar DENTRO del destino.
+     *
+     * Rechaza lo que permite escapar del directorio: un tramo `..`, una barra o
+     * contrabarra inicial (ruta absoluta estilo Unix), una unidad de Windows o un
+     * flujo alternativo (`C:`, `x:algo`), y el byte nulo. Se comprueba tramo a
+     * tramo, partiendo por las dos barras, porque una copia legitima trae rutas
+     * como `coleccion/_idx/campo/valor.json`.
+     *
+     * No se apoya en `realpath`: el archivo de destino todavia no existe, y una
+     * comprobacion que dependa del estado del disco se puede burlar con enlaces.
+     * La regla es sobre el texto de la ruta, que es lo que controla el atacante.
+     */
+    private static function requireSafePath(string $ruta): void
+    {
+        if ($ruta === '' || \str_contains($ruta, "\0")) {
+            throw new Exception('Backup: ruta de entrada vacia o con byte nulo.');
+        }
+        if ($ruta[0] === '/' || $ruta[0] === '\\' || \preg_match('#^[a-zA-Z]:#', $ruta) === 1) {
+            throw new Exception("Backup: ruta de entrada absoluta rechazada: '{$ruta}'.");
+        }
+        foreach (\preg_split('#[/\\\\]#', $ruta) ?: [] as $tramo) {
+            if ($tramo === '' || $tramo === '.' || $tramo === '..') {
+                throw new Exception("Backup: ruta de entrada con tramo invalido: '{$ruta}'.");
+            }
+        }
     }
 
     private static function writeTo(string $ruta, string $bytes): void

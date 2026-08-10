@@ -69,7 +69,12 @@ final class ExprParser
 
         if ($this->ts->peek()->isPunct('(') && $this->looksLikeCondition()) {
             $this->ts->advance();
-            $dentro = $this->parseOr();
+            $this->ts->descend();
+            try {
+                $dentro = $this->parseOr();
+            } finally {
+                $this->ts->ascend();
+            }
             $this->ts->consumePunct(')');
             return $dentro;
         }

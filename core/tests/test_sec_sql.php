@@ -89,7 +89,7 @@ $db = baseNueva('vistas');
 $db->insert('clientes', ['nombre' => 'ana'], 'c1');
 $db->insert('clientes', ['nombre' => 'luis'], 'c2');
 
-$db->sql("INSERT INTO axidb_vistas (id, sql) VALUES ('informe', 'DROP COLLECTION clientes')");
+intentar(static fn() => $db->sql("INSERT INTO axidb_vistas (id, sql) VALUES ('informe', 'DROP COLLECTION clientes')"));
 $fallo = intentar(static fn() => $db->sql('SELECT * FROM informe'));
 
 ok('un SELECT sobre una vista envenenada no ejecuta el DROP',
@@ -101,10 +101,10 @@ ok('si algo falla, falla con la excepcion del motor y no con un TypeError de PHP
 /* Lo mismo, pero escribiendo: la vista crea un documento que nadie pidio. */
 $db2 = baseNueva('vistas_escritura');
 $db2->insert('admin', ['rol' => 'user'], 'a1');
-$db2->sql(
+intentar(static fn() => $db2->sql(
     "INSERT INTO axidb_vistas (id, sql) VALUES "
     . "('panel', 'INSERT INTO admin (id, rol) VALUES (''pwn'', ''root'')')"
-);
+));
 intentar(static fn() => $db2->sql('SELECT * FROM panel'));
 ok('una vista no puede insertar documentos privilegiados', $db2->get('admin', 'pwn') === null);
 
@@ -112,7 +112,7 @@ ok('una vista no puede insertar documentos privilegiados', $db2->get('admin', 'p
 $db3 = baseNueva('vistas_update');
 $db3->insert('ventas', ['importe' => 10], 'v1');
 $db3->sql('CREATE VIEW resumen AS SELECT * FROM ventas');
-$db3->sql("UPDATE axidb_vistas SET sql = 'DROP COLLECTION ventas'");
+intentar(static fn() => $db3->sql("UPDATE axidb_vistas SET sql = 'DROP COLLECTION ventas'"));
 intentar(static fn() => $db3->sql('SELECT * FROM resumen'));
 ok('redefinir una vista con UPDATE no convierte una lectura en un DROP',
     \in_array('ventas', $db3->collections(), true));
@@ -141,7 +141,7 @@ ok('y una escritura limitada a una coleccion no alcanza a otra',
  */
 $db5 = baseNueva('ast');
 $db5->insert('caja', ['saldo' => 100], 'k1');
-$db5->sql("INSERT INTO axidb_vistas (id, sql) VALUES ('lectura', 'DELETE FROM caja')");
+intentar(static fn() => $db5->sql("INSERT INTO axidb_vistas (id, sql) VALUES ('lectura', 'DELETE FROM caja')"));
 $ast = (new Parser())->parse('SELECT * FROM lectura');
 eq('el AST de la sentencia se clasifica como lectura', 'select', $ast['type']);
 intentar(static fn() => $db5->sql('SELECT * FROM lectura'));
@@ -153,7 +153,7 @@ eq('luego una sentencia clasificada como lectura no puede borrar', 1, $db5->coun
  */
 $db6 = baseNueva('explain_vista');
 $db6->insert('secreto', ['a' => 1], 's1');
-$db6->sql("INSERT INTO axidb_vistas (id, sql) VALUES ('inocente', 'DROP COLLECTION secreto')");
+intentar(static fn() => $db6->sql("INSERT INTO axidb_vistas (id, sql) VALUES ('inocente', 'DROP COLLECTION secreto')"));
 intentar(static fn() => $db6->sql('EXPLAIN SELECT * FROM inocente'));
 ok('EXPLAIN no ejecuta la consulta de una vista', \in_array('secreto', $db6->collections(), true));
 
@@ -165,7 +165,7 @@ ok('EXPLAIN no ejecuta la consulta de una vista', \in_array('secreto', $db6->col
 $db7 = baseNueva('sombra');
 $db7->insert('ventas', ['importe' => 100], 'v1');
 $db7->insert('ventas', ['importe' => 999], 'v2');
-$db7->sql('CREATE VIEW ventas AS SELECT * FROM ninguna');
+intentar(static fn() => $db7->sql('CREATE VIEW ventas AS SELECT * FROM ninguna'));
 $porSelect = $db7->sql('SELECT * FROM ventas');
 eq('una vista no puede tapar una coleccion que existe', 2, \count((array) $porSelect));
 eq('y SELECT y COUNT(*) no pueden discrepar sobre lo mismo',
@@ -200,7 +200,7 @@ ok('dos vistas que se referencian entre si tampoco tumban el proceso', $codigo2 
  */
 $db8 = baseNueva('vista_tx');
 $db8->insert('p', ['a' => 1], 'd1');
-$db8->sql("INSERT INTO axidb_vistas (id, sql) VALUES ('tx', 'BEGIN')");
+intentar(static fn() => $db8->sql("INSERT INTO axidb_vistas (id, sql) VALUES ('tx', 'BEGIN')"));
 intentar(static fn() => $db8->sql('SELECT * FROM tx'));
 ok('una lectura no deja una transaccion abierta a espaldas del programa',
     $db8->currentTransaction() === null);
@@ -246,12 +246,41 @@ $db10->insert('arch', ['n' => 1], 'r1');
 $db10->sql('DELETE FROM r WHERE id NOT IN (SELECT id FROM arch)');
 eq('DELETE ... NOT IN (subconsulta) no arrasa la coleccion entera', 1, $db10->count('r'));
 
-/* Lo que si falla cerrado: EXISTS en una escritura lanza y no borra nada. */
+/*
+ * EXISTS no-correlacionado se resuelve igual al leer y al escribir.
+ *
+ * La version anterior de esta prueba esperaba que EXISTS en un DELETE LANZARA.
+ * Es una expectativa equivocada, y conviene dejarlo escrito: AxiDB no ofrece
+ * subconsultas correlacionadas —lo dice el README— y un EXISTS no-correlacionado
+ * es una condicion GLOBAL, no por fila. `EXISTS (SELECT * FROM avisos)` significa
+ * "si hay algun aviso", y vale lo mismo para todas las filas. Que un DELETE con
+ * esa condicion borre todo cuando la subconsulta tiene filas no es un fallo: es
+ * lo que EXISTS significa.
+ *
+ * Lo que SI importa para la seguridad, y es lo que se comprueba, es que la
+ * escritura resuelva la subconsulta igual que la lectura. Antes no lo hacia
+ * —Write no pasaba por Subqueries::resolve— y ahi estaba el agujero de S3, que
+ * dejaba un NOT IN sin resolver comportandose como "siempre cierto". Ahora las
+ * dos vias dan la misma respuesta.
+ */
 $db11 = baseNueva('subq_exists');
 $db11->insert('s', ['n' => 1], 's1');
-throws('EXISTS en un DELETE se rechaza en vez de resolverse a la ligera',
-    static fn() => $db11->sql('DELETE FROM s WHERE EXISTS (SELECT * FROM s)'));
-eq('y no se borro nada por el camino', 1, $db11->count('s'));
+$db11->insert('s', ['n' => 2], 's2');
+$db11->insert('avisos', ['x' => 1], 'a1');
+
+// Con avisos NO vacio, EXISTS es cierto para todas: SELECT las devuelve todas...
+$leidos = \count((array) $db11->sql('SELECT id FROM s WHERE EXISTS (SELECT * FROM avisos)'));
+eq('EXISTS cierto: la lectura devuelve todas las filas', 2, $leidos);
+
+// ...y un UPDATE con la misma condicion toca las mismas que veria la lectura.
+$tocados = $db11->sql('UPDATE s SET marcado = 1 WHERE EXISTS (SELECT * FROM avisos)')['updated'] ?? 0;
+eq('la escritura toca exactamente las mismas que la lectura', 2, $tocados);
+
+// Con la subconsulta vacia, EXISTS es falso: no se toca ni se borra nada.
+$db11->delete('avisos', 'a1');
+$borrados = $db11->sql('DELETE FROM s WHERE EXISTS (SELECT * FROM avisos)')['deleted'] ?? 0;
+eq('EXISTS falso: la escritura no borra nada', 0, $borrados);
+eq('y las dos filas siguen ahi', 2, $db11->count('s'));
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
 section('C] Lo que el analizador si para');

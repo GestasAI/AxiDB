@@ -16,6 +16,7 @@ declare(strict_types=1);
 namespace Axi\Core\Sql;
 
 use Axi\Core\Db;
+use Axi\Core\Exception;
 
 final class Write
 {
@@ -25,6 +26,18 @@ final class Write
 
     public function execute(array $ast, bool $explicar): mixed
     {
+        // El almacen de vistas no se escribe a mano. Es una coleccion como
+        // cualquier otra en el disco, y esa es justamente la trampa: un
+        // `INSERT INTO axidb_vistas ...` metia una vista cuyo cuerpo se ejecutaba
+        // en la siguiente lectura. La unica puerta para crear o cambiar una vista
+        // es CREATE VIEW, que valida el texto.
+        if (($ast['collection'] ?? '') === Structure::VISTAS) {
+            throw new Exception(
+                "AxiSQL: '" . Structure::VISTAS . "' es el almacen de vistas y no se escribe "
+                . 'directamente. Usa CREATE VIEW.'
+            );
+        }
+
         return match ($ast['type']) {
             'insert' => $this->insert($ast, $explicar),
             'update' => $this->update($ast, $explicar),

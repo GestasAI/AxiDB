@@ -132,9 +132,19 @@ final class Structure
 
     private function createView(array $ast): array
     {
-        $this->db->put(self::VISTAS, (string) $ast['view'], [
+        $nombre = (string) $ast['view'];
+
+        // Una vista no puede llamarse como una coleccion que ya existe: taparia
+        // sus datos y dejaria a SELECT y COUNT diciendo cosas distintas. Una
+        // coleccion real siempre gana, y crear una vista que nunca se veria solo
+        // sirve para confundir o para esconder algo.
+        if (\in_array($nombre, $this->db->collections(), true) && $nombre !== self::VISTAS) {
+            throw new Exception("AxiSQL: ya existe una coleccion llamada '{$nombre}'; una vista no puede taparla.");
+        }
+
+        $this->db->put(self::VISTAS, $nombre, [
             'sql'    => (string) $ast['sql'],
-            'nombre' => (string) $ast['view'],
+            'nombre' => $nombre,
         ], true);
 
         return ['view' => $ast['view'], 'sql' => $ast['sql']];
@@ -149,6 +159,14 @@ final class Structure
 
     private function renameCollection(array $ast): array
     {
+        // Renombrar una coleccion cualquiera ENCIMA del almacen de vistas era el
+        // otro camino para envenenarlo: se llenaba una coleccion normal con filas
+        // `sql: DROP...` y luego se renombraba a axidb_vistas. El destino no puede
+        // ser el almacen de vistas, ni el origen (mover las vistas a otro sitio y
+        // dejar un hueco tambien rompe la invariante).
+        if ((string) $ast['to'] === self::VISTAS || $ast['collection'] === self::VISTAS) {
+            throw new Exception("AxiSQL: '" . self::VISTAS . "' no se renombra: es el almacen de vistas.");
+        }
         return ['renamed' => $this->db->renameCollection($ast['collection'], (string) $ast['to'])];
     }
 

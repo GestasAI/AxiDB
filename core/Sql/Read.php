@@ -19,10 +19,16 @@ namespace Axi\Core\Sql;
 
 use Axi\Core\Db;
 use Axi\Core\Evaluator;
+use Axi\Core\Exception;
 use Axi\Core\Query;
 
 final class Read
 {
+    /** Profundidad de vistas anidadas en curso, para cortar ciclos. */
+    private static int $profundidadVista = 0;
+
+    private const MAX_VISTAS = 8;
+
     public function __construct(private Db $db)
     {
     }
@@ -51,12 +57,18 @@ final class Read
         if (isset($ast['vector'])) {
             return (new VectorSql($this->db))->execute($ast, $explicar);
         }
-        $deVista = $this->resolveView($ast);
-        if ($deVista !== null) {
-            if ($explicar) {
-                return $this->plan('select', $ast['collection'], ['estrategia' => 'vista']);
+        // La vista solo entra si el FROM no es ya una coleccion de verdad. Antes
+        // se miraba la vista primero, asi que una vista con el nombre de una
+        // coleccion existente la tapaba —y ademas SELECT y COUNT discrepaban,
+        // porque count no pasaba por aqui. Una coleccion real siempre gana.
+        if (!\in_array($ast['collection'], $this->db->collections(), true)) {
+            $deVista = $this->resolveView($ast);
+            if ($deVista !== null) {
+                if ($explicar) {
+                    return $this->plan('select', $ast['collection'], ['estrategia' => 'vista']);
+                }
+                return ResultSet::construir($deVista, $ast);
             }
-            return ResultSet::construir($deVista, $ast);
         }
 
         if (($ast['joins'] ?? []) !== []) {
@@ -152,7 +164,35 @@ final class Read
         if ($sql === null) {
             return null;
         }
-        $filas = (array) $this->db->sql($sql);
+
+        // El texto de la vista se REPARSEA y se exige que sea un SELECT antes de
+        // ejecutarlo. Antes se hacia `db->sql($texto)` a ciegas: como axidb_vistas
+        // era una coleccion normal, cualquiera que escribiera una fila con un
+        // `DROP COLLECTION` de cuerpo lograba que la siguiente lectura de esa
+        // vista lo ejecutara. Una vista es una consulta de lectura, y solo eso.
+        $arbol = (new Parser())->parse($sql);
+        if (($arbol['type'] ?? '') !== 'select' && ($arbol['type'] ?? '') !== 'count') {
+            throw new \Axi\Core\Exception(
+                "AxiSQL: la vista '{$ast['collection']}' no define un SELECT. Una vista solo lee."
+            );
+        }
+
+        // Tope de anidamiento: una vista que se referencia a si misma —o dos que
+        // se referencian entre si— recurria hasta agotar la memoria, y la vista
+        // quedaba guardada, asi que cada lectura posterior volvia a matar el
+        // proceso. Se corta con un error del motor, no con un fatal de PHP.
+        if (self::$profundidadVista >= self::MAX_VISTAS) {
+            throw new \Axi\Core\Exception(
+                "AxiSQL: vistas anidadas demasiado profundas (tope " . self::MAX_VISTAS . "). "
+                . '¿Una vista que se referencia a si misma?'
+            );
+        }
+        self::$profundidadVista++;
+        try {
+            $filas = (array) $this->db->sql($sql);
+        } finally {
+            self::$profundidadVista--;
+        }
 
         /*
          * El WHERE de la consulta de fuera se aplica AQUI.
