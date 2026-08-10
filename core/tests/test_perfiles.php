@@ -248,9 +248,14 @@ foreach (\glob(\dirname(__DIR__) . '/{*,*/*,*/*/*}.php', GLOB_BRACE) ?: [] as $a
         $conPerfil[] = $rel;
     }
 }
+// Sql/Read.php es una puerta de entrada como Query: ejecuta el SQL del usuario,
+// y el JOIN escrito en SQL tiene que pasar por el mismo control de perfil que
+// join() del constructor. Sin eso, con perfil 'core' se paraba join() pero no
+// 'SELECT ... JOIN': dos caminos para lo mismo con dos reglas.
 $fuera = \array_values(\array_filter(
     $conPerfil,
-    static fn(string $f) => !\str_starts_with($f, 'Facade/') && $f !== 'Db.php' && $f !== 'Query.php'
+    static fn(string $f) => !\str_starts_with($f, 'Facade/')
+        && $f !== 'Db.php' && $f !== 'Query.php' && $f !== 'Sql/Read.php'
 ));
 eq('el perfil solo se consulta en las puertas de entrada, no dentro del motor',
     [], $fuera);

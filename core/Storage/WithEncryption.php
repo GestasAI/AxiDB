@@ -117,6 +117,30 @@ trait WithEncryption
         return $this->caducados[$clave] ??= new CaducidadDriver($driver, $segundos);
     }
 
+    /**
+     * El driver descifrado pero SIN la capa de caducidad. Para el mantenimiento
+     * de indices y unicidad, que trabajan sobre lo que hay en disco de verdad,
+     * incluidos los documentos ya vencidos que aun no se han barrido.
+     */
+    private function driverSinCaducidad(string $collection): Driver
+    {
+        return $this->wrapIfEncrypted(
+            $this->driverByName($this->driverDe($collection)),
+            $collection
+        );
+    }
+
+    /**
+     * El documento tal cual esta en el disco, saltando el filtro de caducidad
+     * (pero descifrando si hace falta). Lo usa el mantenimiento de indices y
+     * unicidad: un vencido conserva su rastro en disco y hay que verlo para
+     * barrerlo, aunque get() lo esconda. Ver Db y WithExpiry.
+     */
+    public function rawGet(string $collection, string $id): ?array
+    {
+        return $this->driverSinCaducidad($collection)->get($collection, $id);
+    }
+
     private function wrapIfEncrypted(Driver $base, string $collection): Driver
     {
         if (!$this->ajustes->isEncrypted($collection)) {

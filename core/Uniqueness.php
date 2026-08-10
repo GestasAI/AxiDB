@@ -71,8 +71,18 @@ final class Uniqueness
     private static function valueOf(array $documento, string $campo): ?string
     {
         $v = $documento[$campo] ?? null;
-        if ($v === null || $v === '' || \is_array($v)) {
-            return null;
+        if ($v === null || $v === '') {
+            return null;                            // ausente: el campo no participa
+        }
+        // Un array NO es "no participa": es un intento de rodear la restriccion.
+        // Antes se devolvia null tambien para arrays, asi que mandar
+        // ['email' => ['ana@x.es']] se saltaba la unicidad y entraban dos. Quien
+        // elige el tipo del dato no puede elegir si la restriccion existe: un
+        // campo unico que llega como lista se rechaza.
+        if (\is_array($v)) {
+            throw new Exception(
+                "Uniqueness: el campo unico '{$campo}' no puede ser una lista."
+            );
         }
         return (string) $v;
     }

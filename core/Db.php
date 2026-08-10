@@ -18,12 +18,8 @@ namespace Axi\Core;
 
 final class Db
 {
-    /*
-     * Los tres con nombre completo, no relativo. Son rasgos de este mismo
-     * nucleo, pero el test de frontera mira los `use` con una expresion regular
-     * y no puede distinguir un rasgo de una importacion: escribirlos enteros
-     * deja claro de donde salen y de paso el test no tiene que adivinar.
-     */
+    // Nombre completo: el test de frontera mira los `use` con regex y no distingue
+    // un rasgo de una importacion.
     use \Axi\Core\Facade\WithIndexes;
     use \Axi\Core\Facade\WithVectors;
     use \Axi\Core\Facade\WithAgents;
@@ -32,6 +28,7 @@ final class Db
     use \Axi\Core\Facade\WithBackups;
     use \Axi\Core\Facade\WithStructure;
     use \Axi\Core\Facade\WithHealth;
+    use \Axi\Core\Facade\WithExpiry;
 
     private Storage $storage;
     private Index $index;
@@ -54,8 +51,7 @@ final class Db
         $this->vectores = new VectorStore($this->storage, $options['embedder'] ?? null);
 
         // Antes de que nadie lea: si un corte dejo una transaccion a medias, se
-        // termina o se descarta ahora. Leer un estado a medio aplicar seria el
-        // peor momento para enterarse.
+        // termina o se descarta ahora, no en mitad de una lectura.
         if (($options['recover'] ?? true) !== false) {
             $this->recover();
         }
@@ -85,19 +81,24 @@ final class Db
         $unicos  = $this->storage->uniquesOf($collection);
         $esquema = $this->storage->schemaOf($collection);
 
+        // rawGet: el mantenimiento de indices y unicidad trabaja sobre lo que hay
+        // en disco, no sobre lo visible. Un vencido conserva su entrada de indice
+        // y su reserva; con get() valdrian null y quedarian de fantasmas.
         $before = $fields === [] && $unicos === [] && $esquema === []
             ? null
-            : $this->storage->get($collection, $id);
+            : $this->storage->rawGet($collection, $id);
 
-        // El esquema, lo primero: si el documento no vale, mejor enterarse
-        // antes de reservar nada y antes de tocar el disco.
+        // El esquema, lo primero: rebotar un documento invalido antes de tocar nada.
         [$data, $replace] = $this->applySchema($collection, $id, $data, $before, $replace);
 
-        // Reservar antes de escribir, y soltar si la escritura no sale. Ver
-        // Unicidad: hacerlo al reves obligaria a deshacer un documento guardado.
+        // Reservar antes de escribir, y soltar si no sale (ver Uniqueness).
         $reserva = new Uniqueness($this->index, $collection, $id);
         if ($unicos !== []) {
-            $reserva->reserve($unicos, $replace || $before === null ? $data : $data + $before, $before);
+            $entero = $replace || $before === null ? $data : $data + $before;
+            // Liberar antes lo que retiene un vencido, o su valor unico queda
+            // cogido por un fantasma. Ver WithExpiry.
+            $this->purgeExpiredOwners($collection, $unicos, $entero);
+            $reserva->reserve($unicos, $entero, $before);
         }
 
         try {
@@ -117,7 +118,8 @@ final class Db
     public function delete(string $collection, string $id): bool
     {
         $fields = $this->index->fields($collection);
-        $before = $fields === [] ? null : $this->storage->get($collection, $id);
+        // rawGet: ver tambien un vencido, para limpiar su entrada de indice.
+        $before = $fields === [] ? null : $this->storage->rawGet($collection, $id);
 
         $ok = $this->storage->delete($collection, $id);
 
@@ -187,8 +189,6 @@ final class Db
     {
         return $this->find($collection)->where($field, '=', $value)->get();
     }
-
-    /* ─────────────────────────────── AxiSQL ─────────────────────────────── */
 
     /**
      * Ejecuta una sentencia AxiSQL. Es una llamada a funcion PHP: analiza la

@@ -107,17 +107,16 @@ throws('ni como booleano',
     static fn() => $dbC->insert('n', ['cod' => true], 'n3'));
 
 /*
- * Un valor que llega como lista no se reserva, asi que la unicidad deja de
- * aplicarse. Quien manda el dato elige el tipo, y por tanto elige si la
- * restriccion existe. Ademas el documento resultante no se encuentra buscando
- * por ese correo, con lo que la fuga es doble: entra y ademas no se ve.
+ * Un campo unico que llega como lista era la via para rodear la restriccion:
+ * `valueOf` devolvia null para un array, asi que no se reservaba nada y entraba.
+ * Quien elige el tipo del dato no puede elegir si la restriccion existe: un campo
+ * unico que llega como lista se rechaza, no se ignora.
  */
-$dbC->insert('u', ['email' => ['ana@x.es']], 'u3');
-throws('un correo repetido disfrazado de lista tambien se rechaza',
-    static fn() => $dbC->insert('u', ['email' => ['ana@x.es']], 'u4'));
-eq('y no hay dos documentos con el mismo correo', 1,
-    \count(\array_filter($dbC->all('u'), static fn($d) => ($d['email'] ?? null) === 'ana@x.es'
-        || (\is_array($d['email'] ?? null) && \in_array('ana@x.es', $d['email'], true)))));
+throws('un campo unico que llega como lista se rechaza',
+    static fn() => $dbC->insert('u', ['email' => ['ana@x.es']], 'u3'));
+eq('y no ha entrado ese documento', null, $dbC->get('u', 'u3'));
+eq('sigue habiendo un solo documento con ese correo', 1,
+    \count(\array_filter($dbC->all('u'), static fn($d) => ($d['email'] ?? null) === 'ana@x.es')));
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 section('D] Comparaciones: PHP es generoso con la igualdad, una base no debe serlo');

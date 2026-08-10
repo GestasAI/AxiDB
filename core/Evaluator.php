@@ -170,6 +170,14 @@ final class Evaluator
         if ($a === null || $b === null) {
             return $a === $b ? 0 : ($a === null ? -1 : 1);
         }
+        // Un array no se convierte a texto: `(string) [1,2]` es "Array" y emite un
+        // aviso de PHP que, por el puente HTTP, acababa en la respuesta. Un array
+        // se ordena por encima de cualquier escalar, de forma definida y callada.
+        $aArr = \is_array($a);
+        $bArr = \is_array($b);
+        if ($aArr || $bArr) {
+            return $aArr <=> $bArr;                 // escalar < array; array == array
+        }
         if (\is_numeric($a) && \is_numeric($b)) {
             return (float) $a <=> (float) $b;
         }

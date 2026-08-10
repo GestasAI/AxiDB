@@ -47,6 +47,20 @@ final class Query
     ) {
     }
 
+    /** @var \Closure|null se llama con la coleccion de cada JOIN, para el sandbox */
+    private ?\Closure $joinGuard = null;
+
+    /**
+     * Instala un guardian que se consulta en cada JOIN. Lo usa el sandbox de un
+     * agente: `find()` sobre una coleccion permitida no puede alcanzar otra
+     * prohibida con un `->join(...)`, porque el JOIN pasa por aqui.
+     */
+    public function withJoinGuard(\Closure $guardia): self
+    {
+        $this->joinGuard = $guardia;
+        return $this;
+    }
+
     public function where(string $field, string $op, mixed $value = null): self
     {
         // Con dos argumentos hay dos lecturas posibles:
@@ -107,6 +121,9 @@ final class Query
     public function join(string $coleccion, string $campoAqui, string $campoAlla, bool $izquierdo = false): self
     {
         $this->perfil?->requireCapability('relations', 'join() y JOIN');
+        if ($this->joinGuard !== null) {
+            ($this->joinGuard)($coleccion);
+        }
 
         $this->uniones[] = [
             'coleccion' => $coleccion,

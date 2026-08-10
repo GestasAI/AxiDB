@@ -123,6 +123,12 @@ final class Read
      */
     private function withJoin(array $ast, bool $explicar): mixed
     {
+        // El JOIN escrito en SQL pasa por la misma puerta de perfil que join()
+        // del constructor. Sin esto, con perfil 'core' —que no incluye relaciones—
+        // el join() se paraba pero `SELECT ... JOIN` no: dos caminos para lo mismo
+        // con dos reglas distintas.
+        $this->db->profile()->requireCapability('relations', 'JOIN');
+
         if ($explicar) {
             return $this->plan('select', $ast['collection'], [
                 'estrategia' => 'cruce',

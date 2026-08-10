@@ -100,13 +100,31 @@ final class Sandbox
      */
     public function requireSqlOp(string $tipo, ?string $coleccion): void
     {
+        // Cada tipo de sentencia se mapea A MANO a una operacion. El default no
+        // es 'sql': LANZA. Antes, todo lo que no estaba en la lista caia en 'sql',
+        // asi que un agente con ese permiso ejecutaba lo que fuera. Un ALTER borra
+        // un campo, un CREATE VIEW suplanta una coleccion, un BEGIN secuestra la
+        // transaccion del programa que lo hospeda: ninguna es 'sql a secas'. Un
+        // tipo de sentencia nuevo se queda fuera hasta que alguien decida, aqui,
+        // que permiso necesita.
         $equivalente = match ($tipo) {
-            'select', 'count'                                            => 'find',
-            'insert'                                                     => 'insert',
-            'update'                                                     => 'update',
-            'delete', 'drop_collection', 'drop_index'                    => 'delete',
-            'create_collection', 'create_index'                          => 'update',
-            default                                                      => 'sql',
+            'select', 'count'                              => 'find',
+            'insert'                                       => 'insert',
+            'update'                                       => 'update',
+            'delete', 'drop_collection', 'drop_index'      => 'delete',
+            'create_collection', 'create_index',
+            'create_view',
+            'alter_rename', 'alter_add_field',
+            'alter_drop_field', 'alter_rename_field'       => 'update',
+            'show', 'describe', 'explain'                  => 'find',
+            // begin/commit/rollback no tienen equivalente: un agente no maneja la
+            // transaccion de quien lo hospeda. Se niegan siempre.
+            'begin', 'commit', 'rollback' => throw new NotAllowed(
+                "This agent cannot run transaction control ('{$tipo}')."
+            ),
+            default => throw new NotAllowed(
+                "This agent cannot run '{$tipo}': unknown statement type, denied by default."
+            ),
         };
         $this->requireOp($equivalente, $coleccion);
     }

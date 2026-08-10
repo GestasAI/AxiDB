@@ -117,9 +117,12 @@ section('F] El interruptor de parada');
 
 ok('arranca en marcha', !$editor->isStopped());
 
-$editor->stop('se estaba pasando de listo');
+$testigo = $editor->stop('se estaba pasando de listo');
 
 ok('queda detenido', $editor->isStopped());
+ok('detener devuelve un testigo para reanudar', $testigo !== '');
+ok('reanudar sin el testigo no hace nada', $editor->resume('') === false && $editor->isStopped());
+ok('ni con un testigo equivocado',           $editor->resume('otro') === false && $editor->isStopped());
 throws('y ya no hace nada, aunque lo tuviera permitido',
     static fn() => $editor->insert('articulos', ['titulo' => 'Cuatro']));
 throws('ni siquiera leer',
@@ -145,8 +148,8 @@ $otroAgente = $db->agent('lector', ['get'], ['articulos']);
 ok('pero los demas siguen funcionando', !$otroAgente->isStopped());
 eq('y leyendo', 'Uno', $otroAgente->get('articulos', 'a1')['titulo']);
 
-$editor->resume();
-ok('se puede reanudar', !$editor->isStopped());
+ok('se reanuda con el testigo correcto', $editor->resume($testigo) === true);
+ok('y ya no esta detenido', !$editor->isStopped());
 eq('y vuelve a trabajar', 'Cuatro', $editor->insert('articulos', ['titulo' => 'Cuatro'], 'a4')['titulo']);
 
 /* ─────────────────────────────────────────────────────────────────────────── */
