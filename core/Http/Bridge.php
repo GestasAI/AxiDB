@@ -113,7 +113,7 @@ final class Bridge
 
         foreach ((array) ($p->cuerpo['donde'] ?? []) as $condicion) {
             if (!\is_array($condicion) || \count($condicion) < 2) {
-                throw new BadRequest("Cada condicion de 'donde' es [campo, operador, valor].");
+                throw new BadRequest("Each condition of 'donde' es [campo, operador, valor].");
             }
             $q->where((string) $condicion[0], (string) $condicion[1], $condicion[2] ?? null);
         }

@@ -103,7 +103,7 @@ final class Index
                 @\unlink($f);
             }
         } elseif (!@\mkdir($dir, 0755, true) && !\is_dir($dir)) {
-            throw new Exception("No se pudo crear el indice '{$field}' en '{$collection}'.");
+            throw new Exception("Could not create the index '{$field}' on '{$collection}'.");
         }
         // El directorio se crea aunque no haya nada que indexar: es lo que declara
         // el indice como existente para que put() lo mantenga desde la primera alta.
@@ -170,7 +170,7 @@ final class Index
         $path = $this->path($collection, $field, $value);
         $dir  = \dirname($path);
         if (!\is_dir($dir) && !@\mkdir($dir, 0755, true) && !\is_dir($dir)) {
-            throw new Exception("Index: no se pudo crear el directorio '{$dir}'.");
+            throw new Exception("Index: could not create the directory '{$dir}'.");
         }
 
         // Fallar en silencio seria el peor error del motor: el documento queda
@@ -178,11 +178,11 @@ final class Index
         // script de mantenimiento con otro usuario dejo el dueño equivocado.
         $fp = @\fopen($path, 'c+');
         if (!$fp) {
-            throw new Exception("Index: no se pudo escribir '{$path}'. " . IndexVerifier::pistaPermisos($dir));
+            throw new Exception("Index: could not write '{$path}'. " . IndexVerifier::pistaPermisos($dir));
         }
         try {
             if (!\flock($fp, LOCK_EX)) {
-                throw new Exception("Index: no se pudo bloquear '{$path}'.");
+                throw new Exception("Index: could not lock '{$path}'.");
             }
             // Lectura DENTRO del lock: nadie puede colarse entre leer y escribir.
             $raw = \stream_get_contents($fp);

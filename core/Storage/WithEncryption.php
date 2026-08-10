@@ -51,8 +51,8 @@ trait WithEncryption
         // texto y publicaria los vectores de los que ese texto se reconstruye.
         if (\is_dir($this->dir($collection) . '/_vec')) {
             throw new Exception(
-                "No se puede cifrar '{$collection}': tiene un indice vectorial. "
-                . 'De un embedding se puede reconstruir el texto, asi que el indice '
+                "Cannot encrypt '{$collection}': tiene un indice vectorial. "
+                . 'The text can be reconstructed from an embedding, so the index '
                 . 'dejaria en claro lo que el cifrado protege. Borra los vectores primero.'
             );
         }
@@ -132,8 +132,8 @@ trait WithEncryption
     {
         if ($this->llavero === null) {
             throw new Exception(
-                "La coleccion '{$collection}' esta cifrada y no se ha dado la clave. "
-                . "Abre la base con: new Db(\$dir, ['key' => '...'])."
+                "La coleccion '{$collection}' is encrypted and no key was given. "
+                . "Open the database with: new Db(\$dir, ['key' => '...'])."
             );
         }
     }

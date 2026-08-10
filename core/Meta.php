@@ -54,7 +54,7 @@ final class Meta
             JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION
         );
         if ($json === false) {
-            throw new Exception('No se pudo serializar el documento: ' . \json_last_error_msg());
+            throw new Exception('Could not serialise the document: ' . \json_last_error_msg());
         }
         return $json;
     }
@@ -70,7 +70,7 @@ final class Meta
             JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION
         );
         if ($json === false) {
-            throw new Exception('No se pudo serializar el documento: ' . \json_last_error_msg());
+            throw new Exception('Could not serialise the document: ' . \json_last_error_msg());
         }
         return $json;
     }

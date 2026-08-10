@@ -54,7 +54,7 @@ final class Restore
         $faltan    = \array_diff($esperados, \array_keys($archivos));
         if ($faltan !== []) {
             throw new Exception(
-                'Copia: faltan ' . \count($faltan) . ' archivos en la cadena de copias ('
+                'Backup: missing ' . \count($faltan) . ' archivos en la cadena de copias ('
                 . \implode(', ', \array_slice($faltan, 0, 3)) . '...). No se restaura nada.'
             );
         }
@@ -88,13 +88,13 @@ final class Restore
 
         while (true) {
             if (!\is_file($actual)) {
-                throw new Exception("Copia: falta un eslabon de la cadena: {$actual}.");
+                throw new Exception("Backup: a link is missing from the chain: {$actual}.");
             }
             $cabecera = Container::cabecera($actual);
             $id       = (string) ($cabecera['id'] ?? '');
 
             if (isset($vistos[$id])) {
-                throw new Exception("Copia: la cadena se muerde la cola en '{$id}'.");
+                throw new Exception("Backup: the chain loops back on itself at '{$id}'.");
             }
             $vistos[$id] = true;
             $cadena[]    = $actual;
@@ -112,12 +112,12 @@ final class Restore
     {
         $dir = \dirname($ruta);
         if (!\is_dir($dir) && !@\mkdir($dir, 0755, true) && !\is_dir($dir)) {
-            throw new Exception("Copia: no se pudo crear {$dir} al restaurar.");
+            throw new Exception("Restore: could not create {$dir}.");
         }
         $tmp = $ruta . '.tmp.' . \bin2hex(\random_bytes(4));
         if (@\file_put_contents($tmp, $bytes) === false || !@\rename($tmp, $ruta)) {
             @\unlink($tmp);
-            throw new Exception("Copia: no se pudo restaurar {$ruta}.");
+            throw new Exception("Restore: could not restore {$ruta}.");
         }
     }
 

@@ -70,7 +70,7 @@ final class Catalog
             }
         }
         throw new Exception(
-            "Copia: no se encuentra la copia '{$id}' en {$carpeta}. Una copia incremental "
+            "Backup: cannot find the backup '{$id}' in {$carpeta}. An incremental backup "
             . 'necesita las anteriores de las que cuelga.'
         );
     }

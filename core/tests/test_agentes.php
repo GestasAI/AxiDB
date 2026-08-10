@@ -89,7 +89,7 @@ ok('y la hora',                     !empty($rastro[0]['ts']));
 $rechazos = \array_filter($rastro, static fn($f) => ($f['ok'] ?? true) === false);
 ok('los intentos rechazados tambien se anotan', \count($rechazos) >= 7);
 ok('con el motivo dentro',
-    \str_contains((string) (\reset($rechazos)['error'] ?? ''), 'agente'));
+    \str_contains((string) (\reset($rechazos)['error'] ?? ''), 'This agent'));
 eq('y el contador de rechazos lo cuenta', \count($rechazos), $db->audit()->rechazos('agent:lector'));
 
 $correctas = \array_filter($rastro, static fn($f) => ($f['ok'] ?? false) === true);

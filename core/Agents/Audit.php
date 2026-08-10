@@ -6,7 +6,7 @@
  *
  *   {"ts":"2026-08-09T10:12:03+00:00","actor":"agent:recomendador",
  *    "op":"delete","coleccion":"clientes","id":"c7","ok":false,
- *    "error":"Este agente no puede 'delete'."}
+ *    "error":"This agent cannot 'delete'."}
  *
  * **Se anotan tambien los intentos que no se permitieron**, y esa es la parte
  * util. Que un agente haga lo que le toca no dice gran cosa; que lleve veinte

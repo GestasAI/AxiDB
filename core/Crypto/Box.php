@@ -37,7 +37,7 @@ final class Box
     public function __construct(private string $clave)
     {
         if (\strlen($this->clave) !== 32) {
-            throw new Exception('Crypto: la clave debe ser de 32 bytes.');
+            throw new Exception('Crypto: the key must be 32 bytes.');
         }
         self::exigirSoporte();
     }
@@ -51,16 +51,16 @@ final class Box
     {
         if (!\extension_loaded('openssl')) {
             throw new Exception(
-                'Crypto: hace falta la extension openssl de PHP, que no esta cargada. '
-                . 'Es la unica parte de AxiDB que no funciona solo con json. '
-                . 'En Debian/Ubuntu: apt install php-openssl; en Windows, quita el ; '
+                'Crypto: the openssl extension of PHP is required and is not loaded. '
+                . 'It is the only part of AxiDB that does not run on json alone. '
+                . 'On Debian/Ubuntu: apt install php-openssl; on Windows, remove the ; '
                 . 'de extension=openssl en php.ini.'
             );
         }
         if (!\in_array(self::CIFRADO, \openssl_get_cipher_methods(), true)) {
             throw new Exception(
-                'Crypto: esta openssl pero no ofrece ' . self::CIFRADO . '. '
-                . 'Hace falta una version de OpenSSL con GCM (1.0.1 o posterior).'
+                'Crypto: openssl is present but does not offer ' . self::CIFRADO . '. '
+                . 'An OpenSSL version with GCM is required (1.0.1 or later).'
             );
         }
     }
@@ -92,7 +92,7 @@ final class Box
             self::TAG_BYTES
         );
         if ($cifrado === false) {
-            throw new Exception('Crypto: no se pudo cerrar el bloque.');
+            throw new Exception('Crypto: could not seal the block.');
         }
         return self::MARCA . \base64_encode($iv . $tag . $cifrado);
     }
@@ -105,7 +105,7 @@ final class Box
     public function abrir(string $bloque, string $contexto): string
     {
         if (!\str_starts_with($bloque, self::MARCA)) {
-            throw new Exception('Crypto: el bloque no tiene el formato esperado.');
+            throw new Exception('Crypto: the block does not have the expected format.');
         }
         $crudo = \base64_decode(\substr($bloque, \strlen(self::MARCA)), true);
         if ($crudo === false || \strlen($crudo) < self::IV_BYTES + self::TAG_BYTES) {
@@ -127,7 +127,7 @@ final class Box
         );
         if ($texto === false) {
             throw new Exception(
-                'Crypto: no se pudo abrir el bloque. La clave no es la correcta, '
+                'Crypto: could not open the block. The key is wrong, '
                 . 'o el dato se modifico fuera de AxiDB.'
             );
         }

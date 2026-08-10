@@ -92,7 +92,7 @@ final class Subqueries
         foreach ($this->filas($sql) as $fila) {
             if ($fila === []) {
                 throw new Exception(
-                    'AxiSQL: la subconsulta de un IN tiene que devolver alguna columna.'
+                    'AxiSQL: the subquery of an IN must return a column.'
                 );
             }
             $valores[] = \reset($fila);

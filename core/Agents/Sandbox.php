@@ -50,7 +50,7 @@ final class Sandbox
         foreach ($operaciones as $op) {
             if (!\in_array($op, self::OPERACIONES, true)) {
                 throw new Exception(
-                    "Sandbox: '{$op}' no es una operacion. Las que hay: "
+                    "Sandbox: '{$op}' is not an operation. Available: "
                     . \implode(', ', self::OPERACIONES) . '.'
                 );
             }
@@ -75,14 +75,14 @@ final class Sandbox
     {
         if (!\in_array($operacion, $this->operaciones, true)) {
             throw new NotAllowed(
-                "Este agente no puede '{$operacion}'. Lo suyo es: "
+                "This agent cannot '{$operacion}'. It is allowed: "
                 . ($this->operaciones === [] ? 'nada' : \implode(', ', $this->operaciones)) . '.'
             );
         }
         if ($coleccion !== null && $this->colecciones !== null
             && !\in_array($coleccion, $this->colecciones, true)) {
             throw new NotAllowed(
-                "Este agente no alcanza a '{$coleccion}'. Lo suyo es: "
+                "This agent does not reach '{$coleccion}'. It is allowed: "
                 . \implode(', ', $this->colecciones) . '.'
             );
         }

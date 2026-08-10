@@ -46,7 +46,7 @@ final class Ids
     public static function empaquetar(string $id): string
     {
         if (\strlen($id) > Manifest::ANCHO_ID) {
-            throw new Exception('Vector: el id no cabe en ' . Manifest::ANCHO_ID . ' bytes.');
+            throw new Exception('Vector: the id does not fit in ' . Manifest::ANCHO_ID . ' bytes.');
         }
         return \str_pad($id, Manifest::ANCHO_ID, "\0");
     }

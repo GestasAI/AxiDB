@@ -41,14 +41,14 @@ final class Request
 
         $declarado = (int) ($server['CONTENT_LENGTH'] ?? 0);
         if ($declarado > self::LIMITE_BYTES) {
-            throw new BadRequest('El cuerpo supera el limite de ' . self::LIMITE_BYTES . ' bytes.', 413);
+            throw new BadRequest('The body exceeds the limit of ' . self::LIMITE_BYTES . ' bytes.', 413);
         }
 
         $cuerpo = [];
         if ($metodo === 'POST') {
             $crudo ??= (string) \file_get_contents('php://input', false, null, 0, self::LIMITE_BYTES + 1);
             if (\strlen($crudo) > self::LIMITE_BYTES) {
-                throw new BadRequest('El cuerpo supera el limite de ' . self::LIMITE_BYTES . ' bytes.', 413);
+                throw new BadRequest('The body exceeds the limit of ' . self::LIMITE_BYTES . ' bytes.', 413);
             }
             $cuerpo = self::descodificar($crudo);
         }
@@ -74,14 +74,14 @@ final class Request
     private static function descodificar(string $crudo): array
     {
         if (\trim($crudo) === '') {
-            throw new BadRequest('Falta el cuerpo de la peticion.', 400);
+            throw new BadRequest('The request body is missing.', 400);
         }
         $datos = \json_decode($crudo, true);
         if (!\is_array($datos)) {
-            throw new BadRequest('El cuerpo no es JSON valido: ' . \json_last_error_msg(), 400);
+            throw new BadRequest('The body is not valid JSON: ' . \json_last_error_msg(), 400);
         }
         if (\array_is_list($datos)) {
-            throw new BadRequest('El cuerpo debe ser un objeto JSON, no una lista.', 400);
+            throw new BadRequest('The body must be a JSON object, not a list.', 400);
         }
         return $datos;
     }

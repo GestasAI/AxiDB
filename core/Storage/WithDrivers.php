@@ -49,7 +49,7 @@ trait WithDrivers
             if ($cuantos > 0) {
                 throw new Exception(
                     "Storage: '{$collection}' ya tiene {$cuantos} documentos en '{$actual}'. "
-                    . "Cambiar la declaracion los dejaria invisibles; usa migrarA('{$collection}', '{$nombre}')."
+                    . "Changing the declaration would leave them invisible; use migrarA('{$collection}', '{$nombre}')."
                 );
             }
         }

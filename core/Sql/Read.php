@@ -185,8 +185,8 @@ final class Read
             'total'       => $this->db->count($ast['collection']),
             'orden'       => $ast['order_by'] ?? [],
             'detalle'     => $plan['strategy'] === 'index'
-                ? "Resuelto por el indice de '{$plan['field']}': leidos {$plan['candidates']} documentos."
-                : "Sin indice util: escaneada la coleccion entera ({$plan['candidates']} documentos).",
+                ? "Resolved by the index on '{$plan['field']}': leidos {$plan['candidates']} documentos."
+                : "No usable index: scanned the whole collection ({$plan['candidates']} documentos).",
         ]);
     }
 

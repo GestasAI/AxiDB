@@ -65,7 +65,7 @@ final class Compactador
         $tmp = $this->log->path() . '.tmp.' . \bin2hex(\random_bytes(4));
         $fp  = @\fopen($tmp, 'wb');
         if (!$fp) {
-            throw new Exception('Packed: no se pudo crear el temporal de compactacion.');
+            throw new Exception('Packed: could not create the compaction temporary file.');
         }
 
         $nuevoMapa = [];
@@ -80,7 +80,7 @@ final class Compactador
                 }
                 $linea = Meta::codificarPlano($doc) . "\n";
                 if (\fwrite($fp, $linea) === false) {
-                    throw new Exception('Packed: fallo al escribir durante la compactacion.');
+                    throw new Exception('Packed: write failed during compaction.');
                 }
                 $nuevoMapa[$id] = [$desplazamiento, \strlen($linea)];
                 $desplazamiento += \strlen($linea);

@@ -62,7 +62,7 @@ final class WriteParser
 
             if (\count($campos) !== \count($valores)) {
                 throw new Exception(
-                    'AxiSQL: la fila ' . (\count($filas) + 1) . ' del INSERT trae '
+                    'AxiSQL: row ' . (\count($filas) + 1) . ' del INSERT trae '
                     . \count($valores) . ' valores y hay ' . \count($campos) . ' columnas.'
                 );
             }

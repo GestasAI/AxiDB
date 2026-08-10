@@ -41,10 +41,10 @@ final class Manifest
         string $precision = Precision::POR_DEFECTO
     ): self {
         if ($dims < 8 || $dims % 8 !== 0) {
-            throw new Exception("Vector: las dimensiones han de ser multiplo de 8 y al menos 8; llego {$dims}.");
+            throw new Exception("Vector: dimensions must be a multiple of 8 and at least 8; got {$dims}.");
         }
         if ($dims > 16384) {
-            throw new Exception("Vector: {$dims} dimensiones es mas de lo razonable (tope 16384).");
+            throw new Exception("Vector: {$dims} dimensions is beyond reasonable (limit 16384).");
         }
         return new self($campo, $dims, $fuente, \array_values($auto), 0, 0, Precision::valida($precision));
     }
@@ -64,7 +64,7 @@ final class Manifest
             Precision::valida((string) ($d['precision'] ?? Precision::POR_DEFECTO))
         );
         if ($m->dims < 8) {
-            throw new Exception('Vector: el manifiesto no dice cuantas dimensiones tiene.');
+            throw new Exception('Vector: the manifest does not say how many dimensions it has.');
         }
         return $m;
     }

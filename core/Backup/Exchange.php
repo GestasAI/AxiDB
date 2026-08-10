@@ -34,7 +34,7 @@ final class Exchange
             JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION
         );
         if ($json === false) {
-            throw new Exception('Exportar: no se pudo serializar: ' . \json_last_error_msg());
+            throw new Exception('Export: could not serialise: ' . \json_last_error_msg());
         }
         self::guardar($destino, $json . "\n");
         return \count($documentos);
@@ -45,7 +45,7 @@ final class Exchange
     {
         $json = \json_decode(self::leer($origen), true);
         if (!\is_array($json)) {
-            throw new Exception("Importar: {$origen} no contiene una lista JSON valida.");
+            throw new Exception("Import: {$origen} does not contain a valid JSON list.");
         }
         return \array_values(\array_filter($json, 'is_array'));
     }
@@ -71,7 +71,7 @@ final class Exchange
 
         $fp = @\fopen($destino, 'wb');
         if (!$fp) {
-            throw new Exception("Exportar: no se pudo escribir en {$destino}.");
+            throw new Exception("Export: could not write to {$destino}.");
         }
         try {
             \fputcsv($fp, $columnas, $separador, '"', '\\');
@@ -101,12 +101,12 @@ final class Exchange
     {
         $fp = @\fopen($origen, 'rb');
         if (!$fp) {
-            throw new Exception("Importar: no se pudo leer {$origen}.");
+            throw new Exception("Import: could not read {$origen}.");
         }
         try {
             $columnas = \fgetcsv($fp, 0, $separador, '"', '\\');
             if (!\is_array($columnas)) {
-                throw new Exception("Importar: {$origen} esta vacio o no es un CSV.");
+                throw new Exception("Import: {$origen} is empty or is not a CSV.");
             }
             $documentos = [];
             while (($fila = \fgetcsv($fp, 0, $separador, '"', '\\')) !== false) {
@@ -167,7 +167,7 @@ final class Exchange
     private static function guardar(string $destino, string $contenido): void
     {
         if (@\file_put_contents($destino, $contenido) === false) {
-            throw new Exception("Exportar: no se pudo escribir en {$destino}.");
+            throw new Exception("Export: could not write to {$destino}.");
         }
     }
 
@@ -175,7 +175,7 @@ final class Exchange
     {
         $bytes = @\file_get_contents($origen);
         if ($bytes === false) {
-            throw new Exception("Importar: no se pudo leer {$origen}.");
+            throw new Exception("Import: could not read {$origen}.");
         }
         return $bytes;
     }

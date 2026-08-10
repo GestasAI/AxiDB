@@ -147,11 +147,11 @@ final class Offsets
         if (!\is_resource($this->fp)) {
             $this->fp = @\fopen($this->rutaLog, 'ab');
             if (!$this->fp) {
-                throw new Exception("Packed: no se pudo apuntar el desplazamiento en '{$this->rutaLog}'.");
+                throw new Exception("Packed: could not record the offset in '{$this->rutaLog}'.");
             }
         }
         if (\fwrite($this->fp, $linea) === false) {
-            throw new Exception('Packed: fallo al apuntar el desplazamiento.');
+            throw new Exception('Packed: failed to record the offset.');
         }
         $this->sueltas++;
         \fflush($this->fp);

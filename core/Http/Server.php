@@ -51,10 +51,10 @@ final class Server
                 return Response::bien(null, $cabeceras);
             }
             if ($p->metodo !== 'POST') {
-                return Response::mal(405, 'El puente solo admite POST.', $cabeceras + ['Allow' => 'POST, OPTIONS']);
+                return Response::mal(405, 'The bridge only accepts POST.', $cabeceras + ['Allow' => 'POST, OPTIONS']);
             }
             if ($origen !== null && !$this->cors->permite($origen)) {
-                return Response::mal(403, 'Origen no permitido.', $cabeceras);
+                return Response::mal(403, 'Origin not allowed.', $cabeceras);
             }
 
             return $this->puente->atender($p)->conCabeceras($cabeceras);

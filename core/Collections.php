@@ -39,7 +39,7 @@ final class Collections
             return false;
         }
         if (!@\mkdir($dir, 0755, true) && !\is_dir($dir)) {
-            throw new Exception("No se pudo crear la coleccion '{$collection}'.");
+            throw new Exception("Could not create collection '{$collection}'.");
         }
         return true;
     }

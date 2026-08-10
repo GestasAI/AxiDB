@@ -88,7 +88,7 @@ final class Files
     public function crearDirectorio(): void
     {
         if (!\is_dir($this->dir) && !@\mkdir($this->dir, 0755, true) && !\is_dir($this->dir)) {
-            throw new Exception("Vector: no se pudo crear {$this->dir}.");
+            throw new Exception("Vector: could not create {$this->dir}.");
         }
         foreach (['codigos', 'vectores', 'ids'] as $cual) {
             if (!$this->hay($cual)) {
@@ -140,7 +140,7 @@ final class Files
         $fp = $this->descriptor($cual);
         \fseek($fp, $ordinal * $ancho);
         if (\fwrite($fp, $dato) !== \strlen($dato)) {
-            throw new Exception('Vector: escritura incompleta en ' . $this->ruta($cual) . '.');
+            throw new Exception('Vector: incomplete write in ' . $this->ruta($cual) . '.');
         }
         \fflush($fp);
     }
@@ -184,7 +184,7 @@ final class Files
         $ruta = $this->ruta($cual);
         $fp   = @\fopen($ruta, 'r+b') ?: @\fopen($ruta, 'w+b');
         if (!$fp) {
-            throw new Exception("Vector: no se pudo escribir en {$ruta}.");
+            throw new Exception("Vector: could not write to {$ruta}.");
         }
         return $this->abiertos[$cual] = $fp;
     }
@@ -199,7 +199,7 @@ final class Files
         $ruta = $this->ruta($cual);
         $tmp  = $ruta . '.tmp.' . \bin2hex(\random_bytes(4));
         if (@\file_put_contents($tmp, $contenido) === false) {
-            throw new Exception("Vector: no se pudo escribir {$tmp}.");
+            throw new Exception("Vector: could not write {$tmp}.");
         }
         for ($intento = 0; $intento < 10; $intento++) {
             if (@\rename($tmp, $ruta)) {
@@ -208,7 +208,7 @@ final class Files
             \usleep(500 + $intento * 500);
         }
         @\unlink($tmp);
-        throw new Exception("Vector: no se pudo reemplazar {$ruta}.");
+        throw new Exception("Vector: could not replace {$ruta}.");
     }
 
     /**
@@ -219,11 +219,11 @@ final class Files
     {
         $fp = @\fopen($this->dir . '/_vec.lock', 'c');
         if (!$fp) {
-            throw new Exception("Vector: no se pudo abrir el cerrojo en {$this->dir}.");
+            throw new Exception("Vector: could not open the lock in {$this->dir}.");
         }
         try {
             if (!\flock($fp, LOCK_EX)) {
-                throw new Exception("Vector: cerrojo exclusivo fallido en {$this->dir}.");
+                throw new Exception("Vector: exclusive lock failed on {$this->dir}.");
             }
             return $tarea();
         } finally {

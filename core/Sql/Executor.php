@@ -47,7 +47,7 @@ final class Executor
                 => $explicar
                     ? $this->plan($ast['type'], $ast['collection'] ?? '', [])
                     : (new Structure($this->db))->ejecutar($ast),
-            default             => throw new Exception("AxiSQL: sentencia no soportada '{$ast['type']}'."),
+            default             => throw new Exception("AxiSQL: unsupported statement '{$ast['type']}'."),
         };
     }
 

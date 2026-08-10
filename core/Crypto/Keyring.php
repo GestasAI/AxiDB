@@ -37,7 +37,7 @@ final class Keyring
         private string $contraseña
     ) {
         if ($this->contraseña === '') {
-            throw new Exception('Crypto: la contraseña no puede estar vacia.');
+            throw new Exception('Crypto: the password cannot be empty.');
         }
         Box::exigirSoporte();
     }
@@ -61,7 +61,7 @@ final class Keyring
         if (\is_file($path)) {
             $conf = \json_decode((string) @\file_get_contents($path), true);
             if (!\is_array($conf) || !isset($conf['sal'], $conf['comprobante'], $conf['iteraciones'])) {
-                throw new Exception("Crypto: {$path} esta dañado o no es un llavero de AxiDB.");
+                throw new Exception("Crypto: {$path} is damaged or is not an AxiDB keyring.");
             }
             $sal  = (string) \base64_decode((string) $conf['sal'], true);
             $caja = new Box($this->derivar($sal, (int) $conf['iteraciones']));
@@ -71,12 +71,12 @@ final class Keyring
                 $visto = $caja->abrir((string) $conf['comprobante'], self::CONTEXTO);
             } catch (Exception) {
                 throw new Exception(
-                    'Crypto: la contraseña no abre esta base de datos. '
-                    . 'Los datos estan intactos; la clave es otra.'
+                    'Crypto: the password does not open this database. '
+                    . 'The data is intact; the key is a different one.'
                 );
             }
             if (!\hash_equals(self::TESTIGO, $visto)) {
-                throw new Exception('Crypto: el comprobante del llavero no cuadra.');
+                throw new Exception('Crypto: the keyring verifier does not match.');
             }
             return $caja;
         }
@@ -95,7 +95,7 @@ final class Keyring
         if (@\file_put_contents($tmp, \json_encode($conf, JSON_PRETTY_PRINT) . "\n") === false
             || !@\rename($tmp, $path)) {
             @\unlink($tmp);
-            throw new Exception("Crypto: no se pudo escribir el llavero en {$path}.");
+            throw new Exception("Crypto: could not write the keyring to {$path}.");
         }
         @\chmod($path, 0600);
         return $caja;
@@ -104,7 +104,7 @@ final class Keyring
     private function derivar(string $sal, int $iteraciones): string
     {
         if ($sal === '' || $iteraciones < 1000) {
-            throw new Exception('Crypto: el llavero tiene parametros invalidos.');
+            throw new Exception('Crypto: the keyring has invalid parameters.');
         }
         return \hash_pbkdf2('sha256', $this->contraseña, $sal, $iteraciones, 32, true);
     }

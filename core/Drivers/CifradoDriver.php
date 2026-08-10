@@ -121,7 +121,7 @@ final class CifradoDriver implements Driver
     {
         $json = \json_encode($carga, JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION);
         if ($json === false) {
-            throw new Exception('Crypto: no se pudo serializar el documento: ' . \json_last_error_msg());
+            throw new Exception('Crypto: could not serialise the document: ' . \json_last_error_msg());
         }
         return $this->caja->cerrar($json, self::contexto($collection, $id));
     }
@@ -140,7 +140,7 @@ final class CifradoDriver implements Driver
         $json  = $this->caja->abrir((string) $doc[self::CAMPO], self::contexto($collection, $id));
         $carga = \json_decode($json, true);
         if (!\is_array($carga)) {
-            throw new Exception("Crypto: el contenido de '{$collection}/{$id}' no es un documento valido.");
+            throw new Exception("Crypto: the contents of '{$collection}/{$id}' no es un documento valido.");
         }
         return self::meta($doc) + $carga;
     }

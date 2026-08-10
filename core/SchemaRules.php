@@ -51,7 +51,7 @@ final class SchemaRules
             $tipo = isset($regla['tipo']) ? (string) $regla['tipo'] : null;
             if ($tipo !== null && !\in_array($tipo, self::TIPOS, true)) {
                 throw new Exception(
-                    "Esquema: el tipo '{$tipo}' de '{$campo}' no existe. Hay: "
+                    "Schema: the type '{$tipo}' de '{$campo}' no existe. Hay: "
                     . \implode(', ', self::TIPOS) . '.'
                 );
             }
@@ -66,7 +66,7 @@ final class SchemaRules
                 $limpia['defecto'] = $regla['defecto'];
                 if ($tipo !== null && !self::esDelTipo($regla['defecto'], $tipo)) {
                     throw new Exception(
-                        "Esquema: el valor por defecto de '{$campo}' no es un {$tipo}."
+                        "Schema: the default value of '{$campo}' no es un {$tipo}."
                     );
                 }
             }

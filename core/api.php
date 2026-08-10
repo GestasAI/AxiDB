@@ -42,7 +42,7 @@ if (!\is_array($configurado)) {
     \header('Cache-Control: no-store');
     echo \json_encode([
         'ok'    => false,
-        'error' => 'AxiDB: este endpoint no esta configurado. Declara la seccion "http" en '
+        'error' => 'AxiDB: this endpoint is not configured. Declare the section "http" en '
                  . 'axidb.json, o escribe tu propio endpoint con axidb_http().',
     ], JSON_UNESCAPED_UNICODE);
     exit;

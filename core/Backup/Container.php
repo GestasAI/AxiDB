@@ -50,11 +50,11 @@ final class Container
     {
         $dir = \dirname($destino);
         if (!\is_dir($dir) && !@\mkdir($dir, 0755, true) && !\is_dir($dir)) {
-            throw new Exception("Copia: no se pudo crear el directorio {$dir}.");
+            throw new Exception("Backup: could not create the directory {$dir}.");
         }
         $fp = @\fopen($destino, 'wb');
         if (!$fp) {
-            throw new Exception("Copia: no se pudo escribir en {$destino}.");
+            throw new Exception("Backup: could not write to {$destino}.");
         }
         $propio = new self($fp);
         $propio->linea(self::MARCA);
@@ -67,7 +67,7 @@ final class Container
     {
         $bytes = @\file_get_contents($origen);
         if ($bytes === false) {
-            throw new Exception("Copia: no se pudo leer {$origen}.");
+            throw new Exception("Backup: could not read {$origen}.");
         }
         $this->linea(self::json([
             'ruta'  => $ruta,
@@ -93,15 +93,15 @@ final class Container
     {
         $fp = @\fopen($archivo, 'rb');
         if (!$fp) {
-            throw new Exception("Copia: no se pudo abrir {$archivo}.");
+            throw new Exception("Backup: could not open {$archivo}.");
         }
         try {
             if (\rtrim((string) \fgets($fp), "\n") !== self::MARCA) {
-                throw new Exception("Copia: {$archivo} no es un archivo de copia de AxiDB.");
+                throw new Exception("Backup: {$archivo} is not an AxiDB backup file.");
             }
             $cabecera = \json_decode((string) \fgets($fp), true);
             if (!\is_array($cabecera)) {
-                throw new Exception("Copia: la cabecera de {$archivo} esta dañada.");
+                throw new Exception("Backup: the header of {$archivo} is damaged.");
             }
             return $cabecera;
         } finally {
@@ -121,7 +121,7 @@ final class Container
     {
         $fp = @\fopen($archivo, 'rb');
         if (!$fp) {
-            throw new Exception("Copia: no se pudo abrir {$archivo}.");
+            throw new Exception("Backup: could not open {$archivo}.");
         }
         try {
             \fgets($fp);                    // marca
@@ -135,14 +135,14 @@ final class Container
                 }
                 $meta = \json_decode($linea, true);
                 if (!\is_array($meta) || !isset($meta['ruta'], $meta['bytes'], $meta['sha1'])) {
-                    throw new Exception("Copia: entrada ilegible en {$archivo}.");
+                    throw new Exception("Backup: unreadable entry in {$archivo}.");
                 }
                 $bytes = (int) $meta['bytes'] > 0 ? (string) \fread($fp, (int) $meta['bytes']) : '';
                 \fgets($fp);                // el salto de linea que la cierra
 
                 if (\strlen($bytes) !== (int) $meta['bytes'] || \sha1($bytes) !== $meta['sha1']) {
                     throw new Exception(
-                        "Copia: '{$meta['ruta']}' no cuadra con su huella. El archivo de copia "
+                        "Backup: '{$meta['ruta']}' no cuadra con su huella. El archivo de copia "
                         . 'esta dañado y no se restaura nada.'
                     );
                 }
@@ -163,7 +163,7 @@ final class Container
     private function escribir(string $bytes): void
     {
         if (\fwrite($this->fp, $bytes) !== \strlen($bytes)) {
-            throw new Exception('Copia: escritura incompleta. ¿Se lleno el disco?');
+            throw new Exception('Backup: incomplete write. Did the disk fill up?');
         }
     }
 
@@ -171,7 +171,7 @@ final class Container
     {
         $json = \json_encode($datos, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         if ($json === false) {
-            throw new Exception('Copia: no se pudo serializar la cabecera.');
+            throw new Exception('Backup: could not serialise the header.');
         }
         return $json;
     }

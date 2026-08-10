@@ -42,7 +42,7 @@ final class Names
             throw new InvalidName("AxiDB: {$kind} demasiado largo (max " . self::MAX . ').');
         }
         if (\str_contains($value, '..')) {
-            throw new InvalidName("AxiDB: {$kind} no puede contener '..'.");
+            throw new InvalidName("AxiDB: {$kind} cannot contain '..'.");
         }
         if (!\preg_match('/^[A-Za-z0-9][A-Za-z0-9_\-.]*$/', $value)) {
             throw new InvalidName("AxiDB: {$kind} invalido '{$value}' (solo [A-Za-z0-9_-.]).");

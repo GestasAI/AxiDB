@@ -133,7 +133,7 @@ final class DdlParser
         }
 
         if ($unico) {
-            throw new Exception('AxiSQL: UNIQUE solo tiene sentido en CREATE UNIQUE INDEX.');
+            throw new Exception('AxiSQL: UNIQUE only makes sense in CREATE UNIQUE INDEX.');
         }
 
         if ($this->ts->matchAnyKw('COLLECTION', 'TABLE') !== null) {

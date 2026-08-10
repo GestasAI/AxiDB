@@ -61,11 +61,11 @@ final class Store
             return $this->manifiesto;
         }
         if (!$this->archivos->hay('manifiesto')) {
-            throw new Exception('Vector: esta coleccion no tiene vectores activados.');
+            throw new Exception('Vector: this collection does not have vectors enabled.');
         }
         $datos = \json_decode($this->archivos->leerTodo('manifiesto'), true);
         if (!\is_array($datos)) {
-            throw new Exception('Vector: el manifiesto esta ilegible.');
+            throw new Exception('Vector: the manifest is unreadable.');
         }
         $m = Manifest::desdeArray($datos);
 

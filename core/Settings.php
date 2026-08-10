@@ -166,17 +166,17 @@ final class Settings
     {
         $desconocidos = \array_diff(\array_keys($cambios), \array_keys(self::porDefecto('fs', 'safe')));
         if ($desconocidos !== []) {
-            throw new Exception('Ajustes: no existe el ajuste ' . \implode(', ', $desconocidos) . '.');
+            throw new Exception('Settings: there is no setting named ' . \implode(', ', $desconocidos) . '.');
         }
         if (isset($cambios['driver']) && !\in_array($cambios['driver'], self::DRIVERS, true)) {
             throw new Exception(
-                "Ajustes: driver desconocido '{$cambios['driver']}'. Admitidos: "
+                "Settings: unknown driver '{$cambios['driver']}'. Allowed: "
                 . \implode(', ', self::DRIVERS) . '.'
             );
         }
         if (isset($cambios['durability']) && !\in_array($cambios['durability'], self::DURABILIDADES, true)) {
             throw new Exception(
-                "Ajustes: durabilidad desconocida '{$cambios['durability']}'. Admitidas: "
+                "Settings: unknown durability '{$cambios['durability']}'. Allowed: "
                 . \implode(', ', self::DURABILIDADES) . '.'
             );
         }

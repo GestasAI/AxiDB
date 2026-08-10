@@ -70,7 +70,7 @@ final class Functions
         $canon = self::canonico($nombre);
         if (!isset(self::FIRMAS[$canon])) {
             throw new Exception(
-                "AxiSQL: la funcion '{$nombre}' no existe. Hay: "
+                "AxiSQL: the function '{$nombre}' no existe. Hay: "
                 . \implode(', ', \array_keys(self::FIRMAS)) . '.'
             );
         }
@@ -112,7 +112,7 @@ final class Functions
             'DATEDIFF' => self::diasEntre($args[0], $args[1]),
 
             'IFNULL'   => $args[0] ?? $args[1],
-            default     => throw new Exception("AxiSQL: la funcion '{$nombre}' no existe."),
+            default     => throw new Exception("AxiSQL: the function '{$nombre}' no existe."),
         };
     }
 

@@ -31,11 +31,11 @@ final class Lock
         $path = $base . '/' . self::ARCHIVO;
         $fp   = @\fopen($path, 'c');
         if (!$fp) {
-            throw new Exception("Tx: no se pudo abrir el cerrojo en {$path}.");
+            throw new Exception("Tx: could not open the lock at {$path}.");
         }
         try {
             if (!\flock($fp, LOCK_EX)) {
-                throw new Exception("Tx: no se pudo coger el cerrojo en {$path}.");
+                throw new Exception("Tx: could not acquire the lock at {$path}.");
             }
             return $tarea();
         } finally {

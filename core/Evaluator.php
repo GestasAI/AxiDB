@@ -41,7 +41,7 @@ final class Evaluator
             'not' => !self::matches($doc, $expr['expr'], $agregados),
             'cmp' => self::comparacion($doc, $expr, $agregados),
             default => throw new Exception(
-                "Evaluator: nodo de expresion desconocido '" . ($expr['type'] ?? 'null') . "'."
+                "Evaluator: unknown expression node '" . ($expr['type'] ?? 'null') . "'."
             ),
         };
     }
@@ -105,7 +105,7 @@ final class Evaluator
             'IS NULL'     => !$existe || $actual === null,
             'IS NOT NULL' => $existe && $actual !== null,
             default => throw new Exception(
-                "Evaluator: operador no soportado '{$op}'. Admitidos: "
+                "Evaluator: unsupported operator '{$op}'. Admitidos: "
                 . \implode(', ', self::OPERADORES) . '.'
             ),
         };

@@ -48,7 +48,7 @@ eq('de un total de 40',                               40, $conIndice['total']);
 $sinIndice = $db->sql("EXPLAIN SELECT * FROM p WHERE estado = 'abierto'");
 eq('un campo sin indice escanea', 'scan', $sinIndice['estrategia']);
 eq('y lee los 40',                    40, $sinIndice['candidatos']);
-ok('el detalle lo dice claro', \str_contains($sinIndice['detalle'], 'escaneada'));
+ok('el detalle lo dice claro', \str_contains($sinIndice['detalle'], 'scanned the whole collection'));
 
 eq('sin WHERE tambien escanea', 'scan', $db->sql('EXPLAIN SELECT * FROM p')['estrategia']);
 

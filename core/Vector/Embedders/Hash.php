@@ -31,7 +31,7 @@ final class Hash implements Embedder
     public function __construct(private int $dims = 256)
     {
         if ($dims < 8 || $dims % 8 !== 0) {
-            throw new Exception("Hash: las dimensiones han de ser multiplo de 8; llego {$dims}.");
+            throw new Exception("Hash: dimensions must be a multiple of 8; got {$dims}.");
         }
     }
 

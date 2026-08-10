@@ -49,11 +49,11 @@ final class FsDriver implements Driver
         // via rename: mantener el descriptor sobre el destino seria incorrecto.
         $lock = @\fopen($path . '.lock', 'c');
         if (!$lock) {
-            throw new Exception("No se pudo abrir el lock de {$path}.");
+            throw new Exception("Could not open the lock of {$path}.");
         }
         try {
             if (!\flock($lock, LOCK_EX)) {
-                throw new Exception("Lock exclusivo fallido en {$path}.");
+                throw new Exception("Exclusive lock failed on {$path}.");
             }
             $data = Meta::aplicar($data, $id, $this->leer($path), $replace);
             $durable = $this->ajustes->esDurable($collection);
@@ -171,11 +171,11 @@ final class FsDriver implements Driver
         $tmp = $path . '.tmp.' . \bin2hex(\random_bytes(4));
         $fp  = @\fopen($tmp, 'wb');
         if (!$fp) {
-            throw new Exception("No se pudo crear el temporal de {$path}.");
+            throw new Exception("Could not create the temporary file of {$path}.");
         }
         try {
             if (\fwrite($fp, Meta::codificar($data)) === false) {
-                throw new Exception("Escritura fallida en {$tmp}.");
+                throw new Exception("Write failed in {$tmp}.");
             }
             \fflush($fp);
             if ($durable && \function_exists('fsync')) {

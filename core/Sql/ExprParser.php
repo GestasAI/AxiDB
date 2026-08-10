@@ -97,7 +97,7 @@ final class ExprParser
             return $this->cmp($izq, $negado ? 'NOT CONTAINS' : 'CONTAINS', $this->ts->consumeLiteral());
         }
         if ($negado) {
-            throw new Exception('AxiSQL: tras NOT se espera IN, LIKE, BETWEEN o CONTAINS.');
+            throw new Exception('AxiSQL: after NOT expected IN, LIKE, BETWEEN or CONTAINS.');
         }
 
         $tk = $this->ts->peek();

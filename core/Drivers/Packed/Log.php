@@ -88,7 +88,7 @@ final class Log
         $desplazamiento = \ftell($fp);
 
         if (\fwrite($fp, $linea) === false) {
-            throw new Exception("Packed: fallo al añadir en '{$this->path}'.");
+            throw new Exception("Packed: append failed in '{$this->path}'.");
         }
         \fflush($fp);
         // El dato se sincroniza ANTES de que nadie apunte a el. Al reves, un
@@ -156,7 +156,7 @@ final class Log
         if (!\is_resource($this->fp)) {
             $this->fp = @\fopen($this->path, 'ab');
             if (!$this->fp) {
-                throw new Exception("Packed: no se pudo abrir para añadir '{$this->path}'.");
+                throw new Exception("Packed: could not open for append '{$this->path}'.");
             }
         }
         return $this->fp;
@@ -168,7 +168,7 @@ final class Log
         $this->cerrar();                 // no se puede reemplazar con el abierto
         if (!@\rename($rutaTemporal, $this->path)) {
             @\unlink($rutaTemporal);
-            throw new Exception("Packed: no se pudo reemplazar '{$this->path}'.");
+            throw new Exception("Packed: could not replace '{$this->path}'.");
         }
     }
 

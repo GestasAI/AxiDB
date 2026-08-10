@@ -58,7 +58,7 @@ final class Quantizer
     {
         $dims = \count($vector);
         if ($dims % 8 !== 0) {
-            throw new Exception("Vector: las dimensiones han de ser multiplo de 8, y son {$dims}.");
+            throw new Exception("Vector: dimensions must be a multiple of 8, and they are {$dims}.");
         }
         $codigo = '';
         for ($i = 0; $i < $dims; $i += 8) {
@@ -119,20 +119,20 @@ final class Quantizer
     public static function validar(mixed $vector, int $dims): array
     {
         if (!\is_array($vector) || !\array_is_list($vector)) {
-            throw new Exception('Vector: se esperaba una lista de numeros.');
+            throw new Exception('Vector: expected a list of numbers.');
         }
         if (\count($vector) !== $dims) {
             throw new Exception(
-                'Vector: esta coleccion usa ' . $dims . ' dimensiones y llegaron ' . \count($vector) . '.'
+                'Vector: this collection uses ' . $dims . ' dimensiones y llegaron ' . \count($vector) . '.'
             );
         }
         $limpio = [];
         foreach ($vector as $i => $v) {
             if (!\is_int($v) && !\is_float($v)) {
-                throw new Exception("Vector: la posicion {$i} no es un numero.");
+                throw new Exception("Vector: position {$i} is not a number.");
             }
             if (\is_nan((float) $v) || \is_infinite((float) $v)) {
-                throw new Exception("Vector: la posicion {$i} no es un numero finito.");
+                throw new Exception("Vector: position {$i} is not a finite number.");
             }
             $limpio[] = (float) $v;
         }

@@ -80,7 +80,7 @@ final class Remote implements Embedder
     ) {
         if (!isset(self::PROVEEDORES[$proveedor])) {
             throw new Exception(
-                "Embedder: no conozco el proveedor '{$proveedor}'. Los que hay: "
+                "Embedder: unknown provider '{$proveedor}'. Los que hay: "
                 . \implode(', ', \array_keys(self::PROVEEDORES)) . '.'
             );
         }
@@ -100,7 +100,7 @@ final class Remote implements Embedder
     {
         if (!\ini_get('allow_url_fopen')) {
             throw new Exception(
-                'Embedder: este PHP tiene allow_url_fopen desactivado, asi que no puede '
+                'Embedder: this PHP has allow_url_fopen disabled, so it cannot '
                 . 'salir a internet. Usa el embedder Hash o genera los vectores por tu cuenta '
                 . 'y pasalos ya hechos.'
             );
@@ -118,17 +118,17 @@ final class Remote implements Embedder
         $url      = $this->sustituir($this->config['url'], '');
         $respuesta = @\file_get_contents($url, false, \stream_context_create($opciones));
         if ($respuesta === false) {
-            throw new Exception("Embedder: no se pudo hablar con {$this->proveedor} en {$url}.");
+            throw new Exception("Embedder: could not reach {$this->proveedor} at {$url}.");
         }
 
         $datos = \json_decode($respuesta, true);
         if (!\is_array($datos)) {
-            throw new Exception("Embedder: {$this->proveedor} contesto algo que no es JSON.");
+            throw new Exception("Embedder: {$this->proveedor} replied with something that is not JSON.");
         }
         $vector = $this->extraer($datos, $this->config['respuesta']);
         if (!\is_array($vector) || $vector === []) {
             $error = $datos['error']['message'] ?? \substr($respuesta, 0, 200);
-            throw new Exception("Embedder: {$this->proveedor} no devolvio un vector. Dijo: {$error}");
+            throw new Exception("Embedder: {$this->proveedor} did not return a vector. It said: {$error}");
         }
         return \array_map('floatval', \array_values($vector));
     }

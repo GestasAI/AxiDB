@@ -33,7 +33,7 @@ final class Slice
 
         if (!$ts->peek()->isKw('SELECT')) {
             throw new Exception(
-                'AxiSQL: una subconsulta empieza por SELECT; encontro '
+                'AxiSQL: a subquery starts with SELECT; found '
                 . $ts->peek()->describe() . '.'
             );
         }
@@ -51,7 +51,7 @@ final class Slice
         while (true) {
             $tk = $ts->peek();
             if ($tk->type === Token::EOF) {
-                throw new Exception('AxiSQL: falta el parentesis que cierra la subconsulta.');
+                throw new Exception('AxiSQL: the closing parenthesis of the subquery is missing.');
             }
             if ($tk->isPunct('(')) {
                 $nivel++;

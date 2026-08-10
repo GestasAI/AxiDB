@@ -119,7 +119,7 @@ final class ValueParser
             return ['t' => 'lit', 'v' => $this->ts->consumeLiteral()];
         }
 
-        throw new Exception("AxiSQL: esperaba un valor y encontro {$tk->describe()}.");
+        throw new Exception("AxiSQL: expected a value but found {$tk->describe()}.");
     }
 
     /** SUM(campo), COUNT(*), COUNT(campo)... */
@@ -129,7 +129,7 @@ final class ValueParser
 
         if ($this->ts->matchPunct('*')) {
             if ($fn !== 'COUNT') {
-                throw new Exception("AxiSQL: {$fn}(*) no tiene sentido; solo COUNT(*) lo tiene.");
+                throw new Exception("AxiSQL: {$fn}(*) makes no sense; only COUNT(*) does.");
             }
             $this->ts->consumePunct(')');
             return ['t' => 'agg', 'fn' => 'COUNT', 'arg' => null];

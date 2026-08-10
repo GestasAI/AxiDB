@@ -45,7 +45,7 @@ final class Threshold
 
         if ($izqUmbral !== null && $derUmbral !== null) {
             throw new Exception(
-                "AxiSQL: solo se puede poner una condicion sobre '" . self::CAMPO . "' por consulta."
+                "AxiSQL: only one condition is allowed on '" . self::CAMPO . "' por consulta."
             );
         }
         $antes = match (true) {

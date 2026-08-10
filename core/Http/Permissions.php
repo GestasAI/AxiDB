@@ -60,23 +60,23 @@ final class Permissions
     public function decide(bool $escribe, ?string $coleccion, ?string $token, bool $esLocal): array
     {
         if ($escribe && $this->soloLectura) {
-            return [false, 403, 'El puente esta en modo solo lectura.'];
+            return [false, 403, 'The bridge is in read-only mode.'];
         }
 
         $portador = $this->tokenValido($token);
 
         if ($portador === null) {
             if ($token !== null && $token !== '') {
-                return [false, 401, 'Token no valido.'];
+                return [false, 401, 'Invalid token.'];
             }
             return $this->sinToken($escribe, $coleccion, $esLocal);
         }
 
         if ($escribe && !$portador['escribir']) {
-            return [false, 403, 'Este token es de solo lectura.'];
+            return [false, 403, 'This token is read-only.'];
         }
         if (!self::alcanza($portador['colecciones'], $coleccion)) {
-            return [false, 403, "Este token no alcanza a '{$coleccion}'."];
+            return [false, 403, "This token does not reach '{$coleccion}'."];
         }
         return [true, 200, ''];
     }
@@ -118,7 +118,7 @@ final class Permissions
             return [true, 200, ''];
         }
         if ($this->hayTokens()) {
-            return [false, 401, 'Hace falta un token.'];
+            return [false, 401, 'A token is required.'];
         }
         if ($this->abierto) {
             return [true, 200, ''];
@@ -127,7 +127,7 @@ final class Permissions
             return [true, 200, ''];
         }
         return [false, 401,
-            'Sin tokens declarados, el puente solo atiende desde localhost. '
+            'With no tokens declared, the bridge only answers from localhost. '
             . "Declara 'tokens' o pon 'abierto' => true si de verdad quieres una API sin llave."];
     }
 

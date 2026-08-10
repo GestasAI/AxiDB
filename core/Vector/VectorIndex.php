@@ -51,7 +51,7 @@ final class VectorIndex
         $dims = (int) ($opciones['dims'] ?? $this->embedder->dims());
         if ($dims !== $this->embedder->dims()) {
             throw new Exception(
-                "Vector: se piden {$dims} dimensiones pero '{$this->embedder->nombre()}' "
+                "Vector: {$dims} dimensions requested but '{$this->embedder->nombre()}' "
                 . 'devuelve ' . $this->embedder->dims() . '. Enterarse ahora es mejor que al buscar.'
             );
         }
@@ -145,7 +145,7 @@ final class VectorIndex
         $vector = $this->embedder->vector($texto);
         if (\count($vector) !== $m->dims) {
             throw new Exception(
-                'Vector: el generador devolvio ' . \count($vector) . ' dimensiones y la coleccion '
+                'Vector: the embedder returned ' . \count($vector) . ' dimensiones y la coleccion '
                 . "usa {$m->dims}. Se activo con '{$m->fuente}'."
             );
         }

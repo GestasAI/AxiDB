@@ -83,8 +83,8 @@ final class VectorStore
     {
         if ($this->storage->isEncrypted($coleccion)) {
             throw new Exception(
-                "No se pueden activar vectores en '{$coleccion}': esta cifrada. "
-                . 'De un embedding se puede reconstruir el texto que lo genero, asi que '
+                "Vectors cannot be enabled on '{$coleccion}': esta cifrada. "
+                . 'The text that produced an embedding can be reconstructed from it, so '
                 . 'el indice vectorial dejaria en claro justo lo que el cifrado protege.'
             );
         }
@@ -96,8 +96,8 @@ final class VectorStore
         $indice = $this->de($coleccion);
         if ($indice === null) {
             throw new Exception(
-                "Vector: la coleccion '{$coleccion}' no tiene vectores. "
-                . "Activalos con \$db->enableVectors('{$coleccion}')."
+                "Vector: collection '{$coleccion}' no tiene vectores. "
+                . "Enable them with \$db->enableVectors('{$coleccion}')."
             );
         }
         return $indice;

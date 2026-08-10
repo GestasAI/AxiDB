@@ -35,7 +35,7 @@ final class Maker
     public static function hacer(string $base, string $carpeta, ?string $desde = null): array
     {
         if (!\is_dir($base)) {
-            throw new Exception("Copia: no hay nada que copiar en {$base}.");
+            throw new Exception("Backup: there is nothing to back up in {$base}.");
         }
         $inventario = Inventory::de($base);
         $huellas    = Inventory::huellas($inventario);
@@ -86,7 +86,7 @@ final class Maker
     private static function huellasDe(string $copia): array
     {
         if (!\is_file($copia)) {
-            throw new Exception("Copia: la copia anterior {$copia} no existe.");
+            throw new Exception("Backup: the previous backup {$copia} does not exist.");
         }
         $huellas = Container::cabecera($copia)['huellas'] ?? [];
         return \is_array($huellas) ? \array_map('strval', $huellas) : [];

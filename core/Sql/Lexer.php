@@ -177,7 +177,7 @@ final class Lexer
             $buf .= $input[$i];
             $i++;
         }
-        throw new Exception("AxiSQL: cadena sin cerrar desde la posicion {$inicio}.");
+        throw new Exception("AxiSQL: unterminated string starting at position {$inicio}.");
     }
 
     private function leerNumero(string $input, int $i, int $len): array

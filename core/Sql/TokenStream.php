@@ -86,7 +86,7 @@ final class TokenStream
     {
         $tk = $this->peek();
         if (!$tk->isKw($kw)) {
-            throw new Exception("AxiSQL: esperaba {$kw} y encontro {$tk->describe()} en la posicion {$tk->pos}.");
+            throw new Exception("AxiSQL: expected {$kw} but found {$tk->describe()} at position {$tk->pos}.");
         }
         $this->advance();
     }
@@ -105,7 +105,7 @@ final class TokenStream
         $tk = $this->peek();
         if ($tk->type !== Token::IDENT) {
             throw new Exception(
-                "AxiSQL: esperaba un nombre y encontro {$tk->describe()} en la posicion {$tk->pos}."
+                "AxiSQL: expected a name but found {$tk->describe()} at position {$tk->pos}."
             );
         }
         $this->advance();
@@ -117,7 +117,7 @@ final class TokenStream
         $tk = $this->peek();
         if ($tk->type !== Token::NUM || !\is_int($tk->value)) {
             throw new Exception(
-                "AxiSQL: esperaba un entero y encontro {$tk->describe()} en la posicion {$tk->pos}."
+                "AxiSQL: expected an integer but found {$tk->describe()} at position {$tk->pos}."
             );
         }
         $this->advance();
@@ -137,7 +137,7 @@ final class TokenStream
         if ($tk->isKw('NULL'))  { $this->advance(); return null; }
 
         throw new Exception(
-            "AxiSQL: esperaba un valor y encontro {$tk->describe()} en la posicion {$tk->pos}."
+            "AxiSQL: expected a value but found {$tk->describe()} at position {$tk->pos}."
         );
     }
 
@@ -146,7 +146,7 @@ final class TokenStream
         $tk = $this->peek();
         if ($tk->type !== Token::EOF) {
             throw new Exception(
-                "AxiSQL: sobra {$tk->describe()} al final, en la posicion {$tk->pos}."
+                "AxiSQL: unexpected {$tk->describe()} at the end, at position {$tk->pos}."
             );
         }
     }

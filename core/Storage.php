@@ -40,7 +40,7 @@ final class Storage
         ?string $clave = null
     ) {
         if (!\is_dir($this->base) && !@\mkdir($this->base, 0755, true) && !\is_dir($this->base)) {
-            throw new Exception("No se pudo crear el directorio de datos: {$this->base}");
+            throw new Exception("Could not create the data directory: {$this->base}");
         }
         Shield::aplicar($this->base);
         $this->colecciones = new Collections($this->base);
@@ -154,16 +154,16 @@ final class Storage
         $destino = $this->colecciones->path($a);
 
         if (!\is_dir($origen)) {
-            throw new Exception("Storage: la coleccion '{$de}' no existe.");
+            throw new Exception("Storage: collection '{$de}' does not exist.");
         }
         if (\is_dir($destino)) {
-            throw new Exception("Storage: ya hay una coleccion '{$a}'.");
+            throw new Exception("Storage: there is already a collection named '{$a}'.");
         }
         $this->cerrar();                        // sin descriptores abiertos no hay quien impida mover
         $this->olvidar();
 
         if (!@\rename($origen, $destino)) {
-            throw new Exception("Storage: no se pudo renombrar '{$de}' a '{$a}'.");
+            throw new Exception("Storage: could not rename '{$de}' to '{$a}'.");
         }
         return true;
     }
@@ -209,7 +209,7 @@ final class Storage
     public function defineTtl(string $collection, int $segundos): void
     {
         if ($segundos < 0) {
-            throw new Exception("Storage: la caducidad no puede ser negativa ({$segundos}).");
+            throw new Exception("Storage: the ttl cannot be negative ({$segundos}).");
         }
         $this->ajustes->fijar($collection, ['ttl' => $segundos]);
         $this->caducados = [];

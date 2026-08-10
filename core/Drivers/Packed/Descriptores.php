@@ -64,14 +64,14 @@ final class Descriptores
         if (!isset($this->locks[$collection]) || !\is_resource($this->locks[$collection])) {
             $fp = @\fopen($this->colecciones->path($collection) . '/_write.lock', 'c');
             if (!$fp) {
-                throw new Exception("Packed: no se pudo abrir el lock de '{$collection}'.");
+                throw new Exception("Packed: could not open the lock of '{$collection}'.");
             }
             $this->locks[$collection] = $fp;
         }
         $fp = $this->locks[$collection];
 
         if (!\flock($fp, LOCK_EX)) {
-            throw new Exception("Packed: lock exclusivo fallido en '{$collection}'.");
+            throw new Exception("Packed: exclusive lock failed on '{$collection}'.");
         }
         return $fp;
     }

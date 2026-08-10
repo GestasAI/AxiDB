@@ -102,7 +102,7 @@ try {
     $mensaje = $e->getMessage();
 }
 ok('y el mensaje dice que no pudo crear el directorio',
-    \str_contains($mensaje, 'directorio de datos'));
+    \str_contains($mensaje, 'data directory'));
 ok('nombrando la ruta, para poder arreglarlo', \str_contains($mensaje, 'datos'));
 
 /* ─────────────────────────────────────────────────────────────────────────── */
@@ -209,7 +209,7 @@ if (\function_exists('posix_geteuid')) {
         \str_contains($falloIndice, 'pertenece a') && \str_contains($falloIndice, 'corre como'));
 } else {
     ok('(sin posix_*, el mensaje generico; comprobado en ejecucion)',
-        \str_contains($falloIndice, 'Revisa los permisos'));
+        \str_contains($falloIndice, 'Check the directory permissions'));
 }
 
 /*

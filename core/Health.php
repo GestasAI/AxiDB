@@ -97,7 +97,7 @@ final class Health
         foreach ($this->db->verifyIndexes($coleccion) as $campo => $revision) {
             if (!empty($revision['ilegible'])) {
                 $avisos[] = self::aviso($coleccion, 'grave',
-                    "el indice '{$campo}' es de una version anterior y no se puede mantener",
+                    "el indice '{$campo}' is from an earlier version and cannot be maintained",
                     'borrarlo y volver a crearlo');
                 continue;
             }

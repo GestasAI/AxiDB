@@ -94,7 +94,7 @@ final class Uniqueness
             }
             if (isset($vistos[$valor])) {
                 throw new Exception(
-                    "No se puede declarar '{$campo}' unico en '{$collection}': el valor "
+                    "Cannot declare '{$campo}' unico en '{$collection}': el valor "
                     . "'{$valor}' se repite en '{$vistos[$valor]}' y '{$doc['id']}'."
                 );
             }

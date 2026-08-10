@@ -36,7 +36,7 @@ trait WithTransactions
     {
         $this->profile()->exigir('transactions', 'transaction() y BEGIN');
         if ($this->abierta !== null) {
-            throw new \Axi\Core\Exception('Tx: ya hay una transaccion abierta. AxiDB no las anida.');
+            throw new \Axi\Core\Exception('Tx: there is already an open transaction. AxiDB does not nest them.');
         }
         $this->abierta = new Transaction($this);
     }
@@ -68,7 +68,7 @@ trait WithTransactions
     private function exigirAbierta(string $que): Transaction
     {
         if ($this->abierta === null) {
-            throw new \Axi\Core\Exception("Tx: {$que} sin una transaccion abierta. Falta BEGIN.");
+            throw new \Axi\Core\Exception("Tx: {$que} without an open transaction. BEGIN is missing.");
         }
         return $this->abierta;
     }

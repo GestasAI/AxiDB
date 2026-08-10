@@ -28,12 +28,12 @@ final class IndexVerifier
     public static function pistaPermisos(string $dir): string
     {
         if (!\function_exists('posix_geteuid') || !\function_exists('posix_getpwuid')) {
-            return 'Revisa los permisos del directorio y reconstruye con reindex().';
+            return 'Check the directory permissions and rebuild with reindex().';
         }
         $dueno = \posix_getpwuid((int) @\fileowner($dir))['name'] ?? '?';
         $yo    = \posix_getpwuid(\posix_geteuid())['name'] ?? '?';
-        return "El directorio pertenece a '{$dueno}' y el proceso corre como '{$yo}'. "
-             . 'Corrige el dueño y reconstruye con reindex().';
+        return "The directory is owned by '{$dueno}' and the process runs as '{$yo}'. "
+             . 'Fix the owner and rebuild with reindex().';
     }
 
     /**

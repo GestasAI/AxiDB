@@ -33,7 +33,7 @@ final class Parser
         $cabeza = $this->ts->peek();
         if ($cabeza->type !== Token::KW) {
             throw new Exception(
-                "AxiSQL: una sentencia empieza por SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, "
+                "AxiSQL: a statement starts with SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, "
                 . "ALTER, SHOW, DESCRIBE, BEGIN, COMMIT o ROLLBACK; "
                 . "encontro {$cabeza->describe()}."
             );
@@ -50,7 +50,7 @@ final class Parser
             'DROP', 'ALTER', 'SHOW', 'DESCRIBE' => (new DdlParser($this->ts))->parse(),
             'BEGIN', 'COMMIT', 'ROLLBACK' => $this->parseTransaction(),
             default  => throw new Exception(
-                "AxiSQL: no se puede empezar una sentencia por {$cabeza->describe()}."
+                "AxiSQL: a statement cannot start with {$cabeza->describe()}."
             ),
         };
 
@@ -96,7 +96,7 @@ final class Parser
 
         if (!$this->ts->peek()->isKw('SELECT')) {
             throw new Exception(
-                'AxiSQL: una vista se define con un SELECT; encontro '
+                'AxiSQL: a view is defined with a SELECT; found '
                 . $this->ts->peek()->describe() . '.'
             );
         }
@@ -161,8 +161,8 @@ final class Parser
         if ($this->ts->matchKw('HAVING')) {
             if ($ast['group_by'] === [] && $ast['fields'] === ['*']) {
                 throw new Exception(
-                    'AxiSQL: HAVING filtra grupos, y aqui no hay ninguno. '
-                    . 'Con GROUP BY o con un agregado en el SELECT tiene sentido; sin nada, usa WHERE.'
+                    'AxiSQL: HAVING filters groups, and there are none here. '
+                    . 'With GROUP BY or an aggregate in the SELECT it makes sense; with neither, use WHERE.'
                 );
             }
             $ast['having'] = (new ExprParser($this->ts))->parse();
@@ -179,7 +179,7 @@ final class Parser
              */
             if ($this->ts->matchKw('EMBEDDING')) {
                 if (!$this->ts->peek()->isOp('<->')) {
-                    throw new Exception("AxiSQL: tras EMBEDDING se espera '<->' y el texto a buscar.");
+                    throw new Exception("AxiSQL: after EMBEDDING expected '<->' y el texto a buscar.");
                 }
                 $this->ts->advance();
                 $ast['vector'] = $this->ts->consumeLiteral();

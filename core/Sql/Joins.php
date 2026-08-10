@@ -52,7 +52,7 @@ final class Joins
             }
             if (!$this->ts->matchKw('JOIN')) {
                 if ($tipo === JoinPlan::IZQUIERDO) {
-                    throw new Exception('AxiSQL: tras LEFT se espera JOIN.');
+                    throw new Exception('AxiSQL: after LEFT expected JOIN.');
                 }
                 return $uniones;
             }
@@ -71,7 +71,7 @@ final class Joins
 
         if (!$this->ts->peek()->isOp('=')) {
             throw new Exception(
-                "AxiSQL: el ON de un JOIN compara dos campos con '='; encontro "
+                "AxiSQL: the ON of a JOIN compares two fields with '='; encontro "
                 . $this->ts->peek()->describe() . '.'
             );
         }

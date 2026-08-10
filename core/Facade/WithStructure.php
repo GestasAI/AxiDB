@@ -82,7 +82,7 @@ trait WithStructure
                     return null;
                 }
                 if (\in_array($campo, $meta, true)) {
-                    throw new Exception("No se puede quitar '{$campo}': lo necesita el motor.");
+                    throw new Exception("Cannot remove '{$campo}': lo necesita el motor.");
                 }
                 unset($doc[$campo]);
                 return $doc;
@@ -93,7 +93,7 @@ trait WithStructure
                 }
                 $a = (string) $extra;
                 if (\in_array($campo, $meta, true) || \in_array($a, $meta, true)) {
-                    throw new Exception("No se pueden renombrar los campos del motor ({$campo}).");
+                    throw new Exception("The engine's own fields cannot be renamed ({$campo}).");
                 }
                 $doc[$a] = $doc[$campo];
                 unset($doc[$campo]);

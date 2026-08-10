@@ -90,7 +90,7 @@ final class Commit
                 throw new Exception(
                     "Tx: '{$coleccion}/{$id}' cambio mientras la transaccion estaba en curso "
                     . '(version ' . self::pinta($version) . ' -> ' . self::pinta($actual) . '). '
-                    . 'No se ha escrito nada; vuelve a intentarlo leyendo de nuevo.'
+                    . 'Nothing was written; read again and retry.'
                 );
             }
         }

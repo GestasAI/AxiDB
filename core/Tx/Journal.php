@@ -57,14 +57,14 @@ final class Journal
     public function anotar(array $operaciones): void
     {
         if (!\is_dir($this->dir) && !@\mkdir($this->dir, 0755, true) && !\is_dir($this->dir)) {
-            throw new Exception("Tx: no se pudo crear el diario en {$this->dir}.");
+            throw new Exception("Tx: could not create the journal in {$this->dir}.");
         }
         $json = \json_encode(
             ['version' => 1, 'operaciones' => $operaciones],
             JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION
         );
         if ($json === false) {
-            throw new Exception('Tx: no se pudo serializar el plan: ' . \json_last_error_msg());
+            throw new Exception('Tx: could not serialise the plan: ' . \json_last_error_msg());
         }
 
         $path = $this->dir . '/' . self::PLAN;
@@ -73,7 +73,7 @@ final class Journal
             if ($fp) {
                 \fclose($fp);
             }
-            throw new Exception("Tx: no se pudo escribir el plan en {$path}.");
+            throw new Exception("Tx: could not write the plan to {$path}.");
         }
         \fflush($fp);
         @\fsync($fp);
@@ -89,7 +89,7 @@ final class Journal
         $path = $this->dir . '/' . self::HECHO;
         $fp   = @\fopen($path, 'wb');
         if (!$fp) {
-            throw new Exception("Tx: no se pudo confirmar en {$path}.");
+            throw new Exception("Tx: could not commit at {$path}.");
         }
         \fflush($fp);
         @\fsync($fp);

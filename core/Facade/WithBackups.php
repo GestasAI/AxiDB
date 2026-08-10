@@ -73,7 +73,7 @@ trait WithBackups
     public function restore(string $copia): array
     {
         if (!\is_file($copia)) {
-            throw new Exception("Copia: no existe el archivo {$copia}.");
+            throw new Exception("Backup: the file {$copia} does not exist.");
         }
         $this->storage->cerrar();
 
@@ -143,7 +143,7 @@ trait WithBackups
         $elegido = \strtolower($formato ?? \pathinfo($archivo, PATHINFO_EXTENSION));
         if (!\in_array($elegido, ['json', 'csv'], true)) {
             throw new Exception(
-                "Intercambio: no se reconoce el formato '{$elegido}'. Hay json y csv; "
+                "Exchange: unrecognised format '{$elegido}'. Hay json y csv; "
                 . 'ponlo en la extension del archivo o pasalo como tercer argumento.'
             );
         }

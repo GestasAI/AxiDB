@@ -100,7 +100,7 @@ final class Profile
         throw new Exception(
             "{$comoSeLlama} necesita el perfil '{$necesario}' y esta base usa '{$this->nombre}'. "
             . "Cambialo al abrirla: new Db(\$dir, ['profile' => '{$necesario}']). "
-            . 'Los datos no se tocan: un perfil solo dice que partes del motor se usan.'
+            . 'The data is untouched: a profile only states which parts of the engine are in use.'
         );
     }
 

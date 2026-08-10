@@ -53,7 +53,7 @@ $explica = static function (callable $fn, string $funcionEsperada): array {
             'dice_perfil_actual'  => \str_contains($e->getMessage(), "usa 'core'"),
             'dice_el_que_falta'   => \str_contains($e->getMessage(), "perfil '{$funcionEsperada}'"),
             'dice_como_cambiarlo' => \str_contains($e->getMessage(), "'profile' => '{$funcionEsperada}'"),
-            'dice_que_no_pasa'    => \str_contains($e->getMessage(), 'Los datos no se tocan'),
+            'dice_que_no_pasa'    => \str_contains($e->getMessage(), 'The data is untouched'),
         ];
     }
     return [];
@@ -123,7 +123,7 @@ eq('los vectores siguen fuera', ['dice_perfil_actual' => false, 'dice_el_que_fal
                 'dice_perfil_actual'  => \str_contains($e->getMessage(), "usa 'core'"),
                 'dice_el_que_falta'   => \str_contains($e->getMessage(), "perfil 'ai'"),
                 'dice_como_cambiarlo' => \str_contains($e->getMessage(), "'profile' => 'ai'"),
-                'dice_que_no_pasa'    => \str_contains($e->getMessage(), 'Los datos no se tocan'),
+                'dice_que_no_pasa'    => \str_contains($e->getMessage(), 'The data is untouched'),
             ];
         }
         return [];
