@@ -37,6 +37,17 @@ final class Sweeper
     /** Borra un archivo o un arbol de directorios completo. */
     public static function rmrf(string $path): void
     {
+        // Un enlace nunca se sigue: se borra el enlace en si. Recorrerlo llevaria
+        // el borrado al otro lado —fuera del directorio de datos— y arrasaria lo
+        // que apunte. Con la junction dentro, borrar la "coleccion" borraria el
+        // objetivo. unlink quita el symlink; rmdir quita la junction de Windows
+        // (que es un directorio) sin tocar su contenido.
+        if (Fs::isLink($path)) {
+            if (!@\unlink($path)) {
+                @\rmdir($path);
+            }
+            return;
+        }
         if (!\is_dir($path)) {
             if (!@\unlink($path) && \is_file($path)) {
                 /*

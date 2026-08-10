@@ -29,6 +29,18 @@ final class Names
     private const MARCA = '~';
 
     /**
+     * Dispositivos del sistema en Windows. No son nombres: abrir 'nul' como
+     * archivo abre el dispositivo, en cualquier version de Windows. Un motor que
+     * promete la misma carpeta en todas partes tiene que rechazarlos, porque en
+     * Linux si son nombres normales y una carpeta creada alli no se abre aqui.
+     */
+    private const DISPOSITIVOS = [
+        'CON', 'PRN', 'AUX', 'NUL',
+        'COM1', 'COM2', 'COM3', 'COM4', 'COM5', 'COM6', 'COM7', 'COM8', 'COM9',
+        'LPT1', 'LPT2', 'LPT3', 'LPT4', 'LPT5', 'LPT6', 'LPT7', 'LPT8', 'LPT9',
+    ];
+
+    /**
      * Valida un identificador: empieza por alfanumerico y solo contiene
      * [A-Za-z0-9_-.]. Rechaza cadena vacia, '..', barras, byte nulo y
      * cualquier cosa que permita salir del directorio.
@@ -47,7 +59,27 @@ final class Names
         if (!\preg_match('/^[A-Za-z0-9][A-Za-z0-9_\-.]*$/', $value)) {
             throw new InvalidName("AxiDB: {$kind} invalido '{$value}' (solo [A-Za-z0-9_-.]).");
         }
+        // Windows recorta el punto final de cada tramo de ruta: 'carpeta.' y
+        // 'carpeta' acaban siendo el mismo directorio. Dos nombres que el motor
+        // ve distintos y el disco funde en uno es justo lo que esto impide.
+        if (\str_ends_with($value, '.')) {
+            throw new InvalidName("AxiDB: {$kind} no puede terminar en punto '{$value}'.");
+        }
+        if (self::isReservedDevice($value)) {
+            throw new InvalidName("AxiDB: {$kind} '{$value}' es un nombre reservado del sistema.");
+        }
         return $value;
+    }
+
+    /**
+     * True si el nombre coincide con un dispositivo reservado de Windows, con o
+     * sin extension: Windows trata 'con.json' como el dispositivo CON, asi que
+     * se mira el tramo anterior al primer punto.
+     */
+    public static function isReservedDevice(string $value): bool
+    {
+        $base = \strtoupper(\explode('.', $value, 2)[0]);
+        return \in_array($base, self::DISPOSITIVOS, true);
     }
 
     /**
@@ -91,7 +123,16 @@ final class Names
      */
     public static function forValue(string $value): string
     {
-        if (\preg_match('/^[A-Za-z0-9][A-Za-z0-9_\-]{0,63}$/', $value)) {
+        // La rama literal deja el valor legible en disco, pero solo se toma si
+        // el valor NO puede confundirse con la rama de hash ni con un
+        // dispositivo del sistema. El prefijo 'h_' pertenece al hash: si un
+        // valor lo llevara, alguien podria fabricar a mano el nombre de archivo
+        // del cubo de otro valor y ocuparlo (reservar el correo de un tercero en
+        // un campo unique). Reservando 'h_' para el hash, las dos ramas quedan en
+        // espacios de nombres disjuntos y la funcion es inyectiva.
+        if (!\str_starts_with($value, 'h_')
+            && !self::isReservedDevice($value)
+            && \preg_match('/^[A-Za-z0-9][A-Za-z0-9_\-]{0,63}$/', $value)) {
             return self::toPath($value);
         }
         return 'h_' . \sha1($value);

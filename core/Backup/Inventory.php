@@ -51,6 +51,12 @@ final class Inventory
             $absoluta = $dir . '/' . $entrada;
             $relativa = $prefijo === '' ? $entrada : $prefijo . '/' . $entrada;
 
+            // Un enlace no se sigue ni se copia: seguirlo se llevaria a la copia
+            // archivos de fuera del directorio de datos, elegidos por quien pudo
+            // dejar el enlace puesto. La copia es del arbol real, no de sus atajos.
+            if (\Axi\Core\Fs::isLink($absoluta)) {
+                continue;
+            }
             if (\is_dir($absoluta)) {
                 self::each($absoluta, $relativa, $acumulado);
                 continue;

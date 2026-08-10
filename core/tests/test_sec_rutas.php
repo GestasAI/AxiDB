@@ -165,27 +165,20 @@ foreach (['nul', 'con', 'aux', 'com1'] as $v) {
 $dirB = tmpdir('sec_rutas_b') . '/datos';
 $dbB  = new Db($dirB, ['durable' => false]);
 
-if ($ES_WINDOWS) {
-    /*
-     * Si el motor acepta un nombre, ese nombre tiene que funcionar. Aceptarlo y
-     * despues fallar al usarlo es lo peor de las dos opciones: el que integra se
-     * entera en produccion y con un mensaje que habla de un cerrojo.
-     */
-    $usable = true;
-    try {
-        $dbB->insert('nul', ['x' => 1], 'd1');
-        $usable = $dbB->get('nul', 'd1') !== null;
-    } catch (\Throwable) {
-        $usable = false;
-    }
-    ok("una coleccion 'nul' aceptada por el motor se puede usar de verdad", $usable);
+/*
+ * Aceptar un nombre reservado y despues fallar al usarlo es lo peor de las dos
+ * opciones: el que integra se entera en produccion y con un mensaje que habla de
+ * un cerrojo. El motor lo rechaza ANTES de tocar el disco, con un error de
+ * nombre, y no deja nada creado. El rechazo es portable: se aplica tambien en
+ * Linux, donde 'nul' si seria un nombre valido, para que la carpeta signifique
+ * lo mismo en todas partes.
+ */
+throws("una coleccion 'nul' se rechaza antes de tocar el disco",
+    static fn() => $dbB->insert('nul', ['x' => 1], 'd1'));
+ok('y no queda ninguna carpeta de dispositivo', !\is_dir($dirB . '/nul'));
 
-    // ensureCollection dice si ha creado la coleccion. Si devuelve true sin
-    // haberla creado, quien confie en ese true escribira sobre la nada.
-    $creada = $dbB->storage()->ensureCollection('nul');
-    ok('ensureCollection no miente: si dice que la creo, existe',
-        !$creada || \is_dir($dirB . '/nul'));
-}
+throws('ensureCollection tampoco crea un nombre reservado',
+    static fn() => $dbB->storage()->ensureCollection('nul'));
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
 section('C] Puntos y espacios al final');

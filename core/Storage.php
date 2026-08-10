@@ -156,8 +156,12 @@ final class Storage
         if (!\is_dir($origen)) {
             throw new Exception("Storage: collection '{$de}' does not exist.");
         }
-        if (\is_dir($destino)) {
-            throw new Exception("Storage: there is already a collection named '{$a}'.");
+        // file_exists, no is_dir: el destino puede ser un ARCHIVO del blindaje
+        // ('index.html', '.htaccess') o cualquier interno del motor. Comprobar
+        // solo directorios dejaba que un rename pisara ese archivo con la carpeta
+        // de la coleccion. Un ALTER no puede llevarse por delante el blindaje.
+        if (\file_exists($destino)) {
+            throw new Exception("Storage: there is already something named '{$a}'.");
         }
         $this->close();                        // sin descriptores abiertos no hay quien impida mover
         $this->forget();
