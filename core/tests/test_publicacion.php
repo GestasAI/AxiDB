@@ -118,13 +118,9 @@ ok("el registro de cambios tiene la entrada de {$version}",
 $portada = (string) @\file_get_contents($raiz . '/README.md');
 ok("el README anuncia la version {$version}", \str_contains($portada, "Version {$version}"));
 
-// Los test_sec_* son la suite de ataque (run_sec.php), no la del nucleo que el
-// README anuncia; se cuentan aparte y se reintegraran cuando la hoja de
-// seguridad cierre en verde.
-$cuantos = \count(\array_filter(
-    \glob($raiz . '/core/tests/test_*.php') ?: [],
-    static fn(string $f) => !\str_starts_with(\basename($f), 'test_sec_')
-));
+// Todos los archivos de test, incluidos los de ataque (test_sec_*): desde que la
+// hoja de seguridad cerro en verde son parte del gate permanente y cuentan.
+$cuantos = \count(\glob($raiz . '/core/tests/test_*.php') ?: []);
 ok("el README dice cuantos archivos de test hay ({$cuantos})",
     \str_contains($portada, "{$cuantos} archivos de test"));
 

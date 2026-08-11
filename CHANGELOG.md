@@ -11,6 +11,48 @@ romperlo en la version siguiente.
 
 ---
 
+## [0.8.0] — 2026-08-11
+
+Auditoria ofensiva y endurecimiento. La API no cambia; cambia lo que aguanta.
+
+Siete suites de ataque nuevas (`test_sec_*`, 561 ataques) recorren la superficie
+entera —integridad, ejecucion, rutas, cifrado en reposo y concurrencia entre
+procesos— y ya forman parte del gate permanente, como red de no-regresion.
+
+**Integridad y ejecucion.** Una transaccion con un esquema roto ya no envenena la
+base al reabrir; restaurar una copia no escribe fuera del directorio de datos ni
+ejecuta lo que traiga dentro; una vista no puede colar un `DROP`; el parser tiene
+tope de tamano y de profundidad; la comparacion de igualdad ya no coacciona tipos
+(magic-hash); el sandbox de agentes no se escapa por SQL ni por el interruptor de
+parada; INF/NAN no dejan basura en disco; y las respuestas no filtran rutas del
+servidor.
+
+**Rutas y sistema de ficheros.** Se rechazan los nombres reservados de Windows
+(CON, NUL, COM1…) y el punto final; el nombre de cubo de indice ya no colisiona;
+renombrar no pisa el blindaje; y ni la copia ni el borrado siguen un enlace o una
+junction fuera del directorio de datos.
+
+**Cifrado en reposo** (atacante que lee y escribe el disco, sin la clave). El
+bloque se ata al id que se PIDE, no al del archivo; un documento sin bloque en una
+coleccion cifrada se rechaza en vez de servirse en claro; el estado "cifrada" se
+autentica en el llavero, asi editar la bandera a mano no lo apaga; los cubos de
+indice llevan nombre CON CLAVE (HMAC); el valor por defecto del esquema y el
+mensaje de unique dejan de filtrar el dato; la version se sella dentro del bloque
+(no se injerta uno viejo); y borrar el llavero detiene la apertura en vez de
+fabricar otro. PBKDF2 con tope de iteraciones.
+
+**Concurrencia entre procesos.** Cerrojo estructural por coleccion: reindexar y
+migrar de driver van en exclusiva, las altas en compartido, y ninguna se cuela en
+la ventana de la otra. El indice se reescribe con temp+rename, sin dejar el cubo
+vacio ni un instante. El mapa de desplazamientos del driver empaquetado se relee
+bajo el cerrojo. Una reserva que dejo un proceso muerto se reclama sola. Y una
+copia del formato empaquetado sale coherente aunque se escriba mientras se hace.
+
+Fronteras documentadas, no fallos: reponer el archivo entero de una version
+anterior de un documento cifrado, y el cifrado superado que el log append-only
+conserva hasta compactar, son el limite del cifrado por documento en reposo —el
+mismo que hace indetectable borrar un documento—.
+
 ## [0.7.0] — 2026-08-10
 
 El motor habla un solo idioma.

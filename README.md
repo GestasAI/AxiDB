@@ -162,12 +162,13 @@ carpeta copiada a mano. Si algun dia eso deja de pasar, la suite se pone roja.
 
 ## Estado
 
-**Version 0.7.0.** El 0 va en serio: la API todavia puede cambiar. Al llegar a
+**Version 0.8.0.** El 0 va en serio: la API todavia puede cambiar. Al llegar a
 1.0.0 dejara de poder hacerlo sin subir el numero mayor. Preferimos decirlo asi a
 poner un 1.0 y romperlo en la siguiente version.
 
-51 archivos de test y mas de 2.500 comprobaciones, en verde sobre PHP 8.1, 8.2,
-8.3 y 8.4, en Linux y en Windows.
+58 archivos de test y mas de 3.000 comprobaciones —incluidos siete de auditoria
+ofensiva con mas de 560 ataques rebotados—, en verde sobre PHP 8.1, 8.2, 8.3 y
+8.4, en Linux y en Windows.
 
 Lo que si esta asentado son las garantias de datos: escritura atomica,
 concurrencia y durabilidad tienen tests que los demuestran matando el proceso, no
