@@ -40,4 +40,44 @@ trait WithExpiry
             }
         }
     }
+
+    /**
+     * Suelta las reservas de valor unico que dejo un proceso muerto: reservo el
+     * valor en el indice, pero murio antes de escribir el documento —un timeout,
+     * un OOM, un despliegue— y ese valor queda cogido para siempre. Cualquiera que
+     * provoque muertes podria ir quemando correos hasta que nadie pueda registrarse.
+     *
+     * El truco para no confundir un huerfano con un alta EN VUELO —que tambien
+     * tiene la reserva hecha y el documento aun sin escribir— es el EX de
+     * reindexado NO bloqueante: todo alta sostiene el SH mientras reserva y
+     * escribe, asi que si se consigue el EX es que no hay ninguna en vuelo, y una
+     * reserva sin documento es, con seguridad, de un proceso muerto.
+     */
+    private function reclaimOrphanUniques(string $collection, array $unicos, array $data): void
+    {
+        $lock = @\fopen($this->storage->dir($collection) . '/_reindex.lock', 'c');
+        if (!$lock) {
+            return;
+        }
+        if (!\flock($lock, LOCK_EX | LOCK_NB)) {
+            \fclose($lock);                 // hay un alta en vuelo: no se toca nada
+            return;
+        }
+        try {
+            foreach ($unicos as $campo) {
+                $valor = $data[$campo] ?? null;
+                if ($valor === null || $valor === '' || \is_array($valor)) {
+                    continue;
+                }
+                foreach ($this->index->ids($collection, $campo, (string) $valor) ?? [] as $duenno) {
+                    if ((string) $duenno !== '' && !$this->storage->exists($collection, (string) $duenno)) {
+                        $this->index->remove($collection, $campo, (string) $valor, (string) $duenno);
+                    }
+                }
+            }
+        } finally {
+            \flock($lock, LOCK_UN);
+            \fclose($lock);
+        }
+    }
 }

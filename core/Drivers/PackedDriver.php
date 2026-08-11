@@ -51,6 +51,7 @@ final class PackedDriver implements Driver
         $lock = $this->archivos->lock($collection);
         try {
             ['log' => $log, 'off' => $off] = $this->archivos->of($collection);
+            $off->syncFromDisk();       // ver lo que otro proceso escribio bajo su turno
 
             $existente = null;
             $donde     = $off->of($id);
@@ -74,6 +75,7 @@ final class PackedDriver implements Driver
         $lock = $this->archivos->lock($collection);
         try {
             ['log' => $log, 'off' => $off] = $this->archivos->of($collection);
+            $off->syncFromDisk();
             [$desplazamiento, $longitud] = $log->append($doc);
             $off->record($id, $desplazamiento, $longitud);
         } finally {
@@ -96,6 +98,7 @@ final class PackedDriver implements Driver
         $lock = $this->archivos->lock($collection);
         try {
             ['off' => $off] = $this->archivos->of($collection);
+            $off->syncFromDisk();
             if ($off->of($id) === null) {
                 return false;
             }
@@ -174,6 +177,7 @@ final class PackedDriver implements Driver
         $lock = $this->archivos->lock($collection);
         try {
             ['log' => $log, 'off' => $off] = $this->archivos->of($collection);
+            $off->syncFromDisk();       // compactar con el mapa al dia, no con la foto vieja
             return $fn(new Compactador($log, $off));
         } finally {
             $this->archivos->unlock($lock);

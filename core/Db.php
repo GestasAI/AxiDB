@@ -82,37 +82,46 @@ final class Db
         $esquema = $this->storage->schemaOf($collection);
 
         // rawGet: el mantenimiento de indices y unicidad trabaja sobre lo que hay
-        // en disco, no sobre lo visible. Un vencido conserva su entrada de indice
-        // y su reserva; con get() valdrian null y quedarian de fantasmas.
+        // en disco. Un vencido conserva su indice y su reserva; get() los ocultaria.
         $before = $fields === [] && $unicos === [] && $esquema === []
             ? null
             : $this->storage->rawGet($collection, $id);
 
         // El esquema, lo primero: rebotar un documento invalido antes de tocar nada.
         [$data, $replace] = $this->applySchema($collection, $id, $data, $before, $replace);
+        $entero = $replace || $before === null ? $data : $data + $before;
 
-        // Reservar antes de escribir, y soltar si no sale (ver Uniqueness).
-        $reserva = new Uniqueness($this->index, $collection, $id);
+        // Antes del cerrojo: soltar el valor unico que retiene un vencido o un
+        // proceso muerto. Reclamar huerfanos coge el EX, incompatible con el SH.
         if ($unicos !== []) {
-            $entero = $replace || $before === null ? $data : $data + $before;
-            // Liberar antes lo que retiene un vencido, o su valor unico queda
-            // cogido por un fantasma. Ver WithExpiry.
             $this->purgeExpiredOwners($collection, $unicos, $entero);
-            $reserva->reserve($unicos, $entero, $before);
+            $this->reclaimOrphanUniques($collection, $unicos, $entero);
         }
 
+        // Cerrojo estructural COMPARTIDO durante reservar-escribir-sincronizar:
+        // mantiene fuera a reindex() y a migrar de driver (que van en EX y
+        // reescriben o retiran la coleccion entera). Se coge SIEMPRE —migrar
+        // alcanza a cualquier coleccion—; varias altas caben a la vez en SH.
+        $candado = $this->index->reindexLock($collection, false);
         try {
-            $after = $this->storage->put($collection, $id, $data, $replace);
-        } catch (\Throwable $e) {
-            $reserva->release();
-            throw $e;
+            $reserva = new Uniqueness($this->index, $collection, $id);
+            if ($unicos !== []) {
+                $reserva->reserve($unicos, $entero, $before);   // reservar antes de escribir
+            }
+            try {
+                $after = $this->storage->put($collection, $id, $data, $replace);
+            } catch (\Throwable $e) {
+                $reserva->release();
+                throw $e;
+            }
+            if ($fields !== []) {
+                $this->index->sync($collection, $fields, $before, $after);
+            }
+            $this->vectores->onSave($collection, $id, $after);
+            return $after;
+        } finally {
+            $this->index->reindexUnlock($candado);
         }
-
-        if ($fields !== []) {
-            $this->index->sync($collection, $fields, $before, $after);
-        }
-        $this->vectores->onSave($collection, $id, $after);
-        return $after;
     }
 
     public function delete(string $collection, string $id): bool
@@ -180,27 +189,19 @@ final class Db
         );
     }
 
-    /**
-     * Documentos cuyo $field vale $value. Usa el indice si existe; si no,
-     * escanea. Es el equivalente generico del "por inquilino" de una app
-     * multi-tenant, sin que el nucleo sepa que existen los inquilinos.
-     */
+    /** Documentos cuyo $field vale $value. Usa el indice si existe; si no, escanea. */
     public function by(string $collection, string $field, string $value): array
     {
         return $this->find($collection)->where($field, '=', $value)->get();
     }
 
     /**
-     * Ejecuta una sentencia AxiSQL. Es una llamada a funcion PHP: analiza la
-     * sentencia y toca ficheros. No hay red, ni socket, ni servidor.
+     * Ejecuta una sentencia AxiSQL. Es una llamada a funcion PHP que analiza la
+     * sentencia y toca ficheros: no hay red, ni socket, ni servidor. Devuelve una
+     * lista de documentos en SELECT, un entero en COUNT, el plan en EXPLAIN, y un
+     * array con el resultado en el resto.
      *
      *   $db->sql("SELECT nombre FROM presupuestos WHERE total > 300 ORDER BY total DESC");
-     *   $db->sql("INSERT INTO presupuestos (cliente, total) VALUES ('Ana', 421.20)");
-     *   $db->sql("CREATE INDEX ON presupuestos (cliente_id)");
-     *   $db->sql("EXPLAIN SELECT * FROM presupuestos WHERE cliente_id = 'c1'");
-     *
-     * Devuelve: lista de documentos en SELECT, entero en COUNT, y un array con
-     * el resultado de la operacion en el resto. Con EXPLAIN, el plan.
      */
     public function sql(string $sentencia): mixed
     {

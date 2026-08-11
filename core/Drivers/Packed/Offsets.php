@@ -5,15 +5,11 @@
  *   <coleccion>/offsets.log   append-only:  id \t desplazamiento \t longitud
  *   <coleccion>/offsets.idx   instantanea compactada, para arrancar rapido
  *
- * Tambien es append-only, por la misma razon que el log de datos: reescribir el
- * indice entero en cada alta fue exactamente el error que hacia cuadratica la
- * escritura del motor viejo. Aqui una alta son dos añadidos y nada mas.
- *
- * Un borrado se apunta como longitud 0: la ultima entrada de un id manda, asi
- * que una entrada con longitud 0 lo da por muerto sin tocar nada de lo anterior.
- *
- * La instantanea es solo una optimizacion de arranque. Si falta o esta rota, el
- * mapa se reconstruye recorriendo el log; nunca es la fuente de la verdad.
+ * Append-only como el log de datos: reescribir el indice entero en
+ * cada alta era el error que hacia cuadratica la escritura del motor viejo. Un
+ * borrado se apunta como longitud 0 —la ultima entrada de un id manda—. La
+ * instantanea solo acelera el arranque: si falta o esta rota, el mapa se
+ * reconstruye recorriendo el log; nunca es la fuente de la verdad.
  */
 
 declare(strict_types=1);
@@ -30,12 +26,13 @@ final class Offsets
     /** @var array<string, array{0:int,1:int}>|null id => [desplazamiento, longitud] */
     private ?array $mapa = null;
 
-    /** Descriptor reutilizado, por la misma razon que en Log. */
-    private $fp = null;
+    private $fp = null;                 // descriptor reutilizado, como en Log
 
     /** Apuntes en el log suelto, los que aun no estan en la instantanea. */
     private int $sueltas = 0;
 
+    /** @var array{0:int,1:int,2:int}|null [tam log, tam idx, mtime idx] leido la ultima vez */
+    private ?array $visto = null;
     public function __construct(
         private string $rutaLog,
         private string $rutaInstantanea,
@@ -59,7 +56,28 @@ final class Offsets
     /** @return array<string, array{0:int,1:int}> */
     public function map(): array
     {
-        return $this->mapa ??= $this->loadFrom();
+        if ($this->mapa === null) {
+            $this->mapa = $this->loadFrom();
+            $this->visto = $this->stamp();
+        }
+        return $this->mapa ?? [];
+    }
+
+    /**
+     * Relee el mapa del disco si otro proceso lo cambio desde la ultima vez. Se
+     * llama con el lock cogido, antes de leer-modificar-escribir: sin esto, cada
+     * proceso trabaja sobre la foto que hizo al arrancar y la escritura del otro
+     * se pierde, o una consolidacion trunca el log con un mapa desfasado. Barato
+     * en el caso normal —un stat, sin releer— y correcto en la carrera.
+     */
+    public function syncFromDisk(): void
+    {
+        if ($this->mapa !== null && $this->visto !== null && $this->stamp() === $this->visto) {
+            return;
+        }
+        $this->close();                     // el otro pudo truncar o rehacer el log
+        $this->mapa  = $this->loadFrom();
+        $this->visto = $this->stamp();
     }
 
     public function of(string $id): ?array
@@ -85,16 +103,15 @@ final class Offsets
         $this->map();                       // fuerza la carga antes de tocarlo
         $this->mapa[$id] = [$desplazamiento, $longitud];
         $this->consolidateIfDue();
+        $this->visto = $this->stamp();      // nuestra propia escritura, no ajena
     }
 
     /**
-     * Vuelca el mapa a la instantanea y vacia el log suelto cuando este ha
-     * crecido demasiado, para que arrancar no cueste cada vez mas.
-     *
-     * Solo se llama desde el camino de escritura, que es el unico que tiene el
-     * lock. Hacerlo al cargar —que es un camino de lectura— significaba escribir
-     * y borrar archivos sin proteccion, y en Windows fallaba ademas al intentar
-     * borrar un archivo que otro descriptor tenia abierto.
+     * Vuelca el mapa a la instantanea y vacia el log suelto cuando crece
+     * demasiado, para que arrancar no cueste cada vez mas. Solo desde el camino de
+     * escritura, que es el unico que tiene el lock: hacerlo al cargar escribia y
+     * borraba archivos sin proteccion, y en Windows fallaba ademas al borrar uno
+     * que otro descriptor tenia abierto.
      */
     private function consolidateIfDue(): void
     {
@@ -120,6 +137,7 @@ final class Offsets
         $this->addLine($id . "\t0\t0\n");
         $this->map();
         unset($this->mapa[$id]);
+        $this->visto = $this->stamp();
     }
 
     /** Sustituye el mapa entero tras una compactacion. */
@@ -130,6 +148,7 @@ final class Offsets
         $this->persistSnapshot($mapa);
         $this->close();                 // no se borra un archivo aun abierto
         @\unlink($this->rutaLog);
+        $this->visto = $this->stamp();
     }
 
     public function delete(): void
@@ -141,6 +160,18 @@ final class Offsets
     }
 
     /* ─────────────────────────────── Interno ─────────────────────────────── */
+
+    /** Huella barata del estado en disco: si cambia, otro proceso escribio. */
+    private function stamp(): array
+    {
+        \clearstatcache(true, $this->rutaLog);
+        \clearstatcache(true, $this->rutaInstantanea);
+        return [
+            \is_file($this->rutaLog) ? (int) \filesize($this->rutaLog) : -1,
+            \is_file($this->rutaInstantanea) ? (int) \filesize($this->rutaInstantanea) : -1,
+            \is_file($this->rutaInstantanea) ? (int) \filemtime($this->rutaInstantanea) : -1,
+        ];
+    }
 
     private function addLine(string $linea): void
     {
@@ -199,9 +230,8 @@ final class Offsets
             }
         }
 
-        // Cargar es un camino de LECTURA: aqui solo se anota cuantas entradas
-        // sueltas hay. Consolidar es una escritura y la hace anotar(), que es
-        // quien tiene el lock.
+        // Cargar es LECTURA: solo se anota cuantas sueltas hay. Consolidar es
+        // escritura y la hace record(), que es quien tiene el lock.
         $this->sueltas = $sueltas;
         return $mapa;
     }

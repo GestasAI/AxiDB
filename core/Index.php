@@ -6,24 +6,18 @@
  *   <coleccion>/_idx/<campo>/<valor>.json  ->  ["id1","id2",...]
  *
  * Un archivo por valor (no uno global por campo) para que dos escrituras de
- * valores distintos nunca compitan por el mismo lock.
+ * valores distintos nunca compitan por el mismo lock. Invariante critica:
+ * leer-modificar-escribir ocurre SIEMPRE dentro del mismo flock exclusivo, o dos
+ * procesos parten del mismo estado y la ultima escritura pisa a la anterior.
  *
- * Invariante critica: leer-modificar-escribir ocurre SIEMPRE dentro del mismo
- * flock exclusivo. Si la lectura queda fuera del lock, dos procesos concurrentes
- * parten del mismo estado y la ultima escritura pisa a la anterior.
+ * Aqui NO se llama a fsync y en Storage si: se sincroniza lo que no se puede
+ * reconstruir. Un documento perdido no vuelve; un indice si. Medido, el fsync del
+ * indice costaba 15,7 ms de los 21,5 de cada escritura; sin el, un corte de
+ * corriente puede dejarlo corto, y eso lo repara verify() + build().
  *
- * Aqui NO se llama a fsync y en Storage si: se sincroniza a disco lo que no se
- * puede reconstruir. Un documento perdido no vuelve; un indice si. Medido, el
- * fsync del indice costaba 15,7 ms de los 21,5 de cada escritura. Sin el, la
- * escritura llega igual a la cache del sistema y solo un corte de corriente
- * puede dejarla atras; ese caso se resuelve con verify() + build().
- *
- * Limite conocido: un archivo de valor borrado a mano es indistinguible de un
- * valor sin documentos, asi que no se detecta al leer. Lo detecta verify() y lo
- * repara build(). Perder el directorio del campo entero SI se nota, y
- * ensureIndex() lo reconstruye solo. Cubierto en test_reparacion_indices.php.
- *
- * No conoce ningun dominio: cualquier nombre de campo le vale.
+ * Limite conocido: un archivo de valor borrado a mano no se distingue de un valor
+ * sin documentos al leer. Lo detecta verify() y lo repara build(). No conoce
+ * ningun dominio: cualquier nombre de campo le vale.
  */
 
 declare(strict_types=1);
@@ -34,6 +28,7 @@ final class Index
 {
     use \Axi\Core\Indexes\WithUniques;
     use \Axi\Core\Indexes\WithInspection;
+    use \Axi\Core\Indexes\WithReindex;
 
     public function __construct(private Storage $storage)
     {
@@ -97,30 +92,46 @@ final class Index
      */
     public function build(string $collection, string $field): int
     {
-        $dir = $this->fieldDir($collection, $field);
-        if (\is_dir($dir)) {
-            foreach (\glob($dir . '/*.json') ?: [] as $f) {
-                @\unlink($f);
+        $dir  = $this->fieldDir($collection, $field);
+        // EX de reindexado: reconstruir reescribe todos los cubos escaneando los
+        // documentos. Una reserva recien hecha cuyo documento aun no se escribio
+        // no aparece en el escaneo, asi que un alta en curso tiene que esperar (va
+        // en SH) para que su reserva no se pierda y cuele un duplicado.
+        $lock = $this->reindexLock($collection, true);
+        try {
+            if (!\is_dir($dir) && !@\mkdir($dir, 0755, true) && !\is_dir($dir)) {
+                throw new Exception("Could not create the index '{$field}' on '{$collection}'.");
             }
-        } elseif (!@\mkdir($dir, 0755, true) && !\is_dir($dir)) {
-            throw new Exception("Could not create the index '{$field}' on '{$collection}'.");
-        }
-        // El directorio se crea aunque no haya nada que indexar: es lo que declara
-        // el indice como existente para que put() lo mantenga desde la primera alta.
-        $this->recordField($dir, $field);
+            $this->recordField($dir, $field);       // declara el indice, aunque este vacio
 
-        $buckets = [];
-        foreach ($this->storage->all($collection) as $doc) {
-            $value = $doc[$field] ?? null;
-            if ($value === null || $value === '' || \is_array($value)) {
-                continue;
+            $buckets = [];
+            foreach ($this->storage->all($collection) as $doc) {
+                $value = $doc[$field] ?? null;
+                if ($value === null || $value === '' || \is_array($value)) {
+                    continue;
+                }
+                $buckets[(string) $value][] = (string) ($doc['id'] ?? '');
             }
-            $buckets[(string) $value][] = (string) ($doc['id'] ?? '');
+            // Cada cubo se escribe con temp+rename y NO se hace un `unlink *.json`
+            // de golpe al empezar: borrar-y-reescribir dejaba el cubo un instante
+            // vacio, y aun con el EX cogido bastaba para que un alta que acababa de
+            // coger el SH lo leyera vacio y colara un duplicado. Aqui nunca esta vacio.
+            $vivos = [];
+            foreach ($buckets as $value => $ids) {
+                $ruta = $this->path($collection, $field, (string) $value);
+                $this->write($ruta, $ids);
+                $vivos[\basename($ruta)] = true;
+            }
+            foreach (\glob($dir . '/*.json') ?: [] as $f) {   // retira solo cubos sin documentos
+                if (\basename($f) !== '_campo.json' && !isset($vivos[\basename($f)])) {
+                    @\unlink($f);
+                }
+            }
+            return \count($buckets);
+        } finally {
+            \flock($lock, LOCK_UN);
+            \fclose($lock);
         }
-        foreach ($buckets as $value => $ids) {
-            $this->write($this->path($collection, $field, (string) $value), $ids);
-        }
-        return \count($buckets);
     }
 
     /**
@@ -174,8 +185,7 @@ final class Index
         }
 
         // Fallar en silencio seria el peor error del motor: el documento queda
-        // guardado, el indice no lo recoge y es invisible. Causa tipica: un
-        // script de mantenimiento con otro usuario dejo el dueño equivocado.
+        // guardado, el indice no lo recoge y es invisible.
         $fp = @\fopen($path, 'c+');
         if (!$fp) {
             throw new Exception("Index: could not write '{$path}'. " . IndexVerifier::permissionHint($dir));
@@ -184,7 +194,7 @@ final class Index
             if (!\flock($fp, LOCK_EX)) {
                 throw new Exception("Index: could not lock '{$path}'.");
             }
-            // Lectura DENTRO del lock: nadie puede colarse entre leer y escribir.
+            // Lectura DENTRO del lock: nadie se cuela entre leer y escribir.
             $raw = \stream_get_contents($fp);
             $ids = $raw !== '' && $raw !== false ? (\json_decode($raw, true) ?: []) : [];
 
@@ -192,8 +202,7 @@ final class Index
             if ($new === $ids) {
                 return;
             }
-            // Truncar aqui es aceptable, a diferencia de un documento: el indice
-            // es reconstruible. Sin fsync a proposito (ver cabecera del archivo).
+            // Truncar es aceptable: el indice es reconstruible. Sin fsync a proposito.
             \ftruncate($fp, 0);
             \rewind($fp);
             \fwrite($fp, \json_encode($new));
@@ -210,28 +219,28 @@ final class Index
         if (!\is_dir($dir)) {
             @\mkdir($dir, 0755, true);
         }
-        @\file_put_contents($path, \json_encode(\array_values(\array_unique($ids))));
+        // Temp + rename: el cubo pasa de su contenido viejo al nuevo de un golpe.
+        // Con file_put_contents directo, un lector pillaba el instante entre el
+        // truncado y la escritura y lo veia vacio; rename es atomico y no lo abre.
+        $tmp = $path . '.tmp.' . \bin2hex(\random_bytes(4));
+        if (@\file_put_contents($tmp, \json_encode(\array_values(\array_unique($ids)))) === false
+            || !@\rename($tmp, $path)) {
+            @\unlink($tmp);
+        }
     }
 
-    // El nombre del campo pasa por toPath igual que el de la coleccion: 'Total'
-    // y 'total' son claves JSON distintas y no pueden compartir directorio.
+    // toPath separa 'Total' de 'total': claves JSON distintas, directorios distintos.
     private function fieldDir(string $collection, string $field): string
     {
         return $this->storage->dir($collection)
              . '/_idx/' . Names::toPath(Names::check($field, 'campo'));
     }
 
-    /**
-     * Un valor puede ser cualquier cosa (un email, un texto con espacios).
-     * Si es un token seguro se usa tal cual — asi el indice es inspeccionable
-     * a simple vista; si no, se reduce a un hash estable.
-     */
     private function path(string $collection, string $field, string $value): string
     {
-        // Cifrada: nombre de cubo CON CLAVE (HMAC). Un sha1 desnudo del valor
-        // dejaba que quien tuviera el disco probara sha1('moroso') y localizara
-        // el archivo sin descifrar nada; el dato recien cifrado quedaba escrito
-        // como nombre. Sin cifrar, el nombre legible de forValue.
+        // Cifrada: nombre de cubo CON CLAVE (HMAC), para que quien tenga el disco
+        // no localice el archivo probando sha1('moroso'). Sin cifrar, forValue, que
+        // deja el nombre legible si el valor es un token seguro.
         $nombre = $this->storage->indexBucket($collection, $value) ?? Names::forValue($value);
 
         return $this->fieldDir($collection, $field) . '/' . $nombre . '.json';

@@ -58,7 +58,22 @@ final class Maker
         $guardados  = 0;
 
         try {
-            foreach ($inventario as $ruta => $entrada) {
+            // El 'data.axi' de cada coleccion empaquetada se copia EL ULTIMO, despues
+            // de sus 'offsets'. El log de desplazamientos solo apunta a bytes que ya
+            // estan en data.axi (primero el dato, despues el apunte) y data.axi solo
+            // crece. Copiando los offsets antes y el data.axi despues, el data.axi de
+            // la copia es un superconjunto de lo que los offsets referencian: aunque
+            // otro proceso escriba en medio, todo lo que la copia dice tener se puede
+            // leer. Al reves —el orden alfabetico, data.axi antes que offsets— los
+            // offsets copiados apuntaban a bytes que no habian entrado en el data.axi.
+            $ordenado = $inventario;
+            \uksort($ordenado, static function (string $a, string $b): int {
+                $da = \str_ends_with($a, '/data.axi') || $a === 'data.axi';
+                $db = \str_ends_with($b, '/data.axi') || $b === 'data.axi';
+                return $da <=> $db ?: \strcmp($a, $b);
+            });
+
+            foreach ($ordenado as $ruta => $entrada) {
                 // En una incremental, lo que no ha cambiado no se vuelve a
                 // guardar: ya esta en la copia de la que cuelga.
                 if (($anteriores[$ruta] ?? null) === $entrada['sha1']) {

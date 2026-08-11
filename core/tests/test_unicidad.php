@@ -165,13 +165,15 @@ rmrf($dir);
 section('H] La reserva huerfana se ve, y se arregla');
 
 /*
- * Reservar antes de escribir tiene un precio, y aqui se paga a la vista: si el
- * proceso muere entre la reserva y la escritura del documento, el valor queda
- * cogido sin dueño. No se pierde nada, pero ese correo diria estar ocupado sin
- * estarlo.
+ * Reservar antes de escribir tiene un precio: si el proceso muere entre la
+ * reserva y la escritura del documento, el valor queda cogido sin dueño. Antes
+ * quedaba cogido HASTA que alguien reconstruia el indice a mano —y quien pudiera
+ * provocar muertes de proceso podia ir quemando correos hasta bloquear el alta—.
+ * Ahora el propio alta lo reclama: si el valor lo retiene una reserva cuyo
+ * documento no existe y no hay ningun alta en vuelo, se suelta y el alta entra.
  *
  * Se simula reclamando a mano y no escribiendo el documento, que es exactamente
- * el estado en el que quedaria.
+ * el estado en el que quedaria un proceso muerto.
  */
 $dir = tmpdir('unicidad_huerfana');
 $db  = new Db($dir, ['durable' => false]);
@@ -186,14 +188,16 @@ eq('la reserva sin documento se cuenta como sobrante',
     1, $db->verifyIndexes('cuentas')['correo']['sobran'] ?? -1);
 eq('y no se confunde con una que falte', 0, $db->verifyIndexes('cuentas')['correo']['faltan'] ?? -1);
 
-throws('mientras tanto, ese valor esta cogido',
-    static fn () => $db->insert('cuentas', ['correo' => 'fantasma@ejemplo.com'], 'c2'));
-
-$db->reindex('cuentas');
-eq('reconstruir el indice la limpia', 0, $db->verifyIndexes('cuentas')['correo']['sobran'] ?? -1);
-
+// El alta legitima reclama la reserva huerfana en vez de rebotar: un proceso
+// muerto no deja el correo quemado para siempre.
 $db->insert('cuentas', ['correo' => 'fantasma@ejemplo.com'], 'c2');
-eq('y el valor vuelve a estar libre', 2, $db->count('cuentas'));
+eq('el alta reclama la reserva huerfana y entra', 2, $db->count('cuentas'));
+eq('y al reclamarla, el indice queda limpio sin reconstruir',
+    0, $db->verifyIndexes('cuentas')['correo']['sobran'] ?? -1);
+
+// Y sigue siendo unico de verdad: un tercer documento con ese valor si rebota.
+throws('el valor ya es del documento que lo reclamo',
+    static fn () => $db->insert('cuentas', ['correo' => 'fantasma@ejemplo.com'], 'c3'));
 
 $db->storage()->close();
 rmrf($dir);

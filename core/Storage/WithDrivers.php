@@ -86,13 +86,31 @@ trait WithDrivers
         if (!\in_array($destino, self::DRIVERS, true)) {
             throw new Exception("Storage: driver desconocido '{$destino}'.");
         }
-        $migrados = (new Migration($this->colecciones, $this->ajustes))->mover(
-            $collection,
-            $this->driverByName($this->driverDe($collection)),
-            $this->driverByName($destino)
-        );
-        $this->packed->forget($collection);
-        return $migrados;
+        // Cerrojo estructural EXCLUSIVO: migrar lee todo con el driver de origen,
+        // lo reescribe con el de destino y retira el viejo. Un alta que cayera en
+        // medio escribiria en un formato que va a desaparecer y se perderia. Las
+        // altas cogen este mismo cerrojo en SH (Db::put), asi que aqui se espera a
+        // las que haya en curso y se bloquean las nuevas hasta terminar. Al soltar,
+        // un alta reabre y ve el driver nuevo (los ajustes se releen por huella).
+        $this->colecciones->ensure($collection);       // el dir tiene que existir para el lock
+        $lockPath = $this->colecciones->path($collection) . '/_reindex.lock';
+        $lock = @\fopen($lockPath, 'c');
+        if ($lock === false) {
+            throw new Exception("Storage: could not open the structural lock of '{$collection}'.");
+        }
+        try {
+            \flock($lock, LOCK_EX);
+            $migrados = (new Migration($this->colecciones, $this->ajustes))->mover(
+                $collection,
+                $this->driverByName($this->driverDe($collection)),
+                $this->driverByName($destino)
+            );
+            $this->packed->forget($collection);
+            return $migrados;
+        } finally {
+            \flock($lock, LOCK_UN);
+            \fclose($lock);
+        }
     }
 
     /**

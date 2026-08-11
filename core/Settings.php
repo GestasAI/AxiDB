@@ -36,6 +36,9 @@ final class Settings
     /** @var array<string, array{driver:string, durabilidad:string, cifrado:bool}> */
     private array $cache = [];
 
+    /** @var array<string, array{0:int,1:int}> huella [mtime, tamano] del _axidb.json cacheado */
+    private array $sellos = [];
+
     public function __construct(
         private Collections $colecciones,
         private string $driverPorDefecto = 'fs',
@@ -124,12 +127,21 @@ final class Settings
     /** @return array{driver:string, durability:string, encrypted:bool, uniques:list<string>, schema:array, ttl:int} */
     public function of(string $collection): array
     {
-        if (isset($this->cache[$collection])) {
+        $path  = $this->pathOf($collection);
+        // Huella barata del archivo en disco: si otro proceso cambio los ajustes
+        // —una migracion de driver, un unique nuevo— la cache en memoria de ESTE
+        // proceso ya no vale. Sin esto, un worker seguia escribiendo con el driver
+        // viejo tras una migracion y sus documentos se perdian al retirar el
+        // formato anterior. filemtime + filesize basta: cambiar de driver cambia
+        // el tamano, y un stat es mucho mas barato que releer y decodificar.
+        \clearstatcache(true, $path);
+        $sello = \is_file($path) ? [(int) @\filemtime($path), (int) @\filesize($path)] : [0, 0];
+        if (isset($this->cache[$collection]) && ($this->sellos[$collection] ?? null) === $sello) {
             return $this->cache[$collection];
         }
+        $this->sellos[$collection] = $sello;
         $ajustes = self::defaults($this->driverPorDefecto, $this->durabilidadPorDefecto);
 
-        $path = $this->pathOf($collection);
         if (\is_file($path)) {
             $json = \json_decode((string) @\file_get_contents($path), true);
             if (\is_array($json)) {
@@ -189,20 +201,24 @@ final class Settings
         $nuevo['uniques'] = self::cleanUniques($nuevo['uniques']);
 
         $this->colecciones->ensure($collection);
+        $path = $this->pathOf($collection);
         @\file_put_contents(
-            $this->pathOf($collection),
+            $path,
             \json_encode($nuevo, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) . "\n"
         );
         $this->cache[$collection] = $nuevo;
+        \clearstatcache(true, $path);
+        $this->sellos[$collection] = \is_file($path) ? [(int) @\filemtime($path), (int) @\filesize($path)] : [0, 0];
     }
 
     public function forget(?string $collection = null): void
     {
         if ($collection === null) {
-            $this->cache = [];
+            $this->cache  = [];
+            $this->sellos = [];
             return;
         }
-        unset($this->cache[$collection]);
+        unset($this->cache[$collection], $this->sellos[$collection]);
     }
 
     /** @return list<string> nombres de campo, sin repetidos y en orden estable */
