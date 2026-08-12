@@ -71,6 +71,29 @@ veces para demostrarlo.
 
 ---
 
+## Seguridad
+
+Cada superficie tiene una suite de ataque que corre en el **mismo gate** que el
+resto: **561 ataques que hoy rebotan**, y ninguno puede reabrirse sin que el gate
+se ponga rojo. No comprueban que algo funcione; comprueban que un ataque **no**
+funciona. Una asercion en rojo no es un test que ablandar: es un fallo.
+
+- **Disco robado.** `encrypt()` cierra una coleccion con AES-256-GCM. Quien se
+  lleve el disco o una copia se lleva ciphertext; hasta los nombres de los cubos
+  del indice van con HMAC, sin filtrar valores.
+- **Escritura ajena y uso honesto.** Escritura atomica, transacciones con
+  recuperacion, copias coherentes con `sha1` por archivo, y seguro entre procesos
+  —probado matando el proceso mas de mil veces—.
+- **Inyeccion, traversal, DoS.** AxiSQL donde un literal nunca se vuelve sintaxis,
+  nombres que no salen del directorio de datos (ni por enlaces), y limites que
+  impiden tumbar el proceso en un alojamiento de 128 MB.
+
+AxiDB es embebida, no un servidor: **la autenticacion, los roles, la red y el TLS
+los pone la aplicacion.** El modelo de atacante completo y las fronteras conocidas
+—lo que NO protege, escrito a proposito— estan en [SECURITY.md](SECURITY.md).
+
+---
+
 ## Cuando NO usarlo
 
 Conviene decirlo antes que las virtudes:
@@ -147,7 +170,7 @@ dependencia— y se instala desde el repositorio:
 ```json
 {
     "repositories": [{ "type": "vcs", "url": "https://github.com/guiacarlos/axidb" }],
-    "require": { "gestasai/axidb": "^0.7" }
+    "require": { "gestasai/axidb": "^0.8" }
 }
 ```
 
@@ -178,6 +201,15 @@ comentarios que lo afirman.
 php core/tests/run.php       # la suite entera
 php bench/comparativa.php    # los numeros de arriba, en tu maquina
 ```
+
+---
+
+## Contribuir
+
+Cero dependencias, un gate que tiene que quedar verde, y unas pocas reglas que la
+maquina hace cumplir (250 lineas por archivo, API en ingles, comentarios en
+espanol). Todo esta en [CONTRIBUTING.md](CONTRIBUTING.md). Para avisar de un fallo
+de seguridad, [SECURITY.md](SECURITY.md).
 
 ---
 

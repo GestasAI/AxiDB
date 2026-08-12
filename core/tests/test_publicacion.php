@@ -184,7 +184,8 @@ ok('ni un directorio vendor',        !\is_dir($raiz . '/vendor'));
  * espera, y cualquier otra cosa se señala.
  */
 $permitidos = [
-    'README.md', 'CHANGELOG.md', 'LICENSE', 'LICENSE.md', 'NOTICE',
+    'README.md', 'CHANGELOG.md', 'SECURITY.md', 'CONTRIBUTING.md',
+    'LICENSE', 'LICENSE.md', 'NOTICE',
     'axi.php', 'axi.js', 'composer.json', '.gitignore', '.editorconfig',
 ];
 $sueltos = [];
