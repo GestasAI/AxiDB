@@ -1,0 +1,30 @@
+AxiDB — Autores
+================
+
+Copyright (c) 2026 GestasAI. Todos los derechos reservados.
+Licencia Apache 2.0 (ver LICENSE).
+
+AxiDB lo desarrolla GestasAI, una sociedad limitada con sede en Murcia,
+Espana. Los cofundadores que han participado directamente en su diseno
+y su codigo son:
+
+  - Juan Carlos Aguirre Perez
+  - Francisco Jimenez Asensio
+
+Los derechos patrimoniales sobre el codigo original estan cedidos a
+GestasAI conforme al articulo 43 del Real Decreto Legislativo 1/1996,
+por el que se aprueba el texto refundido de la Ley de Propiedad
+Intelectual espanola.
+
+Contribuciones externas
+-----------------------
+
+Las contribuciones aceptadas via pull request quedan bajo la misma
+licencia Apache 2.0, conforme a la seccion 5 de la propia licencia y
+al documento CONTRIBUTING.md.
+
+El historial de git es la fuente autoritativa de la autoria de cada
+cambio. Este archivo lista a los autores originales por claridad, no
+por completitud.
+
+Contacto: contacto@gestasai.com
